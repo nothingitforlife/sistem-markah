@@ -152,12 +152,12 @@ function applyRoleRestrictions() {
   userInfo.textContent = (roleLabels[currentRole] || currentRole) + ': ' + (currentUser ? currentUser.name : '');
 
   if (currentRole === 'admin') {
-    const allTabs = ['dashboard', 'students', 'subjects', 'semesters', 'marks', 'results'];
+    const allTabs = ['dashboard', 'students', 'subjects', 'semesters', 'marks', 'results', 'timetable'];
     allTabs.forEach(t => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (t === 'dashboard' ? ' active' : '');
       btn.dataset.tab = t;
-      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', semesters: 'Semester', marks: 'Markah', results: 'Keputusan' };
+      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual' };
       btn.textContent = labels[t];
       nav.appendChild(btn);
     });
@@ -166,12 +166,12 @@ function applyRoleRestrictions() {
     document.getElementById('exportBtn').style.display = '';
     document.getElementById('importBtn').style.display = '';
   } else if (currentRole === 'teacher') {
-    const t = ['marks'];
-    t.forEach(tab => {
+    const t = ['marks', 'timetable'];
+    t.forEach((tab, i) => {
       const btn = document.createElement('button');
-      btn.className = 'tab-btn active';
+      btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
       btn.dataset.tab = tab;
-      btn.textContent = 'Markah';
+      btn.textContent = tab === 'marks' ? 'Markah' : 'Jadual';
       nav.appendChild(btn);
     });
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -179,12 +179,12 @@ function applyRoleRestrictions() {
     document.getElementById('exportBtn').style.display = 'none';
     document.getElementById('importBtn').style.display = 'none';
   } else if (currentRole === 'student') {
-    const t = ['results'];
-    t.forEach(tab => {
+    const t = ['results', 'timetable'];
+    t.forEach((tab, i) => {
       const btn = document.createElement('button');
-      btn.className = 'tab-btn active';
+      btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
       btn.dataset.tab = tab;
-      btn.textContent = 'Keputusan';
+      btn.textContent = tab === 'results' ? 'Keputusan' : 'Jadual Saya';
       nav.appendChild(btn);
     });
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -205,6 +205,7 @@ function applyRoleRestrictions() {
       if (this.dataset.tab === 'dashboard') renderDashboard();
       if (this.dataset.tab === 'marks') renderMarks();
       if (this.dataset.tab === 'results') renderResults();
+      if (this.dataset.tab === 'timetable') renderTimetable();
     });
   });
 
@@ -228,12 +229,15 @@ function applyRoleRestrictions() {
       }
       area.innerHTML = html;
     }
+    renderTimetable();
   }
 }
 
 function renderStudentSlip(student, semester, markRecord) {
+  const studentSubjects = student.subjects || [];
   const subjectRows = data.subjects
     .filter(subj => subj.semester === semester.id)
+    .filter(subj => studentSubjects.length === 0 || studentSubjects.includes(subj.id))
     .filter(subj => markRecord.scores[subj.id] != null && markRecord.scores[subj.id] !== '')
     .map(subj => {
       const score = markRecord.scores[subj.id];
@@ -315,6 +319,7 @@ let data = {
     { id: 'SEM002', name: 'Semester 2 2025', penyelia: '' },
   ],
   marks: [],
+  timetable: [],
 };
 
 async function supabaseFetch(method, body) {
@@ -347,7 +352,8 @@ async function loadFromSupabase() {
       students: remote.students || [],
       subjects: remote.subjects || data.subjects,
       semesters: remote.semesters || data.semesters,
-      marks: remote.marks || []
+      marks: remote.marks || [],
+      timetable: remote.timetable || []
     };
     saveLocal();
   }
@@ -374,7 +380,8 @@ async function syncToSupabase() {
       students: data.students,
       subjects: data.subjects,
       semesters: data.semesters,
-      marks: data.marks
+      marks: data.marks,
+      timetable: data.timetable
     }
   };
 
@@ -428,6 +435,7 @@ function resetData() {
       { id: 'SEM002', name: 'Semester 2 2025', penyelia: '' },
     ],
     marks: [],
+    timetable: [],
   };
   saveData();
   rebuildLoginDropdowns();
@@ -538,6 +546,19 @@ function rebuildSemesterFilter() {
   sel.value = prev;
 }
 
+function subjectCheckboxHtml(semesterName, selectedIds = []) {
+  const sem = data.semesters.find(s => s.name === semesterName);
+  if (!sem) return '<p class="empty-state">Pilih semester dahulu</p>';
+  const subs = data.subjects.filter(s => s.semester === sem.id);
+  if (subs.length === 0) return '<p class="empty-state">Tiada subjek untuk semester ini</p>';
+  return subs.map(s => `
+    <label class="checkbox-label">
+      <input type="checkbox" class="subject-checkbox" value="${s.id}" ${selectedIds.includes(s.id) ? 'checked' : ''}>
+      ${esc(s.name)} ${s.pengajar ? '(' + esc(s.pengajar) + ')' : ''}
+    </label>
+  `).join('');
+}
+
 document.getElementById('addStudentBtn').onclick = function () {
   openModal('Tambah Pelajar', `
     <div class="form-group">
@@ -555,16 +576,24 @@ document.getElementById('addStudentBtn').onclick = function () {
         ${data.semesters.map(s => `<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('')}
       </select>
     </div>
+    <div class="form-group">
+      <label>Subjek yang diambil</label>
+      <div id="fStudentSubjects">Pilih semester dahulu</div>
+    </div>
   `, function () {
     const name = document.getElementById('fStudentName').value.trim();
     const kod = document.getElementById('fStudentKod').value.trim();
     const cls = document.getElementById('fStudentClass').value;
     if (!name || !kod || !cls) return;
-    data.students.push({ id: generateId('S'), name, kod, class: cls });
+    const checked = [...document.querySelectorAll('#fStudentSubjects .subject-checkbox:checked')].map(cb => cb.value);
+    data.students.push({ id: generateId('S'), name, kod, class: cls, subjects: checked });
     saveData();
     rebuildLoginDropdowns();
     renderStudents();
     closeModal();
+  });
+  document.getElementById('fStudentClass').addEventListener('change', function () {
+    document.getElementById('fStudentSubjects').innerHTML = subjectCheckboxHtml(this.value);
   });
 };
 
@@ -587,18 +616,27 @@ window.editStudent = function (id) {
         ${data.semesters.map(sem => `<option value="${esc(sem.name)}"${sem.name === s.class ? ' selected' : ''}>${esc(sem.name)}</option>`).join('')}
       </select>
     </div>
+    <div class="form-group">
+      <label>Subjek yang diambil</label>
+      <div id="fStudentSubjects">${subjectCheckboxHtml(s.class, s.subjects || [])}</div>
+    </div>
   `, function () {
     const name = document.getElementById('fStudentName').value.trim();
     const kod = document.getElementById('fStudentKod').value.trim();
     const cls = document.getElementById('fStudentClass').value;
     if (!name || !kod || !cls) return;
+    const checked = [...document.querySelectorAll('#fStudentSubjects .subject-checkbox:checked')].map(cb => cb.value);
     s.name = name;
     s.kod = kod;
     s.class = cls;
+    s.subjects = checked;
     saveData();
     rebuildLoginDropdowns();
     renderStudents();
     closeModal();
+  });
+  document.getElementById('fStudentClass').addEventListener('change', function () {
+    document.getElementById('fStudentSubjects').innerHTML = subjectCheckboxHtml(this.value, s.subjects || []);
   });
 };
 
@@ -835,6 +873,8 @@ function initMarkEntry() {
 
   const teacherSubjects = currentRole === 'teacher' ? getTeacherSubjects(currentUser.name) : null;
   let filteredSubjects = data.subjects.filter(s => s.semester === semesterId);
+  const studentSubjects = student.subjects || [];
+  if (studentSubjects.length > 0) filteredSubjects = filteredSubjects.filter(s => studentSubjects.includes(s.id));
   if (teacherSubjects) filteredSubjects = filteredSubjects.filter(s => teacherSubjects.includes(s.id));
 
   let html = `<div class="mark-grid"><h3>Markah: ${esc(student.name)} - ${esc(semester.name)}</h3>`;
@@ -931,7 +971,9 @@ function generateSlip() {
   }
 
   const semesterSubjects = data.subjects.filter(s => s.semester === semesterId);
-  const subjectRows = semesterSubjects.map(subj => {
+  const studentSubjects = student.subjects || [];
+  const filteredSubjects = studentSubjects.length > 0 ? semesterSubjects.filter(s => studentSubjects.includes(s.id)) : semesterSubjects;
+  const subjectRows = filteredSubjects.map(subj => {
     const score = markRecord.scores[subj.id];
     const displayScore = score != null && score !== '' ? score : '-';
     const grade = getGrade(score);
@@ -939,7 +981,7 @@ function generateSlip() {
     return { name: subj.name, score: displayScore, grade: grade ? grade.letter : '-', badgeClass };
   });
 
-  const validScores = semesterSubjects
+  const validScores = filteredSubjects
     .map(s => markRecord.scores[s.id])
     .filter(v => v != null && v !== '');
   const total = validScores.reduce((sum, v) => sum + Number(v), 0);
@@ -1170,6 +1212,216 @@ document.getElementById('importFile').onchange = function (e) {
   reader.readAsText(file);
   this.value = '';
 };
+
+// --- Timetable ---
+const DAYS = ['Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat'];
+
+function getSubjectName(id) {
+  const subj = data.subjects.find(s => s.id === id);
+  return subj ? subj.name : '-';
+}
+
+function rebuildTimetableSemesterFilter() {
+  const sel = document.getElementById('timetableSemesterFilter');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">Semua Semester</option>' +
+    data.semesters.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  sel.value = prev;
+}
+
+function renderTimetable() {
+  const grid = document.getElementById('timetableGrid');
+  const toolbar = document.getElementById('timetableToolbar');
+  const filter = document.getElementById('timetableSemesterFilter');
+
+  if (currentRole === 'student') {
+    const student = data.students.find(s => s.id === currentUser.id);
+    if (!student) { grid.innerHTML = ''; return; }
+    const sem = data.semesters.find(s => s.name === student.class);
+    renderTimetableView(grid, sem ? sem.id : null, true);
+    toolbar.style.display = 'none';
+    return;
+  }
+
+  toolbar.style.display = '';
+  rebuildTimetableSemesterFilter();
+  renderTimetableView(grid, filter.value || null, false);
+}
+
+function renderTimetableView(container, semesterId, readOnly) {
+  let entries = data.timetable;
+  if (semesterId) entries = entries.filter(e => e.semester === semesterId);
+
+  if (entries.length === 0) {
+    container.innerHTML = '<p class="empty-state">Tiada jadual waktu</p>';
+    return;
+  }
+
+  const timeSlots = [...new Set(entries.map(e => e.startTime))].sort();
+  const dayEntries = {};
+  DAYS.forEach(d => { dayEntries[d] = entries.filter(e => e.day === d); });
+
+  let html = '<div class="timetable-wrapper"><table class="timetable-table"><thead><tr><th>Masa</th>';
+  DAYS.forEach(d => { html += `<th>${d}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  timeSlots.forEach(time => {
+    html += `<tr><td class="time-cell">${time}</td>`;
+    DAYS.forEach(day => {
+      const cell = dayEntries[day].find(e => e.startTime === time);
+      if (cell) {
+        const subjName = getSubjectName(cell.subjectId);
+        html += `<td class="timetable-cell">
+          <div class="timetable-subject">${esc(subjName)}</div>
+          <div class="timetable-room">${esc(cell.room || '')}</div>
+          ${readOnly ? '' : `<div class="timetable-actions">
+            <button class="btn btn-sm btn-warning" onclick="editTimetable('${cell.id}')">Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteTimetable('${cell.id}')">Padam</button>
+          </div>`}
+        </td>`;
+      } else {
+        html += '<td class="timetable-cell timetable-empty"></td>';
+      }
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+document.getElementById('addTimetableBtn').onclick = function () {
+  openModal('Tambah Jadual', `
+    <div class="form-group">
+      <label>Semester</label>
+      <select id="fTtSemester" required>
+        <option value="">-- Pilih Semester --</option>
+        ${data.semesters.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Hari</label>
+      <select id="fTtDay" required>
+        <option value="">-- Pilih Hari --</option>
+        ${DAYS.map((d, i) => `<option value="${i + 1}">${d}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Masa Mula</label>
+      <input type="time" id="fTtStart" required>
+    </div>
+    <div class="form-group">
+      <label>Masa Tamat</label>
+      <input type="time" id="fTtEnd" required>
+    </div>
+    <div class="form-group">
+      <label>Subjek</label>
+      <select id="fTtSubject" required>
+        <option value="">-- Pilih Subjek --</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Bilik / Lokasi</label>
+      <input type="text" id="fTtRoom" placeholder="Contoh: Bilik 101">
+    </div>
+  `, function () {
+    const semester = document.getElementById('fTtSemester').value;
+    const day = parseInt(document.getElementById('fTtDay').value);
+    const startTime = document.getElementById('fTtStart').value;
+    const endTime = document.getElementById('fTtEnd').value;
+    const subjectId = document.getElementById('fTtSubject').value;
+    const room = document.getElementById('fTtRoom').value.trim();
+    if (!semester || !day || !startTime || !endTime || !subjectId) return;
+    data.timetable.push({ id: generateId('T'), semester, day, startTime, endTime, subjectId, room });
+    saveData();
+    renderTimetable();
+    closeModal();
+  });
+
+  const semSelect = document.getElementById('fTtSemester');
+  semSelect.addEventListener('change', function () {
+    const subjSelect = document.getElementById('fTtSubject');
+    const subs = data.subjects.filter(s => s.semester === this.value);
+    subjSelect.innerHTML = '<option value="">-- Pilih Subjek --</option>' +
+      subs.map(s => `<option value="${s.id}">${esc(s.name)}${s.pengajar ? ' (' + esc(s.pengajar) + ')' : ''}</option>`).join('');
+  });
+};
+
+window.editTimetable = function (id) {
+  const e = data.timetable.find(x => x.id === id);
+  if (!e) return;
+  openModal('Edit Jadual', `
+    <div class="form-group">
+      <label>Semester</label>
+      <select id="fTtSemester" required>
+        <option value="">-- Pilih Semester --</option>
+        ${data.semesters.map(s => `<option value="${s.id}"${s.id === e.semester ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Hari</label>
+      <select id="fTtDay" required>
+        <option value="">-- Pilih Hari --</option>
+        ${DAYS.map((d, i) => `<option value="${i + 1}"${(i + 1) === e.day ? ' selected' : ''}>${d}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Masa Mula</label>
+      <input type="time" id="fTtStart" value="${e.startTime}" required>
+    </div>
+    <div class="form-group">
+      <label>Masa Tamat</label>
+      <input type="time" id="fTtEnd" value="${e.endTime}" required>
+    </div>
+    <div class="form-group">
+      <label>Subjek</label>
+      <select id="fTtSubject" required>
+        <option value="">-- Pilih Subjek --</option>
+        ${data.subjects.filter(s => s.semester === e.semester).map(s => `<option value="${s.id}"${s.id === e.subjectId ? ' selected' : ''}>${esc(s.name)}${s.pengajar ? ' (' + esc(s.pengajar) + ')' : ''}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Bilik / Lokasi</label>
+      <input type="text" id="fTtRoom" value="${esc(e.room || '')}" placeholder="Contoh: Bilik 101">
+    </div>
+  `, function () {
+    const semester = document.getElementById('fTtSemester').value;
+    const day = parseInt(document.getElementById('fTtDay').value);
+    const startTime = document.getElementById('fTtStart').value;
+    const endTime = document.getElementById('fTtEnd').value;
+    const subjectId = document.getElementById('fTtSubject').value;
+    const room = document.getElementById('fTtRoom').value.trim();
+    if (!semester || !day || !startTime || !endTime || !subjectId) return;
+    e.semester = semester;
+    e.day = day;
+    e.startTime = startTime;
+    e.endTime = endTime;
+    e.subjectId = subjectId;
+    e.room = room;
+    saveData();
+    renderTimetable();
+    closeModal();
+  });
+
+  const semSelect = document.getElementById('fTtSemester');
+  semSelect.addEventListener('change', function () {
+    const subjSelect = document.getElementById('fTtSubject');
+    const subs = data.subjects.filter(s => s.semester === this.value);
+    subjSelect.innerHTML = '<option value="">-- Pilih Subjek --</option>' +
+      subs.map(s => `<option value="${s.id}"${s.id === e.subjectId ? ' selected' : ''}>${esc(s.name)}${s.pengajar ? ' (' + esc(s.pengajar) + ')' : ''}</option>`).join('');
+  });
+};
+
+window.deleteTimetable = function (id) {
+  if (!confirm('Padam jadual ini?')) return;
+  data.timetable = data.timetable.filter(e => e.id !== id);
+  saveData();
+  renderTimetable();
+};
+
+document.getElementById('timetableSemesterFilter').addEventListener('change', function () {
+  renderTimetable();
+});
 
 // --- Init ---
 loadLocalCache();

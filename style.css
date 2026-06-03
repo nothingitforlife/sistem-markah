@@ -591,6 +591,78 @@ tr:hover td {
 }
 
 /* Responsive */
+/* Checkbox labels */
+.checkbox-label {
+  display: block;
+  padding: 0.35rem 0;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.checkbox-label input {
+  margin-right: 0.5rem;
+  width: auto;
+}
+
+/* Timetable */
+.timetable-wrapper {
+  overflow-x: auto;
+}
+
+.timetable-table {
+  min-width: 600px;
+}
+
+.timetable-table th {
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.timetable-table td {
+  vertical-align: top;
+  font-size: 0.85rem;
+}
+
+.time-cell {
+  font-weight: 600;
+  white-space: nowrap;
+  background: #f8f9fa;
+  width: 80px;
+  text-align: center;
+}
+
+.timetable-cell {
+  min-width: 140px;
+  padding: 0.5rem !important;
+}
+
+.timetable-empty {
+  background: #fafafa;
+}
+
+.timetable-subject {
+  font-weight: 600;
+  color: #0f3460;
+  font-size: 0.85rem;
+}
+
+.timetable-room {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.15rem;
+}
+
+.timetable-actions {
+  margin-top: 0.35rem;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.timetable-actions .btn-sm {
+  padding: 0.15rem 0.4rem;
+  font-size: 0.7rem;
+}
+
 @media (max-width: 768px) {
   header {
     flex-direction: column;
