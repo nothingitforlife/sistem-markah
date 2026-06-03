@@ -1233,9 +1233,9 @@ document.getElementById('importFile').onchange = function (e) {
 // --- Timetable ---
 const DAYS = ['Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat'];
 
-function getSubjectName(id) {
+function getSubjectInfo(id) {
   const subj = data.subjects.find(s => s.id === id);
-  return subj ? subj.name : '-';
+  return subj ? { name: subj.name, pengajar: subj.pengajar } : { name: '-', pengajar: '' };
 }
 
 function rebuildTimetableSemesterFilter() {
@@ -1287,9 +1287,10 @@ function renderTimetableView(container, semesterId, readOnly) {
     DAYS.forEach(day => {
       const cell = dayEntries[day].find(e => e.startTime === time);
       if (cell) {
-        const subjName = getSubjectName(cell.subjectId);
+        const info = getSubjectInfo(cell.subjectId);
         html += `<td class="timetable-cell">
-          <div class="timetable-subject">${esc(subjName)}</div>
+          <div class="timetable-subject">${esc(info.name)}</div>
+          <div class="timetable-teacher">${esc(info.pengajar || '')}</div>
           <div class="timetable-room">${esc(cell.room || '')}</div>
           ${readOnly ? '' : `<div class="timetable-actions">
             <button class="btn btn-sm btn-warning" onclick="editTimetable('${cell.id}')">Edit</button>

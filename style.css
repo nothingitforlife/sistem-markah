@@ -652,6 +652,13 @@ tr:hover td {
   font-size: 0.85rem;
 }
 
+.timetable-teacher {
+  font-size: 0.78rem;
+  color: #e67e22;
+  margin-top: 0.1rem;
+  font-weight: 500;
+}
+
 .timetable-room {
   font-size: 0.75rem;
   color: #6b7280;
