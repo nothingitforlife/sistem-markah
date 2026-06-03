@@ -233,6 +233,7 @@ function applyRoleRestrictions() {
 
 function renderStudentSlip(student, semester, markRecord) {
   const subjectRows = data.subjects
+    .filter(subj => subj.semester === semester.id)
     .filter(subj => markRecord.scores[subj.id] != null && markRecord.scores[subj.id] !== '')
     .map(subj => {
       const score = markRecord.scores[subj.id];
@@ -293,14 +294,21 @@ function renderStudentSlip(student, semester, markRecord) {
 
 let data = {
   students: [],
-  subjects: [
-    { id: 'SUBJ001', name: 'Bahasa Melayu', pengajar: '' },
-    { id: 'SUBJ002', name: 'English', pengajar: '' },
-    { id: 'SUBJ003', name: 'Mathematics', pengajar: '' },
-    { id: 'SUBJ004', name: 'Science', pengajar: '' },
-    { id: 'SUBJ005', name: 'Sejarah', pengajar: '' },
-    { id: 'SUBJ006', name: 'Pendidikan Islam', pengajar: '' },
-    { id: 'SUBJ007', name: 'Geografi', pengajar: '' },
+    subjects: [
+    { id: 'SUBJ001', name: 'Bahasa Melayu', pengajar: '', semester: 'SEM001' },
+    { id: 'SUBJ002', name: 'English', pengajar: '', semester: 'SEM001' },
+    { id: 'SUBJ003', name: 'Mathematics', pengajar: '', semester: 'SEM001' },
+    { id: 'SUBJ004', name: 'Science', pengajar: '', semester: 'SEM001' },
+    { id: 'SUBJ005', name: 'Sejarah', pengajar: '', semester: 'SEM001' },
+    { id: 'SUBJ006', name: 'Pendidikan Islam', pengajar: '', semester: 'SEM001' },
+    { id: 'SUBJ007', name: 'Geografi', pengajar: '', semester: 'SEM001' },
+    { id: 'SUBJ008', name: 'Bahasa Melayu', pengajar: '', semester: 'SEM002' },
+    { id: 'SUBJ009', name: 'English', pengajar: '', semester: 'SEM002' },
+    { id: 'SUBJ010', name: 'Mathematics', pengajar: '', semester: 'SEM002' },
+    { id: 'SUBJ011', name: 'Science', pengajar: '', semester: 'SEM002' },
+    { id: 'SUBJ012', name: 'Sejarah', pengajar: '', semester: 'SEM002' },
+    { id: 'SUBJ013', name: 'Pendidikan Islam', pengajar: '', semester: 'SEM002' },
+    { id: 'SUBJ014', name: 'Geografi', pengajar: '', semester: 'SEM002' },
   ],
   semesters: [
     { id: 'SEM001', name: 'Semester 1 2025', penyelia: '' },
@@ -400,13 +408,20 @@ function resetData() {
   data = {
     students: [],
     subjects: [
-      { id: 'SUBJ001', name: 'Bahasa Melayu', pengajar: '' },
-      { id: 'SUBJ002', name: 'English', pengajar: '' },
-      { id: 'SUBJ003', name: 'Mathematics', pengajar: '' },
-      { id: 'SUBJ004', name: 'Science', pengajar: '' },
-      { id: 'SUBJ005', name: 'Sejarah', pengajar: '' },
-      { id: 'SUBJ006', name: 'Pendidikan Islam', pengajar: '' },
-      { id: 'SUBJ007', name: 'Geografi', pengajar: '' },
+      { id: 'SUBJ001', name: 'Bahasa Melayu', pengajar: '', semester: 'SEM001' },
+      { id: 'SUBJ002', name: 'English', pengajar: '', semester: 'SEM001' },
+      { id: 'SUBJ003', name: 'Mathematics', pengajar: '', semester: 'SEM001' },
+      { id: 'SUBJ004', name: 'Science', pengajar: '', semester: 'SEM001' },
+      { id: 'SUBJ005', name: 'Sejarah', pengajar: '', semester: 'SEM001' },
+      { id: 'SUBJ006', name: 'Pendidikan Islam', pengajar: '', semester: 'SEM001' },
+      { id: 'SUBJ007', name: 'Geografi', pengajar: '', semester: 'SEM001' },
+      { id: 'SUBJ008', name: 'Bahasa Melayu', pengajar: '', semester: 'SEM002' },
+      { id: 'SUBJ009', name: 'English', pengajar: '', semester: 'SEM002' },
+      { id: 'SUBJ010', name: 'Mathematics', pengajar: '', semester: 'SEM002' },
+      { id: 'SUBJ011', name: 'Science', pengajar: '', semester: 'SEM002' },
+      { id: 'SUBJ012', name: 'Sejarah', pengajar: '', semester: 'SEM002' },
+      { id: 'SUBJ013', name: 'Pendidikan Islam', pengajar: '', semester: 'SEM002' },
+      { id: 'SUBJ014', name: 'Geografi', pengajar: '', semester: 'SEM002' },
     ],
     semesters: [
       { id: 'SEM001', name: 'Semester 1 2025', penyelia: '' },
@@ -605,10 +620,15 @@ document.getElementById('studentSemesterFilter').addEventListener('change', func
 });
 
 // --- Subjects ---
+function getSemesterName(id) {
+  const sem = data.semesters.find(s => s.id === id);
+  return sem ? sem.name : '-';
+}
+
 function renderSubjects() {
   const tbody = document.getElementById('subjectBody');
   if (data.subjects.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Tiada subjek</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Tiada subjek</td></tr>';
     return;
   }
   tbody.innerHTML = data.subjects.map((s, i) => `
@@ -616,6 +636,7 @@ function renderSubjects() {
       <td>${i + 1}</td>
       <td>${esc(s.name)}</td>
       <td>${esc(s.pengajar || '-')}</td>
+      <td>${esc(getSemesterName(s.semester))}</td>
       <td>
         <button class="btn btn-sm btn-warning" onclick="editSubject('${s.id}')">Edit</button>
         <button class="btn btn-sm btn-danger" onclick="deleteSubject('${s.id}')">Padam</button>
@@ -634,11 +655,19 @@ document.getElementById('addSubjectBtn').onclick = function () {
       <label>Nama Pengajar</label>
       <input type="text" id="fSubjectPengajar" placeholder="Nama pengajar">
     </div>
+    <div class="form-group">
+      <label>Semester</label>
+      <select id="fSubjectSemester" required>
+        <option value="">-- Pilih Semester --</option>
+        ${data.semesters.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}
+      </select>
+    </div>
   `, function () {
     const name = document.getElementById('fSubjectName').value.trim();
     const pengajar = document.getElementById('fSubjectPengajar').value.trim();
-    if (!name) return;
-    data.subjects.push({ id: generateId('SUBJ'), name, pengajar: pengajar || '' });
+    const semester = document.getElementById('fSubjectSemester').value;
+    if (!name || !semester) return;
+    data.subjects.push({ id: generateId('SUBJ'), name, pengajar: pengajar || '', semester });
     saveData();
     renderSubjects();
     closeModal();
@@ -657,12 +686,21 @@ window.editSubject = function (id) {
       <label>Nama Pengajar</label>
       <input type="text" id="fSubjectPengajar" value="${esc(s.pengajar || '')}" placeholder="Nama pengajar">
     </div>
+    <div class="form-group">
+      <label>Semester</label>
+      <select id="fSubjectSemester" required>
+        <option value="">-- Pilih Semester --</option>
+        ${data.semesters.map(sem => `<option value="${sem.id}"${sem.id === s.semester ? ' selected' : ''}>${esc(sem.name)}</option>`).join('')}
+      </select>
+    </div>
   `, function () {
     const name = document.getElementById('fSubjectName').value.trim();
     const pengajar = document.getElementById('fSubjectPengajar').value.trim();
-    if (!name) return;
+    const semester = document.getElementById('fSubjectSemester').value;
+    if (!name || !semester) return;
     s.name = name;
     s.pengajar = pengajar || '';
+    s.semester = semester;
     saveData();
     renderSubjects();
     closeModal();
@@ -796,7 +834,8 @@ function initMarkEntry() {
   }
 
   const teacherSubjects = currentRole === 'teacher' ? getTeacherSubjects(currentUser.name) : null;
-  const filteredSubjects = teacherSubjects ? data.subjects.filter(s => teacherSubjects.includes(s.id)) : data.subjects;
+  let filteredSubjects = data.subjects.filter(s => s.semester === semesterId);
+  if (teacherSubjects) filteredSubjects = filteredSubjects.filter(s => teacherSubjects.includes(s.id));
 
   let html = `<div class="mark-grid"><h3>Markah: ${esc(student.name)} - ${esc(semester.name)}</h3>`;
   filteredSubjects.forEach(subj => {
@@ -891,7 +930,8 @@ function generateSlip() {
     return;
   }
 
-  const subjectRows = data.subjects.map(subj => {
+  const semesterSubjects = data.subjects.filter(s => s.semester === semesterId);
+  const subjectRows = semesterSubjects.map(subj => {
     const score = markRecord.scores[subj.id];
     const displayScore = score != null && score !== '' ? score : '-';
     const grade = getGrade(score);
@@ -899,7 +939,7 @@ function generateSlip() {
     return { name: subj.name, score: displayScore, grade: grade ? grade.letter : '-', badgeClass };
   });
 
-  const validScores = data.subjects
+  const validScores = semesterSubjects
     .map(s => markRecord.scores[s.id])
     .filter(v => v != null && v !== '');
   const total = validScores.reduce((sum, v) => sum + Number(v), 0);
