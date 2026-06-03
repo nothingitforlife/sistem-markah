@@ -1428,17 +1428,21 @@ loadLocalCache();
 checkLogin();
 rebuildLoginDropdowns();
 rebuildSemesterFilter();
+rebuildTimetableSemesterFilter();
 renderStudents();
 renderSubjects();
 renderSemesters();
 renderDashboard();
+renderTimetable();
 
 // Load dari Supabase selepas render awal
 loadFromSupabase().then(() => {
   rebuildLoginDropdowns();
   rebuildSemesterFilter();
+  rebuildTimetableSemesterFilter();
   renderStudents();
   renderSubjects();
   renderSemesters();
   renderDashboard();
+  renderTimetable();
 });
