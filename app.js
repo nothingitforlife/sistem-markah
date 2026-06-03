@@ -116,6 +116,7 @@ document.getElementById('loginBtn').addEventListener('click', function () {
   }
 });
 
+document.getElementById('syncBtn').addEventListener('click', syncNow);
 document.getElementById('resetDataBtn').addEventListener('click', resetData);
 
 document.getElementById('logoutBtn').addEventListener('click', function () {
@@ -369,11 +370,20 @@ function loadLocalCache() {
   }
 }
 
+function setSyncStatus(msg, isError) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = isError ? '#e74c3c' : 'rgba(255,255,255,0.7)';
+  if (!msg) el.textContent = '';
+}
+
 function saveLocal() {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(data));
 }
 
-async function syncToSupabase() {
+async function syncToSupabase(silent) {
+  if (!silent) setSyncStatus('Menyimpan...');
   const payload = {
     id: SUPABASE_ROW_ID,
     data: {
@@ -400,14 +410,21 @@ async function syncToSupabase() {
         method: 'POST', headers, body: JSON.stringify(payload)
       });
     }
+    if (!silent) setSyncStatus('Disimpan');
+    setTimeout(() => { if (!silent) setSyncStatus(''); }, 2000);
   } catch (e) {
     console.warn('Gagal sync ke Supabase', e);
+    if (!silent) setSyncStatus('Gagal simpan!', true);
   }
 }
 
 function saveData() {
   saveLocal();
-  syncToSupabase();
+  syncToSupabase(true);
+}
+
+async function syncNow() {
+  await syncToSupabase(false);
 }
 
 function resetData() {
@@ -1424,19 +1441,21 @@ document.getElementById('timetableSemesterFilter').addEventListener('change', fu
 });
 
 // --- Init ---
-loadLocalCache();
-checkLogin();
-rebuildLoginDropdowns();
-rebuildSemesterFilter();
-rebuildTimetableSemesterFilter();
-renderStudents();
-renderSubjects();
-renderSemesters();
-renderDashboard();
-renderTimetable();
-
-// Load dari Supabase selepas render awal
-loadFromSupabase().then(() => {
+(async function init() {
+  loadLocalCache();
+  if (localStorage.getItem(LOCAL_KEY)) {
+    checkLogin();
+    rebuildLoginDropdowns();
+    rebuildSemesterFilter();
+    rebuildTimetableSemesterFilter();
+    renderStudents();
+    renderSubjects();
+    renderSemesters();
+    renderDashboard();
+    renderTimetable();
+  }
+  await loadFromSupabase();
+  checkLogin();
   rebuildLoginDropdowns();
   rebuildSemesterFilter();
   rebuildTimetableSemesterFilter();
@@ -1445,4 +1464,5 @@ loadFromSupabase().then(() => {
   renderSemesters();
   renderDashboard();
   renderTimetable();
-});
+  setSyncStatus('');
+})();
