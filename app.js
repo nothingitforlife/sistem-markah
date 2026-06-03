@@ -116,6 +116,8 @@ document.getElementById('loginBtn').addEventListener('click', function () {
   }
 });
 
+document.getElementById('resetDataBtn').addEventListener('click', resetData);
+
 document.getElementById('logoutBtn').addEventListener('click', function () {
   clearSession();
   document.getElementById('appMain').classList.add('hidden');
@@ -339,8 +341,8 @@ async function loadFromSupabase() {
       semesters: remote.semesters || data.semesters,
       marks: remote.marks || []
     };
+    saveLocal();
   }
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(data));
 }
 
 function loadLocalCache() {
@@ -351,6 +353,10 @@ function loadLocalCache() {
       data = { ...data, ...parsed };
     } catch (e) { console.error('Gagal baca cache', e); }
   }
+}
+
+function saveLocal() {
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(data));
 }
 
 async function syncToSupabase() {
@@ -364,7 +370,6 @@ async function syncToSupabase() {
     }
   };
 
-  // UPSERT: cuba update dulu, jika takde row dia insert
   const url = `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?id=eq.${SUPABASE_ROW_ID}`;
   const headers = {
     'apikey': SUPABASE_ANON_KEY,
@@ -374,10 +379,8 @@ async function syncToSupabase() {
   };
 
   try {
-    // Try update
     let res = await fetch(url, { method: 'PATCH', headers, body: JSON.stringify(payload) });
     if (res.status === 404 || (await res.clone().json()).length === 0) {
-      // Row takde, insert
       await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
         method: 'POST', headers, body: JSON.stringify(payload)
       });
@@ -385,11 +388,40 @@ async function syncToSupabase() {
   } catch (e) {
     console.warn('Gagal sync ke Supabase', e);
   }
-
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(data));
 }
 
-const saveData = syncToSupabase;
+function saveData() {
+  saveLocal();
+  syncToSupabase();
+}
+
+function resetData() {
+  if (!confirm('Reset semua data? Data akan dikembalikan kepada asal.')) return;
+  data = {
+    students: [],
+    subjects: [
+      { id: 'SUBJ001', name: 'Bahasa Melayu', pengajar: '' },
+      { id: 'SUBJ002', name: 'English', pengajar: '' },
+      { id: 'SUBJ003', name: 'Mathematics', pengajar: '' },
+      { id: 'SUBJ004', name: 'Science', pengajar: '' },
+      { id: 'SUBJ005', name: 'Sejarah', pengajar: '' },
+      { id: 'SUBJ006', name: 'Pendidikan Islam', pengajar: '' },
+      { id: 'SUBJ007', name: 'Geografi', pengajar: '' },
+    ],
+    semesters: [
+      { id: 'SEM001', name: 'Semester 1 2025', penyelia: '' },
+      { id: 'SEM002', name: 'Semester 2 2025', penyelia: '' },
+    ],
+    marks: [],
+  };
+  saveData();
+  rebuildLoginDropdowns();
+  rebuildSemesterFilter();
+  renderStudents();
+  renderSubjects();
+  renderSemesters();
+  renderDashboard();
+}
 
 function generateId(prefix) {
   const n = Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 5).toUpperCase();
