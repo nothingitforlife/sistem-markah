@@ -348,9 +348,9 @@ async function supabaseFetch(method, body) {
 
 async function loadFromSupabase() {
   const remote = await supabaseFetch('GET');
-  if (remote) {
+  if (remote && remote.students && remote.students.length > 0) {
     data = {
-      students: remote.students || [],
+      students: remote.students,
       subjects: remote.subjects || data.subjects,
       semesters: remote.semesters || data.semesters,
       marks: remote.marks || [],
