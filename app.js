@@ -1028,6 +1028,49 @@ document.getElementById('importBtn').onclick = function () {
   document.getElementById('importFile').click();
 };
 
+// --- Import Excel ---
+document.getElementById('importExcelBtn').onclick = function () {
+  document.getElementById('importExcelFile').click();
+};
+
+document.getElementById('importExcelFile').onchange = function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    try {
+      const wb = XLSX.read(ev.target.result, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet);
+      let added = 0;
+      rows.forEach(row => {
+        const name = (row['Nama'] || row['Name'] || row['nama'] || row['name'] || '').toString().trim();
+        const kod = (row['Kod ID'] || row['Kod'] || row['ID'] || row['id'] || row['kod'] || '').toString().trim();
+        const cls = (row['Semester'] || row['Kelas'] || row['Class'] || row['class'] || row['semester'] || '').toString().trim();
+        if (!name) return;
+        if (!cls && data.semesters.length === 0) return;
+        data.students.push({
+          id: generateId('S'),
+          name,
+          kod: kod || name,
+          class: cls || data.semesters[0].name
+        });
+        added++;
+      });
+      saveData();
+      rebuildLoginDropdowns();
+      rebuildSemesterFilter();
+      renderStudents();
+      renderDashboard();
+      alert(`${added} pelajar berjaya diimport daripada Excel.`);
+    } catch (err) {
+      alert('Ralat membaca fail Excel: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  this.value = '';
+};
+
 document.getElementById('importFile').onchange = function (e) {
   const file = e.target.files[0];
   if (!file) return;

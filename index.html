@@ -86,6 +86,8 @@
       <h2>Senarai Pelajar</h2>
       <div class="toolbar">
         <button class="btn btn-primary" id="addStudentBtn">+ Tambah Pelajar</button>
+        <button class="btn btn-sm btn-outline" id="importExcelBtn">Import Excel</button>
+        <input type="file" id="importExcelFile" accept=".xlsx,.xls" hidden>
         <select id="studentSemesterFilter" class="search-input" style="min-width:160px;">
           <option value="">Semua Semester</option>
         </select>
@@ -192,6 +194,7 @@
   </div>
 
   </div>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
   <script src="supabase-config.js"></script>
   <script src="app.js"></script>
 </body>
