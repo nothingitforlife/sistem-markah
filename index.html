@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Markah Pelajar</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="loginScreen">
+    <div class="login-card">
+      <h1>Sistem Markah Pelajar</h1>
+      <p class="login-subtitle">Sila log masuk untuk mengakses sistem</p>
+      <div class="form-group">
+        <label>Log Masuk Sebagai</label>
+        <select id="loginRole">
+          <option value="admin">Admin</option>
+          <option value="teacher">Pengajar</option>
+          <option value="student">Pelajar</option>
+        </select>
+      </div>
+      <div id="loginAdminFields">
+        <div class="form-group">
+          <label>Nama Pengguna</label>
+          <input type="text" id="loginUsername" placeholder="admin" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>Kata Laluan</label>
+          <input type="password" id="loginPassword" placeholder="Kata laluan">
+        </div>
+      </div>
+      <div id="loginTeacherFields" class="hidden">
+        <div class="form-group">
+          <label>Pilih Nama Pengajar</label>
+          <select id="loginTeacherSelect"><option value="">-- Pilih --</option></select>
+        </div>
+        <div class="form-group">
+          <label>Kata Laluan</label>
+          <input type="password" id="loginTeacherPass" placeholder="Kata laluan">
+        </div>
+      </div>
+      <div id="loginStudentFields" class="hidden">
+        <div class="form-group">
+          <label>Nama Pelajar</label>
+          <input type="text" id="loginStudentName" placeholder="Masukkan nama penuh" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>Kata Laluan (Nama Sendiri)</label>
+          <input type="password" id="loginStudentPass" placeholder="Masukkan nama sendiri">
+        </div>
+      </div>
+      <p id="loginError" class="login-error hidden"></p>
+      <button class="btn btn-primary" id="loginBtn" style="width:100%;margin-top:0.5rem;">Log Masuk</button>
+    </div>
+  </div>
+  <div id="appMain" class="hidden">
+  <header>
+    <h1>Sistem Markah Pelajar</h1>
+    <nav>
+      <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="students">Pelajar</button>
+      <button class="tab-btn" data-tab="subjects">Mata Pelajaran</button>
+      <button class="tab-btn" data-tab="semesters">Semester</button>
+      <button class="tab-btn" data-tab="marks">Markah</button>
+      <button class="tab-btn" data-tab="results">Keputusan</button>
+    </nav>
+    <div class="header-actions">
+      <span id="userInfo" class="user-info"></span>
+      <button id="exportBtn" class="btn btn-sm btn-outline" title="Eksport JSON">Eksport</button>
+      <button id="importBtn" class="btn btn-sm btn-outline" title="Import JSON">Import</button>
+      <input type="file" id="importFile" accept=".json" hidden>
+      <button id="logoutBtn" class="btn btn-sm btn-outline" title="Log Keluar" style="color:#e74c3c;border-color:#e74c3c;">Log Keluar</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Dashboard -->
+    <section id="tab-dashboard" class="tab-content active">
+      <h2>Dashboard</h2>
+      <div class="dashboard-stats" id="dashboardStats"></div>
+      <div class="dashboard-detail" id="dashboardDetail"></div>
+    </section>
+
+    <!-- Students -->
+    <section id="tab-students" class="tab-content">
+      <h2>Senarai Pelajar</h2>
+      <div class="toolbar">
+        <button class="btn btn-primary" id="addStudentBtn">+ Tambah Pelajar</button>
+        <select id="studentSemesterFilter" class="search-input" style="min-width:160px;">
+          <option value="">Semua Semester</option>
+        </select>
+        <input type="text" id="studentSearch" class="search-input" placeholder="Cari pelajar...">
+      </div>
+      <table id="studentTable">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Nama</th>
+            <th>Kod ID</th>
+            <th>Semester</th>
+            <th>Tindakan</th>
+          </tr>
+        </thead>
+        <tbody id="studentBody"></tbody>
+      </table>
+    </section>
+
+    <!-- Subjects -->
+    <section id="tab-subjects" class="tab-content">
+      <h2>Senarai Mata Pelajaran</h2>
+      <div class="toolbar">
+        <button class="btn btn-primary" id="addSubjectBtn">+ Tambah Subjek</button>
+      </div>
+      <table id="subjectTable">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Nama Subjek</th>
+            <th>Pengajar</th>
+            <th>Tindakan</th>
+          </tr>
+        </thead>
+        <tbody id="subjectBody"></tbody>
+      </table>
+    </section>
+
+    <!-- Semesters -->
+    <section id="tab-semesters" class="tab-content">
+      <h2>Senarai Semester</h2>
+      <div class="toolbar">
+        <button class="btn btn-primary" id="addSemesterBtn">+ Tambah Semester</button>
+      </div>
+      <table id="semesterTable">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Nama Semester</th>
+            <th>Penyelia</th>
+            <th>Tindakan</th>
+          </tr>
+        </thead>
+        <tbody id="semesterBody"></tbody>
+      </table>
+    </section>
+
+    <!-- Marks -->
+    <section id="tab-marks" class="tab-content">
+      <h2>Markah Pelajar</h2>
+      <div class="marks-selector">
+        <div class="form-group">
+          <label>Pelajar</label>
+          <select id="markStudentSelect"><option value="">-- Pilih Pelajar --</option></select>
+        </div>
+        <div class="form-group">
+          <label>Semester</label>
+          <select id="markSemesterSelect"><option value="">-- Pilih Semester --</option></select>
+        </div>
+      </div>
+      <div id="markEntryArea"></div>
+    </section>
+
+    <!-- Results -->
+    <section id="tab-results" class="tab-content">
+      <h2>Slip Keputusan Peperiksaan</h2>
+      <div class="marks-selector">
+        <div class="form-group">
+          <label>Pelajar</label>
+          <select id="resultStudentSelect"><option value="">-- Pilih Pelajar --</option></select>
+        </div>
+        <div class="form-group">
+          <label>Semester</label>
+          <select id="resultSemesterSelect"><option value="">-- Pilih Semester --</option></select>
+        </div>
+      </div>
+      <div id="resultArea"></div>
+    </section>
+  </main>
+
+  <!-- Modal -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <span class="modal-close" id="modalClose">&times;</span>
+      <h3 id="modalTitle">Tajuk</h3>
+      <form id="modalForm">
+        <div id="modalBody"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="modalCancel">Batal</button>
+          <button type="submit" class="btn btn-primary" id="modalConfirm">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  </div>
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
