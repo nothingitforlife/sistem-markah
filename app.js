@@ -6193,9 +6193,10 @@ function renderCarrymarkAdmin(area) {
         html += '<button class="btn btn-sm btn-outline" onclick="carrymarkCopyAssessment(\'' + t.id + '\')" style="color:#6366f1;border-color:#6366f1;">Salin</button> ';
       }
       
-      // Butang Padam - hanya untuk draft
+      // Butang Padam & Duplicate - hanya untuk draft
       if (t.status === 'draft') {
         html += '<button class="btn btn-sm btn-danger" onclick="carrymarkDeleteTemplate(\'' + t.id + '\')">Padam</button> ';
+        html += '<button class="btn btn-sm btn-outline" onclick="carrymarkDuplicateAssessment(\'' + t.id + '\')" style="color:#6366f1;border-color:#6366f1;">Duplicate</button> ';
       }
       
       html += '</td>';
@@ -6287,6 +6288,7 @@ function renderCarrymarkTeacher(area) {
       // Butang Padam - hanya untuk draft atau rejected
       if (t.status === 'draft' || t.status === 'rejected') {
         html += '<button class="btn btn-sm btn-danger" onclick="carrymarkDeleteTemplate(\'' + t.id + '\')">Padam</button> ';
+        html += '<button class="btn btn-sm btn-outline" onclick="carrymarkDuplicateAssessment(\'' + t.id + '\')" style="color:#6366f1;border-color:#6366f1;">Duplicate</button> ';
       }
       
       html += '</td>';
@@ -7727,6 +7729,48 @@ window.carrymarkCopyAssessment = function(templateId) {
       });
     }
   }, 100);
+};
+
+// Duplicate Assessment (exact copy, same class/subject, new ID, draft status)
+window.carrymarkDuplicateAssessment = function(templateId) {
+  const template = data.carrymark.templates.find(t => t.id === templateId);
+  if (!template) {
+    alert('Assessment tidak dijumpai.');
+    return;
+  }
+
+  if (!confirm('Duplikasi assessment "' + template.course + '"? Salinan baru akan dicipta dengan status Draft.')) return;
+
+  const newTemplate = {
+    id: generateId('CMT'),
+    academicSession: template.academicSession,
+    semester: template.semester,
+    programme: template.programme,
+    course: template.course,
+    courseCode: template.courseCode,
+    class: template.class,
+    section: template.section,
+    lecturer: template.lecturer,
+    components: template.components.map(c => ({
+      id: generateId('COMP'),
+      name: c.name,
+      category: c.category,
+      weight: c.weight,
+      maxMark: c.maxMark,
+      passingMark: c.passingMark,
+      date: c.date,
+      description: c.description
+    })),
+    status: 'draft',
+    copiedFrom: templateId,
+    createdAt: new Date().toISOString()
+  };
+
+  data.carrymark.templates.push(newTemplate);
+  logCarrymarkAction('Duplicated', 'Assessment duplicated: "' + template.course + '"', newTemplate.id);
+  saveData();
+  renderCarrymark();
+  alert('Assessment berjaya diduplikasi. Sila semak dan hantar untuk kelulusan.');
 };
 
 // Grade Config
