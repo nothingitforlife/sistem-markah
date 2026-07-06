@@ -7070,12 +7070,12 @@ window.carrymarkSubmit = function(templateId) {
   alert('Assessment berjaya dihantar.');
 };
 
-// Request Approval from Maisarah
+// Request Approval from Management
 window.carrymarkRequestApproval = function(templateId) {
   const template = data.carrymark.templates.find(t => t.id === templateId);
   if (!template) return;
   
-  if (!confirm('Hantar assessment ini untuk kelulusan Maisarah?')) return;
+  if (!confirm('Hantar assessment ini untuk kelulusan pihak pengurusan?')) return;
   
   template.status = 'pending_approval';
   template.requestedAt = new Date().toISOString();
@@ -7084,10 +7084,10 @@ window.carrymarkRequestApproval = function(templateId) {
   logCarrymarkAction('Request Approval', 'Assessment sent for approval: ' + template.course, templateId);
   saveData();
   renderCarrymark();
-  alert('Assessment telah dihantar untuk kelulusan. Menunggu Maisarah meluluskan.');
+  alert('Assessment telah dihantar untuk kelulusan. Menunggu pihak pengurusan meluluskan.');
 };
 
-// Review Assessment for Approval (Admin/Maisarah)
+// Review Assessment for Approval (Admin/Management)
 window.carrymarkReviewForApproval = function(templateId) {
   const template = data.carrymark.templates.find(t => t.id === templateId);
   if (!template) return;
@@ -7443,7 +7443,7 @@ window.carrymarkDownloadApproval = function(templateId) {
   }
 };
 
-// Maisarah Approve Assessment
+// Management Approve Assessment
 window.carrymarkApprove = function(templateId) {
   const template = data.carrymark.templates.find(t => t.id === templateId);
   if (!template) return;
@@ -7461,7 +7461,7 @@ window.carrymarkApprove = function(templateId) {
   alert('Assessment berjaya diluluskan. Pengajar boleh mula isi markah.');
 };
 
-// Maisarah Reject Assessment
+// Management Reject Assessment
 window.carrymarkReject = function(templateId) {
   const template = data.carrymark.templates.find(t => t.id === templateId);
   if (!template) return;
@@ -8429,7 +8429,7 @@ window.fypRegisterStudents = function() {
 // FYP Supervisor View
 function renderFYPSupervisor(area) {
   const teacherName = currentUser.name;
-  const isApprovalOfficer = teacherName.includes('Nurulafiza') || teacherName.includes('Maisarah');
+  const isApprovalOfficer = teacherName.includes('Nurulafiza') || teacherName.includes('Maisarah') || currentRole === 'admin';
   
   // My students as supervisor
   const myAssessments = (data.fyp.assessments || []).filter(a => a.supervisor === teacherName);
