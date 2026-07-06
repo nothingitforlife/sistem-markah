@@ -6190,6 +6190,7 @@ function renderCarrymarkAdmin(area) {
       if (t.status === 'approved' || t.status === 'marks_entry' || t.status === 'submitted' || t.status === 'published') {
         html += '<button class="btn btn-sm btn-danger" onclick="carrymarkDeleteApproved(\'' + t.id + '\')">Padam</button> ';
         html += '<button class="btn btn-sm btn-warning" onclick="carrymarkTransferTeacher(\'' + t.id + '\')">Tukar Pengajar</button> ';
+        html += '<button class="btn btn-sm btn-outline" onclick="carrymarkCopyAssessment(\'' + t.id + '\')" style="color:#6366f1;border-color:#6366f1;">Salin</button> ';
       }
       
       // Butang Padam - hanya untuk draft
@@ -6278,6 +6279,11 @@ function renderCarrymarkTeacher(area) {
         html += '<button class="btn btn-sm btn-success" onclick="carrymarkSubmit(\'' + t.id + '\')">Submit Markah</button> ';
       }
       
+      // Butang Salin - untuk semua status kecuali draft/pending
+      if (t.status === 'approved' || t.status === 'marks_entry' || t.status === 'submitted' || t.status === 'published') {
+        html += '<button class="btn btn-sm btn-outline" onclick="carrymarkCopyAssessment(\'' + t.id + '\')" style="color:#6366f1;border-color:#6366f1;">Salin</button> ';
+      }
+      
       // Butang Padam - hanya untuk draft atau rejected
       if (t.status === 'draft' || t.status === 'rejected') {
         html += '<button class="btn btn-sm btn-danger" onclick="carrymarkDeleteTemplate(\'' + t.id + '\')">Padam</button> ';
@@ -6310,11 +6316,12 @@ function getCarrymarkStatusBadge(status) {
   return badges[status] || '<span class="badge" style="background:#9ca3af;color:white;">Unknown</span>';
 }
 
-// Create Assessment Template
-window.carrymarkCreateTemplate = function() {
+// Create Assessment Template (editTemplate = existing template for edit mode)
+window.carrymarkCreateTemplate = function(editTemplate, editId) {
   const semesters = data.semesters || [];
   const allSubjects = data.subjects || [];
   const teacherName = currentUser ? currentUser.name : '';
+  const isEdit = !!editTemplate;
   
   // Filter subjek yang diajar oleh pengajar semasa sahaja
   const subjects = currentRole === 'teacher' 
@@ -6326,7 +6333,7 @@ window.carrymarkCreateTemplate = function() {
   // Basic Info
   html += '<div class="form-group">';
   html += '<label>Academic Session</label>';
-  html += '<input type="text" id="cmAcademicSession" placeholder="Contoh: 2024/2025" required>';
+  html += '<input type="text" id="cmAcademicSession" placeholder="Contoh: 2024/2025" value="' + (isEdit ? esc(editTemplate.academicSession || '') : '') + '" required>';
   html += '</div>';
   
   html += '<div class="form-group">';
@@ -6334,14 +6341,15 @@ window.carrymarkCreateTemplate = function() {
   html += '<select id="cmSemester" required>';
   html += '<option value="">-- Pilih Semester --</option>';
   semesters.forEach(s => {
-    html += '<option value="' + s.name + '">' + s.name + '</option>';
+    const selected = (isEdit && editTemplate.semester === s.name) ? ' selected' : '';
+    html += '<option value="' + s.name + '"' + selected + '>' + s.name + '</option>';
   });
   html += '</select>';
   html += '</div>';
   
   html += '<div class="form-group">';
   html += '<label>Programme</label>';
-  html += '<input type="text" id="cmProgramme" value="Teknologi Komputer Rangkaian" required>';
+  html += '<input type="text" id="cmProgramme" value="' + (isEdit ? esc(editTemplate.programme || 'Teknologi Komputer Rangkaian') : 'Teknologi Komputer Rangkaian') + '" required>';
   html += '</div>';
   
   html += '<div class="form-group">';
@@ -6352,7 +6360,8 @@ window.carrymarkCreateTemplate = function() {
     html += '<option value="" disabled>Tiada subjek yang ditugaskan</option>';
   } else {
     subjects.forEach(s => {
-      html += '<option value="' + s.name + '" data-code="' + s.code + '" data-semester="' + s.semester + '">' + s.name + ' (' + s.code + ')</option>';
+      const selected = (isEdit && editTemplate.course === s.name) ? ' selected' : '';
+      html += '<option value="' + s.name + '" data-code="' + s.code + '" data-semester="' + s.semester + '"' + selected + '>' + s.name + ' (' + s.code + ')</option>';
     });
   }
   html += '</select>';
@@ -6360,17 +6369,17 @@ window.carrymarkCreateTemplate = function() {
   
   html += '<div class="form-group">';
   html += '<label>Course Code</label>';
-  html += '<input type="text" id="cmCourseCode" readonly>';
+  html += '<input type="text" id="cmCourseCode" value="' + (isEdit ? esc(editTemplate.courseCode || '') : '') + '" readonly>';
   html += '</div>';
   
   html += '<div class="form-group">';
   html += '<label>Class</label>';
-  html += '<input type="text" id="cmClass" placeholder="Contoh: TKR1A">';
+  html += '<input type="text" id="cmClass" placeholder="Contoh: TKR1A" value="' + (isEdit ? esc(editTemplate.class || '') : '') + '">';
   html += '</div>';
   
   html += '<div class="form-group">';
   html += '<label>Section</label>';
-  html += '<input type="text" id="cmSection" placeholder="Contoh: A">';
+  html += '<input type="text" id="cmSection" placeholder="Contoh: A" value="' + (isEdit ? esc(editTemplate.section || '') : '') + '">';
   html += '</div>';
   
   // Components
@@ -6407,7 +6416,7 @@ window.carrymarkCreateTemplate = function() {
   
   html += '</div>';
   
-  openModal('Create Assessment', html, function() {
+  openModal(isEdit ? 'Edit Assessment' : 'Create Assessment', html, function() {
     // Validate
     const academicSession = document.getElementById('cmAcademicSession').value.trim();
     const semester = document.getElementById('cmSemester').value;
@@ -6424,8 +6433,10 @@ window.carrymarkCreateTemplate = function() {
     const components = [];
     let courseworkTotal = 0;
     let finalTotal = 0;
+    let hasError = false;
     
     componentElements.forEach(el => {
+      if (hasError) return;
       const name = el.querySelector('.cm-comp-name').value.trim();
       const category = el.querySelector('.cm-comp-category').value;
       const weight = parseInt(el.querySelector('.cm-comp-weight').value) || 0;
@@ -6435,15 +6446,18 @@ window.carrymarkCreateTemplate = function() {
       const desc = el.querySelector('.cm-comp-desc').value.trim();
       
       if (!name || !category || weight <= 0) {
-        alert('Sila isi semua maklumat komponen.');
+        alert('Sila isi semua maklumat komponen (nama, kategori, berat).');
+        hasError = true;
         return;
       }
       
       if (category === 'coursework') courseworkTotal += weight;
       if (category === 'final') finalTotal += weight;
       
+      // Preserve existing component ID in edit mode
+      const existingId = el.dataset.componentId || generateId('COMP');
       components.push({
-        id: generateId('COMP'),
+        id: existingId,
         name: name,
         category: category,
         weight: weight,
@@ -6453,6 +6467,8 @@ window.carrymarkCreateTemplate = function() {
         description: desc
       });
     });
+    
+    if (hasError) return false;
     
     if (courseworkTotal !== 60) {
       alert('Coursework total mesti tepat 60%. Semasa: ' + courseworkTotal + '%');
@@ -6469,27 +6485,48 @@ window.carrymarkCreateTemplate = function() {
       return false;
     }
     
-    const newTemplate = {
-      id: generateId('CMT'),
-      academicSession: academicSession,
-      semester: semester,
-      programme: document.getElementById('cmProgramme').value.trim(),
-      course: course,
-      courseCode: courseCode,
-      class: document.getElementById('cmClass').value.trim(),
-      section: document.getElementById('cmSection').value.trim(),
-      lecturer: currentUser.name,
-      components: components,
-      status: 'draft',
-      createdAt: new Date().toISOString()
-    };
-    
-    data.carrymark.templates.push(newTemplate);
-    logCarrymarkAction('Created', 'Assessment created for ' + course, newTemplate.id);
-    saveData();
-    renderCarrymark();
-    closeModal();
-    alert('Assessment berjaya dicipta.');
+    if (isEdit && editId) {
+      // Update existing template
+      const existing = data.carrymark.templates.find(t => t.id === editId);
+      if (existing) {
+        existing.academicSession = academicSession;
+        existing.semester = semester;
+        existing.programme = document.getElementById('cmProgramme').value.trim();
+        existing.course = course;
+        existing.courseCode = courseCode;
+        existing.class = document.getElementById('cmClass').value.trim();
+        existing.section = document.getElementById('cmSection').value.trim();
+        existing.components = components;
+        existing.updatedAt = new Date().toISOString();
+        logCarrymarkAction('Updated', 'Assessment updated for ' + course, editId);
+        saveData();
+        renderCarrymark();
+        closeModal();
+        alert('Assessment berjaya dikemaskini.');
+      }
+    } else {
+      const newTemplate = {
+        id: generateId('CMT'),
+        academicSession: academicSession,
+        semester: semester,
+        programme: document.getElementById('cmProgramme').value.trim(),
+        course: course,
+        courseCode: courseCode,
+        class: document.getElementById('cmClass').value.trim(),
+        section: document.getElementById('cmSection').value.trim(),
+        lecturer: currentUser.name,
+        components: components,
+        status: 'draft',
+        createdAt: new Date().toISOString()
+      };
+      
+      data.carrymark.templates.push(newTemplate);
+      logCarrymarkAction('Created', 'Assessment created for ' + course, newTemplate.id);
+      saveData();
+      renderCarrymark();
+      closeModal();
+      alert('Assessment berjaya dicipta.');
+    }
   });
   
   // Auto-fill course code
@@ -6511,13 +6548,22 @@ window.carrymarkCreateTemplate = function() {
         }
       });
     }
-    // Add initial component
-    carrymarkAddComponent();
+    
+    if (isEdit && editTemplate.components && editTemplate.components.length > 0) {
+      // Pre-fill existing components
+      editTemplate.components.forEach(comp => {
+        carrymarkAddComponent(comp);
+      });
+      carrymarkUpdateProgress();
+    } else {
+      // Add initial component
+      carrymarkAddComponent();
+    }
   }, 100);
 };
 
-// Add Component to Form
-window.carrymarkAddComponent = function() {
+// Add Component to Form (comp = optional data for pre-fill in edit mode)
+window.carrymarkAddComponent = function(comp) {
   const container = document.getElementById('cmComponentsList');
   if (!container) {
     console.error('Container cmComponentsList not found');
@@ -6529,6 +6575,18 @@ window.carrymarkAddComponent = function() {
   const div = document.createElement('div');
   div.className = 'cm-component-item';
   div.style.cssText = 'border:1px solid #e5e7eb;border-radius:8px;padding:1rem;margin-bottom:1rem;background:#f9fafb;';
+  if (comp && comp.id) div.dataset.componentId = comp.id;
+  
+  const compName = comp ? esc(comp.name || '') : '';
+  const compCategory = comp ? (comp.category || '') : '';
+  const compWeight = comp ? (comp.weight || '') : '';
+  const compMax = comp ? (comp.maxMark || 100) : 100;
+  const compPassing = comp ? (comp.passingMark || 0) : 0;
+  const compDate = comp ? (comp.date || '') : '';
+  const compDesc = comp ? esc(comp.description || '') : '';
+  
+  const cwSelected = compCategory === 'coursework' ? ' selected' : '';
+  const finalSelected = compCategory === 'final' ? ' selected' : '';
   
   div.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
@@ -6538,36 +6596,36 @@ window.carrymarkAddComponent = function() {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
       <div class="form-group" style="margin:0;">
         <label style="font-size:0.8rem;">Component Name</label>
-        <input type="text" class="cm-comp-name" placeholder="Contoh: Assignment 1" required>
+        <input type="text" class="cm-comp-name" placeholder="Contoh: Assignment 1" value="${compName}" required>
       </div>
       <div class="form-group" style="margin:0;">
         <label style="font-size:0.8rem;">Category</label>
         <select class="cm-comp-category" required>
           <option value="">-- Pilih --</option>
-          <option value="coursework">Coursework</option>
-          <option value="final">Final Assessment</option>
+          <option value="coursework"${cwSelected}>Coursework</option>
+          <option value="final"${finalSelected}>Final Assessment</option>
         </select>
       </div>
       <div class="form-group" style="margin:0;">
         <label style="font-size:0.8rem;">Weight (%)</label>
-        <input type="number" class="cm-comp-weight" min="1" max="100" required>
+        <input type="number" class="cm-comp-weight" min="1" max="100" value="${compWeight}" required>
       </div>
       <div class="form-group" style="margin:0;">
         <label style="font-size:0.8rem;">Maximum Mark</label>
-        <input type="number" class="cm-comp-max" value="100" min="1">
+        <input type="number" class="cm-comp-max" value="${compMax}" min="1">
       </div>
       <div class="form-group" style="margin:0;">
         <label style="font-size:0.8rem;">Passing Mark</label>
-        <input type="number" class="cm-comp-passing" value="0" min="0">
+        <input type="number" class="cm-comp-passing" value="${compPassing}" min="0">
       </div>
       <div class="form-group" style="margin:0;">
         <label style="font-size:0.8rem;">Assessment Date</label>
-        <input type="date" class="cm-comp-date">
+        <input type="date" class="cm-comp-date" value="${compDate}">
       </div>
     </div>
     <div class="form-group" style="margin-top:0.5rem;margin-bottom:0;">
       <label style="font-size:0.8rem;">Description</label>
-      <input type="text" class="cm-comp-desc" placeholder="Penerangan (pilihan)">
+      <input type="text" class="cm-comp-desc" placeholder="Penerangan (pilihan)" value="${compDesc}">
     </div>
   `;
   
@@ -6977,6 +7035,12 @@ window.carrymarkSaveMarks = function(templateId) {
     }
   });
   
+  // Transition status to marks_entry if currently approved
+  if (template.status === 'approved') {
+    template.status = 'marks_entry';
+    template.marksEntryAt = new Date().toISOString();
+  }
+  
   logCarrymarkAction('Saved Marks', 'Marks saved for ' + template.course, templateId);
   saveData();
   alert('Markah berjaya disimpan.');
@@ -6987,6 +7051,11 @@ window.carrymarkSubmit = function(templateId) {
   const template = data.carrymark.templates.find(t => t.id === templateId);
   if (!template) return;
   
+  if (template.status !== 'marks_entry') {
+    alert('Assessment belum dalam status Marks Entry. Sila simpan markah dahulu.');
+    return;
+  }
+  
   if (!confirm('Hantar assessment ini? Markah tidak boleh diedit selepas hantar.')) return;
   
   template.status = 'submitted';
@@ -6995,6 +7064,7 @@ window.carrymarkSubmit = function(templateId) {
   logCarrymarkAction('Submitted', 'Assessment submitted for ' + template.course, templateId);
   saveData();
   renderCarrymark();
+  closeModal();
   alert('Assessment berjaya dihantar.');
 };
 
@@ -7385,6 +7455,7 @@ window.carrymarkApprove = function(templateId) {
   logCarrymarkAction('Approved', 'Assessment approved by ' + currentUser.name + ': ' + template.course, templateId);
   saveData();
   renderCarrymark();
+  closeModal();
   alert('Assessment berjaya diluluskan. Pengajar boleh mula isi markah.');
 };
 
@@ -7404,6 +7475,7 @@ window.carrymarkReject = function(templateId) {
   logCarrymarkAction('Rejected', 'Assessment rejected by ' + currentUser.name + ': ' + reason, templateId);
   saveData();
   renderCarrymark();
+  closeModal();
   alert('Assessment telah ditolak.');
 };
 
@@ -7411,9 +7483,7 @@ window.carrymarkReject = function(templateId) {
 window.carrymarkEditTemplate = function(templateId) {
   const template = data.carrymark.templates.find(t => t.id === templateId);
   if (!template) return;
-  
-  // Buka modal untuk edit
-  carrymarkCreateTemplate(template);
+  carrymarkCreateTemplate(template, templateId);
 };
 
 // Publish Assessment
@@ -7522,6 +7592,141 @@ window.carrymarkTransferTeacher = function(templateId) {
     closeModal();
     alert('Pengajar berjaya ditukar kepada ' + newTeacher + '.');
   });
+};
+
+// Copy Assessment to Another Class/Subject
+window.carrymarkCopyAssessment = function(templateId) {
+  const template = data.carrymark.templates.find(t => t.id === templateId);
+  if (!template) {
+    alert('Assessment tidak dijumpai.');
+    return;
+  }
+
+  const semesters = data.semesters || [];
+  const allSubjects = data.subjects || [];
+  const teacherName = currentUser ? currentUser.name : '';
+  const subjects = currentRole === 'teacher'
+    ? allSubjects.filter(s => s.pengajar === teacherName)
+    : allSubjects;
+
+  let html = '<div class="form-group">';
+  html += '<label>Assessment Asal</label>';
+  html += '<p style="padding:0.5rem;background:#f3f4f6;border-radius:4px;"><strong>' + template.course + '</strong> (' + (template.courseCode || '-') + ') — ' + template.components.length + ' komponen</p>';
+  html += '</div>';
+
+  html += '<div class="form-group">';
+  html += '<label>Semester Baru</label>';
+  html += '<select id="cmCopySemester" style="width:100%;padding:0.6rem;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<option value="">-- Pilih Semester --</option>';
+  semesters.forEach(s => {
+    const selected = s.name === template.semester ? ' selected' : '';
+    html += '<option value="' + s.name + '"' + selected + '>' + s.name + '</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+
+  html += '<div class="form-group">';
+  html += '<label>Course / Subjek Baru</label>';
+  html += '<select id="cmCopyCourse" style="width:100%;padding:0.6rem;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<option value="">-- Pilih Course --</option>';
+  subjects.forEach(s => {
+    html += '<option value="' + s.name + '" data-code="' + s.code + '" data-semester="' + s.semester + '">' + s.name + ' (' + s.code + ')</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+
+  html += '<div class="form-group">';
+  html += '<label>Class Baru</label>';
+  html += '<input type="text" id="cmCopyClass" placeholder="Contoh: TKR1B" style="width:100%;padding:0.6rem;border:1px solid #d1d5db;border-radius:4px;" value="' + esc(template.class || '') + '">';
+  html += '</div>';
+
+  html += '<div class="form-group">';
+  html += '<label>Pengajar</label>';
+  html += '<select id="cmCopyLecturer" style="width:100%;padding:0.6rem;border:1px solid #d1d5db;border-radius:4px;">';
+  const teachers = (data.teachers || []).sort((a, b) => a.name.localeCompare(b.name));
+  teachers.forEach(t => {
+    const selected = t.name === template.lecturer ? ' selected' : '';
+    html += '<option value="' + t.name + '"' + selected + '>' + t.name + '</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+
+  html += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:0.8rem;margin-top:1rem;">';
+  html += '<p style="font-size:0.85rem;color:#1e40af;margin:0;">Komponen yang akan disalin:</p>';
+  html += '<ul style="font-size:0.85rem;color:#1e40af;margin:0.5rem 0 0 1.2rem;">';
+  template.components.forEach(c => {
+    html += '<li>' + c.name + ' (' + c.category + ' - ' + c.weight + '%)</li>';
+  });
+  html += '</ul>';
+  html += '</div>';
+
+  openModal('Salin Assessment', html, function() {
+    const newSemester = document.getElementById('cmCopySemester').value;
+    const newCourse = document.getElementById('cmCopyCourse').value;
+    const courseOption = document.getElementById('cmCopyCourse').options[document.getElementById('cmCopyCourse').selectedIndex];
+    const newCourseCode = courseOption ? (courseOption.dataset.code || '') : '';
+    const newClass = document.getElementById('cmCopyClass').value.trim();
+    const newLecturer = document.getElementById('cmCopyLecturer').value;
+
+    if (!newSemester || !newCourse) {
+      alert('Sila pilih semester dan course.');
+      return false;
+    }
+
+    // Check for duplicate
+    const duplicate = data.carrymark.templates.find(t =>
+      t.course === newCourse && t.semester === newSemester && t.class === newClass && t.lecturer === newLecturer && t.status !== 'rejected'
+    );
+    if (duplicate) {
+      alert('Assessment untuk course "' + newCourse + '" dalam semester "' + newSemester + '" oleh pengajar "' + newLecturer + '" sudah wujud.');
+      return false;
+    }
+
+    const newTemplate = {
+      id: generateId('CMT'),
+      academicSession: template.academicSession,
+      semester: newSemester,
+      programme: template.programme,
+      course: newCourse,
+      courseCode: newCourseCode,
+      class: newClass,
+      section: template.section,
+      lecturer: newLecturer,
+      components: template.components.map(c => ({
+        id: generateId('COMP'),
+        name: c.name,
+        category: c.category,
+        weight: c.weight,
+        maxMark: c.maxMark,
+        passingMark: c.passingMark,
+        date: '',
+        description: c.description
+      })),
+      status: 'draft',
+      copiedFrom: templateId,
+      createdAt: new Date().toISOString()
+    };
+
+    data.carrymark.templates.push(newTemplate);
+    logCarrymarkAction('Copied', 'Assessment copied from "' + template.course + '" to "' + newCourse + '" (' + newClass + ')', newTemplate.id);
+    saveData();
+    renderCarrymark();
+    closeModal();
+    alert('Assessment berjaya disalin ke ' + newCourse + ' (' + newClass + '). Sila semak dan hantar untuk kelulusan.');
+  });
+
+  // Auto-fill course code when course selected
+  setTimeout(() => {
+    const courseSelect = document.getElementById('cmCopyCourse');
+    if (courseSelect) {
+      courseSelect.addEventListener('change', function() {
+        const option = this.options[this.selectedIndex];
+        if (option && option.dataset.code) {
+          // Course code is already shown in the option text
+        }
+      });
+    }
+  }, 100);
 };
 
 // Grade Config
@@ -7712,7 +7917,7 @@ if (!data.fyp) {
 
 // FYP Assessment Criteria (based on standard FYP form)
 const FYP_CRITERIA = {
-  'SEM004': {
+  'SEM005': {
     title: 'Final Year Project 1',
     sections: [
       {
@@ -7763,7 +7968,7 @@ const FYP_CRITERIA = {
       }
     ]
   },
-  'SEM005': {
+  'SEM006': {
     title: 'Final Year Project 2',
     sections: [
       {
@@ -8121,6 +8326,8 @@ window.fypRegisterStudents = function() {
       const semesterId = cb.dataset.semester;
       const semesterName = cb.dataset.semesterName;
       const fypType = cb.dataset.fypType;
+      const student = data.students.find(s => s.id === studentId);
+      const studentName = student ? student.name : studentId;
       
       // Get supervisor from dropdown
       const supervisorSelect = document.querySelector('.fyp-supervisor-select[data-student-id="' + studentId + '"]');
@@ -8131,7 +8338,7 @@ window.fypRegisterStudents = function() {
       const groupName = groupSelect ? groupSelect.value : '';
       
       if (!supervisor) {
-        alert('Sila pilih penyelia untuk semua pelajar yang dipilih.');
+        alert('Sila pilih penyelia untuk pelajar ' + (studentName || studentId) + '.');
         return;
       }
       
@@ -8151,6 +8358,7 @@ window.fypRegisterStudents = function() {
         grade: '-',
         result: '-',
         supervisorComments: '',
+        approvalStatus: {},
         approvalComments: {},
         submittedAt: null,
         approvedAt: null,
