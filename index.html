@@ -3,13 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistem Markah Pelajar</title>
+  <title>Sistem Pengurusan Pelajar - TKR</title>
+  <link rel="icon" type="image/png" href="https://www.jtm.gov.my/2015v3/images/stories/logo_JTM2014.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="loginScreen">
     <div class="login-card">
-      <h1>Sistem Markah Pelajar</h1>
+      <img src="https://www.jtm.gov.my/2015v3/images/stories/logo_JTM2014.png" alt="JTM" class="login-logo">
+      <h1>Sistem Pengurusan Pelajar</h1>
+      <p class="login-dept">Bahagian Teknologi Komputer Rangkaian</p>
       <p class="login-subtitle">Sila log masuk untuk mengakses sistem</p>
       <div class="form-group">
         <label>Log Masuk Sebagai</label>
@@ -31,8 +34,10 @@
       </div>
       <div id="loginTeacherFields" class="hidden">
         <div class="form-group">
-          <label>Pilih Nama Pengajar</label>
-          <select id="loginTeacherSelect"><option value="">-- Pilih --</option></select>
+          <label>Nama Pengajar</label>
+          <select id="loginTeacherSelect">
+            <option value="">-- Pilih Pengajar --</option>
+          </select>
         </div>
         <div class="form-group">
           <label>Kata Laluan</label>
@@ -55,23 +60,25 @@
   </div>
   <div id="appMain" class="hidden">
   <header>
-    <h1>Sistem Markah Pelajar</h1>
+    <h1>Sistem Pengurusan Pelajar - TKR</h1>
     <nav>
       <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
       <button class="tab-btn" data-tab="students">Pelajar</button>
       <button class="tab-btn" data-tab="subjects">Mata Pelajaran</button>
+      <button class="tab-btn" data-tab="teachers">Pengajar</button>
       <button class="tab-btn" data-tab="semesters">Semester</button>
       <button class="tab-btn" data-tab="marks">Markah</button>
       <button class="tab-btn" data-tab="results">Keputusan</button>
     </nav>
     <div class="header-actions">
+      <span id="clockDisplay" class="clock-display"></span>
       <span id="userInfo" class="user-info"></span>
       <button id="exportBtn" class="btn btn-sm btn-outline" title="Eksport JSON">Eksport</button>
       <button id="importBtn" class="btn btn-sm btn-outline" title="Import JSON">Import</button>
       <input type="file" id="importFile" accept=".json" hidden>
-      <button id="syncBtn" class="btn btn-sm btn-outline" title="Sync ke server" style="color:#2ecc71;border-color:#2ecc71;">Sync</button>
-      <span id="syncStatus" class="sync-status"></span>
-      <button id="resetDataBtn" class="btn btn-sm btn-outline" title="Reset Data" style="color:#e67e22;border-color:#e67e22;">Reset</button>
+      <button id="manualSyncBtn" class="btn btn-sm btn-outline" title="Sync ke Firebase" style="color:#2ecc71;border-color:#2ecc71;">🔄 Sync</button>
+      <span id="syncStatusDot" class="sync-status" title="Status sync">⚪</span>
+      <button id="clearAllBtn" class="btn btn-sm btn-outline" title="Padam Semua Data" style="color:#dc2626;border-color:#dc2626;">Padam Semua</button>
       <button id="logoutBtn" class="btn btn-sm btn-outline" title="Log Keluar" style="color:#e74c3c;border-color:#e74c3c;">Log Keluar</button>
     </div>
   </header>
@@ -90,6 +97,9 @@
       <div class="toolbar">
         <button class="btn btn-primary" id="addStudentBtn">+ Tambah Pelajar</button>
         <button class="btn btn-sm btn-outline" id="importExcelBtn">Import Excel</button>
+        <button class="btn btn-sm btn-success" id="bulkPromoteBtn" style="display:none;">Pindah Pelajar Terpilih</button>
+        <button class="btn btn-sm btn-danger" id="deleteAllStudentsBtn">Padam Semua</button>
+        <button class="btn btn-sm btn-outline" id="printStudentListBtn" style="color:#0f3460;border-color:#0f3460;">🖨️ Print Senarai</button>
         <input type="file" id="importExcelFile" accept=".xlsx,.xls" hidden>
         <select id="studentSemesterFilter" class="search-input" style="min-width:160px;">
           <option value="">Semua Semester</option>
@@ -99,10 +109,14 @@
       <table id="studentTable">
         <thead>
           <tr>
+            <th><input type="checkbox" id="selectAllStudents"></th>
             <th>No</th>
             <th>Nama</th>
             <th>Kod ID</th>
             <th>Semester</th>
+            <th>Track</th>
+            <th>Subjek</th>
+            <th>Status</th>
             <th>Tindakan</th>
           </tr>
         </thead>
@@ -113,21 +127,51 @@
     <!-- Subjects -->
     <section id="tab-subjects" class="tab-content">
       <h2>Senarai Mata Pelajaran</h2>
-      <div class="toolbar">
+      
+      <!-- Toolbar -->
+      <div class="toolbar" id="subjectToolbar">
         <button class="btn btn-primary" id="addSubjectBtn">+ Tambah Subjek</button>
+        <button class="btn btn-sm btn-danger" id="deleteAllSubjectsBtn">Padam Semua</button>
+        <input type="text" id="subjectSearch" class="search-input" placeholder="Cari subjek..." style="min-width:200px;">
+        <select id="subjectSemesterFilter" class="search-input" style="min-width:160px;">
+          <option value="">Semua Semester</option>
+        </select>
+        <button class="btn btn-sm btn-success" id="exportSubjectExcelBtn">📊 Excel</button>
+        <button class="btn btn-sm btn-primary" id="exportSubjectPdfBtn">📄 PDF</button>
+        <button class="btn btn-sm btn-outline" id="printSubjectBtn" style="color:#0f3460;border-color:#0f3460;">🖨️ Print</button>
       </div>
-      <table id="subjectTable">
-        <thead>
-          <tr>
-            <th>No</th>
-            <th>Nama Subjek</th>
-            <th>Pengajar</th>
-            <th>Semester</th>
-            <th>Tindakan</th>
-          </tr>
-        </thead>
-        <tbody id="subjectBody"></tbody>
-      </table>
+
+      <!-- Semester Tabs -->
+      <div class="semester-tabs" id="semesterTabs">
+        <button class="semester-tab active" data-sem="all">Semua</button>
+        <button class="semester-tab" data-sem="SEM001">Sem 1</button>
+        <button class="semester-tab" data-sem="SEM002">Sem 2</button>
+        <button class="semester-tab" data-sem="SEM003">Sem 3</button>
+        <button class="semester-tab" data-sem="SEM004">Sem 4</button>
+        <button class="semester-tab" data-sem="SEM005">Sem 5</button>
+        <button class="semester-tab" data-sem="SEM006">Sem 6</button>
+      </div>
+
+      <!-- Credit Hours Summary -->
+      <div class="credit-summary" id="creditSummary"></div>
+
+      <!-- Subject Table -->
+      <div class="subject-table-wrapper">
+        <table id="subjectTable" class="subject-table">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Kod Subjek</th>
+              <th>Nama Subjek</th>
+              <th>Pengajar</th>
+              <th>Jam Kredit</th>
+              <th>Semester</th>
+              <th>Tindakan</th>
+            </tr>
+          </thead>
+          <tbody id="subjectBody"></tbody>
+        </table>
+      </div>
     </section>
 
     <!-- Semesters -->
@@ -135,6 +179,7 @@
       <h2>Senarai Semester</h2>
       <div class="toolbar">
         <button class="btn btn-primary" id="addSemesterBtn">+ Tambah Semester</button>
+        <button class="btn btn-sm btn-danger" id="deleteAllSemestersBtn">Padam Semua</button>
       </div>
       <table id="semesterTable">
         <thead>
@@ -142,6 +187,7 @@
             <th>No</th>
             <th>Nama Semester</th>
             <th>Penyelia</th>
+            <th>Status Keputusan</th>
             <th>Tindakan</th>
           </tr>
         </thead>
@@ -149,14 +195,49 @@
       </table>
     </section>
 
+    <!-- Teachers -->
+    <section id="tab-teachers" class="tab-content">
+      <h2>Senarai Pengajar</h2>
+      
+      <!-- Teacher Stats -->
+      <div class="teacher-stats" id="teacherStats"></div>
+      
+      <!-- Toolbar -->
+      <div class="toolbar" id="teacherToolbar">
+        <button class="btn btn-primary" id="addTeacherBtn">+ Tambah Pengajar</button>
+        <button class="btn btn-sm btn-danger" id="deleteAllTeachersBtn">Padam Semua</button>
+        <input type="text" id="teacherSearch" class="search-input" placeholder="Cari pengajar..." style="min-width:200px;">
+        <button class="btn btn-sm btn-success" id="exportTeacherExcelBtn">📊 Excel</button>
+        <button class="btn btn-sm btn-primary" id="printTeacherBtn" style="background:#0f3460;border-color:#0f3460;">🖨️ Print</button>
+      </div>
+
+      <!-- Teacher Table -->
+      <div class="teacher-table-wrapper">
+        <table id="teacherTable" class="teacher-table">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Nama Pengajar</th>
+              <th>Gred</th>
+              <th>Jawatan</th>
+              <th>No. Telefon</th>
+              <th>Email</th>
+              <th>Subjek Diajar</th>
+              <th>Tindakan</th>
+            </tr>
+          </thead>
+          <tbody id="teacherBody"></tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- Marks -->
     <section id="tab-marks" class="tab-content">
       <h2>Markah Pelajar</h2>
+      <div class="toolbar" style="margin-bottom:1rem;">
+        <button class="btn btn-sm btn-danger" id="deleteAllMarksBtn">Padam Semua Markah</button>
+      </div>
       <div class="marks-selector">
-        <div class="form-group">
-          <label>Pelajar</label>
-          <select id="markStudentSelect"><option value="">-- Pilih Pelajar --</option></select>
-        </div>
         <div class="form-group">
           <label>Semester</label>
           <select id="markSemesterSelect"><option value="">-- Pilih Semester --</option></select>
@@ -186,12 +267,48 @@
       <h2>Jadual Waktu Kelas</h2>
       <div class="toolbar" id="timetableToolbar">
         <button class="btn btn-primary" id="addTimetableBtn">+ Tambah Jadual</button>
+        <button class="btn btn-sm btn-danger" id="deleteAllTimetableBtn">Padam Semua</button>
+        <button class="btn btn-sm btn-success" id="printTimetableBtn">🖨️ Cetak</button>
         <select id="timetableSemesterFilter" class="search-input" style="min-width:160px;">
           <option value="">Semua Semester</option>
         </select>
       </div>
       <div id="timetableGrid"></div>
     </section>
+
+    <!-- Memos -->
+    <section id="tab-memos" class="tab-content">
+      <h2>Memo & Pengumuman</h2>
+      <div class="toolbar" id="memoToolbar">
+        <button class="btn btn-primary" id="addMemoBtn">+ Tambah Memo</button>
+        <button class="btn btn-sm btn-danger" id="deleteAllMemosBtn">Padam Semua</button>
+      </div>
+      <div id="memoList"></div>
+    </section>
+
+    <!-- Graduation -->
+    <section id="tab-graduation" class="tab-content">
+      <h2>Senarai Pelajar Layak Graduasi</h2>
+      <div class="toolbar">
+        <button class="btn btn-primary" id="autoGraduateBtn">🔄 Semak & Transfer Automatik</button>
+        <button class="btn btn-sm btn-success" id="exportGraduateBtn">📊 Excel</button>
+        <button class="btn btn-sm btn-outline" id="printGraduateBtn" style="color:#0f3460;border-color:#0f3460;">🖨️ Print</button>
+      </div>
+      <div id="graduationArea"></div>
+    </section>
+
+    <!-- FYP Assessment -->
+    <section id="tab-fyp" class="tab-content">
+      <h2>🎓 Final Year Project (FYP) Assessment</h2>
+      <div id="fypArea"></div>
+    </section>
+
+    <!-- Carrymark Assessment -->
+    <section id="tab-carrymark" class="tab-content">
+      <h2>📊 Student Carrymark Assessment</h2>
+      <div id="carrymarkArea"></div>
+    </section>
+
   </main>
 
   <!-- Modal -->
@@ -210,6 +327,31 @@
   </div>
 
   </div>
+  <!-- Check login IMMEDIATELY before loading app -->
+  <script>
+    (function() {
+      try {
+        var loggedIn = localStorage.getItem('sistemMarkahLoggedIn');
+        if (loggedIn === '1') {
+          var role = localStorage.getItem('sistemMarkahRole');
+          var user = localStorage.getItem('sistemMarkahUser');
+          if (role && user) {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('appMain').classList.remove('hidden');
+            console.log('Early login restore: ' + role);
+          }
+        }
+      } catch(e) {
+        console.warn('Early login check failed:', e);
+      }
+    })();
+  </script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <!-- Firebase Config -->
+  <script src="firebase-config.js"></script>
+  <!-- App Scripts -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
   <script src="supabase-config.js"></script>
   <script src="app.js"></script>
