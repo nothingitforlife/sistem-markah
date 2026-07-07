@@ -10508,6 +10508,19 @@ function renderExamSchedule() {
     html += '</tr></thead><tbody>';
     
     semExams.forEach((exam, i) => {
+      // Format invigilators as numbered list
+      let invigilatorsDisplay = '-';
+      if (exam.invigilators) {
+        const invList = Array.isArray(exam.invigilators) ? exam.invigilators : exam.invigilators.split(',').map(s => s.trim()).filter(s => s);
+        if (invList.length > 0) {
+          invigilatorsDisplay = '<ol style="margin:0;padding-left:20px;font-size:0.85rem;">';
+          invList.forEach(name => {
+            invigilatorsDisplay += '<li>' + esc(name) + '</li>';
+          });
+          invigilatorsDisplay += '</ol>';
+        }
+      }
+      
       html += '<tr>';
       html += '<td>' + (i + 1) + '</td>';
       html += '<td>' + esc(exam.subjectName || '-') + '</td>';
@@ -10516,7 +10529,7 @@ function renderExamSchedule() {
       html += '<td>' + esc(exam.time || '-') + '</td>';
       html += '<td>' + esc(exam.hall || '-') + '</td>';
       html += '<td>' + esc(exam.chiefInvigilator || '-') + '</td>';
-      html += '<td>' + esc(exam.invigilators || '-') + '</td>';
+      html += '<td>' + invigilatorsDisplay + '</td>';
       if (currentRole === 'admin') {
         html += '<td>';
         html += '<button class="btn btn-sm btn-warning" onclick="editExamEntry(\'' + exam.id + '\')">Edit</button> ';
@@ -10530,6 +10543,51 @@ function renderExamSchedule() {
     html += '</div>';
   });
   
+  container.innerHTML = html;
+}
+
+// Invigilator List Helper Functions
+window._invigilators = [];
+
+window.addInvigilator = function() {
+  const input = document.getElementById('newInvigilator');
+  if (!input) return;
+  
+  const name = input.value.trim();
+  if (!name) return;
+  
+  window._invigilators.push(name);
+  input.value = '';
+  input.focus();
+  renderInvigilatorList();
+};
+
+window.removeInvigilator = function(index) {
+  window._invigilators.splice(index, 1);
+  renderInvigilatorList();
+};
+
+window.getInvigilatorsList = function() {
+  return window._invigilators;
+};
+
+function renderInvigilatorList() {
+  const container = document.getElementById('invigilatorList');
+  if (!container) return;
+  
+  if (window._invigilators.length === 0) {
+    container.innerHTML = '<p style="color:#9ca3af;font-size:0.85rem;margin:0;">Tiada pengawas ditambah lagi.</p>';
+    return;
+  }
+  
+  let html = '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:4px;padding:8px;">';
+  window._invigilators.forEach((name, i) => {
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;' + (i > 0 ? 'border-top:1px solid #e5e7eb;' : '') + '">';
+    html += '<span style="font-size:0.9rem;">' + (i + 1) + '. ' + esc(name) + '</span>';
+    html += '<button type="button" class="btn btn-sm btn-danger" onclick="removeInvigilator(' + i + ')" style="padding:2px 6px;font-size:0.75rem;">✕</button>';
+    html += '</div>';
+  });
+  html += '</div>';
   container.innerHTML = html;
 }
 
@@ -10585,8 +10643,13 @@ window.addExamEntry = function() {
   html += '</div>';
   
   html += '<div class="form-group">';
-  html += '<label>Pengawas (asingkan dengan koma)</label>';
-  html += '<input type="text" id="examInvigilators" placeholder="Contoh: Ahmad, Siti, Ali" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<label>Pengawas (satu nama satu baris)</label>';
+  html += '<div id="invigilatorList" style="margin-bottom:8px;"></div>';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<input type="text" id="newInvigilator" placeholder="Nama pengawas" style="flex:1;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<button type="button" class="btn btn-sm btn-primary" onclick="addInvigilator()">Tambah</button>';
+  html += '</div>';
+  html += '<input type="hidden" id="examInvigilators" value="">';
   html += '</div>';
   
   openModal('Tambah Jadual Peperiksaan', html, function() {
@@ -10597,7 +10660,7 @@ window.addExamEntry = function() {
     const timeEnd = document.getElementById('examTimeEnd').value;
     const hall = document.getElementById('examHall').value.trim();
     const chiefInvigilator = document.getElementById('examChiefInvigilator').value.trim();
-    const invigilators = document.getElementById('examInvigilators').value.trim();
+    const invigilators = getInvigilatorsList();
     
     if (!semesterId || !subjectId || !date) {
       alert('Sila isi semester, subjek, dan tarikh.');
@@ -10715,9 +10778,18 @@ window.editExamEntry = function(examId) {
   html += '</div>';
   
   html += '<div class="form-group">';
-  html += '<label>Pengawas (asingkan dengan koma)</label>';
-  html += '<input type="text" id="examInvigilators" value="' + esc(exam.invigilators || '') + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<label>Pengawas (satu nama satu baris)</label>';
+  html += '<div id="invigilatorList" style="margin-bottom:8px;"></div>';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<input type="text" id="newInvigilator" placeholder="Nama pengawas" style="flex:1;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<button type="button" class="btn btn-sm btn-primary" onclick="addInvigilator()">Tambah</button>';
   html += '</div>';
+  html += '</div>';
+  
+  // Pre-populate invigilators list
+  const existingInvigilators = Array.isArray(exam.invigilators) ? exam.invigilators : 
+    (exam.invigilators ? exam.invigilators.split(',').map(s => s.trim()).filter(s => s) : []);
+  window._invigilators = [...existingInvigilators];
   
   openModal('Edit Jadual Peperiksaan', html, function() {
     const semesterId = document.getElementById('examSemester').value;
@@ -10727,7 +10799,7 @@ window.editExamEntry = function(examId) {
     const timeEnd = document.getElementById('examTimeEnd').value;
     const hall = document.getElementById('examHall').value.trim();
     const chiefInvigilator = document.getElementById('examChiefInvigilator').value.trim();
-    const invigilators = document.getElementById('examInvigilators').value.trim();
+    const invigilators = getInvigilatorsList();
     
     if (!semesterId || !subjectId || !date) {
       alert('Sila isi semester, subjek, dan tarikh.');
@@ -10755,7 +10827,7 @@ window.editExamEntry = function(examId) {
     alert('Jadual peperiksaan berjaya dikemaskini.');
   });
   
-  // Filter subjects by semester
+  // Filter subjects by semester and render invigilator list
   setTimeout(function() {
     const semesterSelect = document.getElementById('examSemester');
     const subjectSelect = document.getElementById('examSubject');
@@ -10780,6 +10852,19 @@ window.editExamEntry = function(examId) {
         const defaultOpt = subjectSelect.querySelector('option[value=""]');
         if (defaultOpt) {
           defaultOpt.textContent = selectedSemester ? '-- Pilih Subjek --' : '-- Pilih Semester Dahulu --';
+        }
+      });
+    }
+    // Render existing invigilators list
+    renderInvigilatorList();
+    
+    // Add enter key support for invigilator input
+    const invInput = document.getElementById('newInvigilator');
+    if (invInput) {
+      invInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addInvigilator();
         }
       });
     }
