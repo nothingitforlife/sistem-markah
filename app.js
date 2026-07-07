@@ -973,6 +973,7 @@ function optimizeData(data) {
       id: m.id,
       title: m.title,
       content: m.content,
+      publishTo: m.publishTo || 'all',
       createdAt: m.createdAt || ''
     })),
     fyp: {
@@ -3946,17 +3947,45 @@ function renderMemos() {
     toolbar.style.display = '';
   }
 
-  if (data.memos.length === 0) {
+  // Filter memo berdasarkan role dan semester
+  let visibleMemos = data.memos;
+  if (currentRole === 'teacher') {
+    visibleMemos = data.memos.filter(m => {
+      const target = m.publishTo || 'all';
+      return target === 'all' || target === 'teachers';
+    });
+  } else if (currentRole === 'student') {
+    visibleMemos = data.memos.filter(m => {
+      const target = m.publishTo || 'all';
+      if (target === 'teachers') return false;
+      if (target === 'all') return true;
+      // Check if student's semester matches
+      const student = data.students.find(s => s.kod === currentUser?.kod || s.name === currentUser?.name);
+      if (!student) return target === 'all';
+      return target === student.class;
+    });
+  }
+
+  if (visibleMemos.length === 0) {
     list.innerHTML = '<p class="empty-state">Tiada memo buat masa ini</p>';
     return;
   }
 
-  const sorted = [...data.memos].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  list.innerHTML = sorted.map(m => `
+  const sorted = [...visibleMemos].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  list.innerHTML = sorted.map(m => {
+    const target = m.publishTo || 'all';
+    let targetLabel = 'Semua';
+    if (target === 'teachers') targetLabel = 'Pengajar Sahaja';
+    else if (target !== 'all') targetLabel = target;
+    
+    return `
     <div class="memo-card">
       <div class="memo-card-header">
         <div class="memo-card-title">${esc(m.title)}</div>
-        <div class="memo-card-date">${new Date(m.createdAt).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="badge" style="background:${target === 'teachers' ? '#f59e0b' : target === 'all' ? '#3b82f6' : '#8b5cf6'};color:white;font-size:0.75rem;">${esc(targetLabel)}</span>
+          <div class="memo-card-date">${new Date(m.createdAt).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+        </div>
       </div>
       <div class="memo-card-body">${esc(m.content)}</div>
       ${currentRole === 'admin' ? `
@@ -3964,11 +3993,22 @@ function renderMemos() {
         <button class="btn btn-sm btn-warning" onclick="editMemo('${m.id}')">Edit</button>
         <button class="btn btn-sm btn-danger" onclick="deleteMemo('${m.id}')">Padam</button>
       </div>` : ''}
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 document.getElementById('addMemoBtn').onclick = function () {
+  const semesters = data.semesters || [];
+  
+  let publishHtml = '<div class="form-group"><label>Publish Kepada</label>';
+  publishHtml += '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">';
+  publishHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="memoPublishTo" value="all" checked> Semua (Pengajar & Pelajar)</label>';
+  publishHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="memoPublishTo" value="teachers"> Pengajar Sahaja</label>';
+  semesters.forEach(s => {
+    publishHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="memoPublishTo" value="' + s.name + '"> Pelajar ' + s.name + '</label>';
+  });
+  publishHtml += '</div></div>';
+  
   openModal('Tambah Memo', `
     <div class="form-group">
       <label>Tajuk</label>
@@ -3978,14 +4018,17 @@ document.getElementById('addMemoBtn').onclick = function () {
       <label>Kandungan</label>
       <textarea id="fMemoContent" rows="5" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.9rem;font-family:inherit;resize:vertical;" placeholder="Tulis kandungan memo" required></textarea>
     </div>
+    ${publishHtml}
   `, function () {
     const title = document.getElementById('fMemoTitle').value.trim();
     const content = document.getElementById('fMemoContent').value.trim();
+    const publishTo = document.querySelector('input[name="memoPublishTo"]:checked')?.value || 'all';
     if (!title || !content) return;
     data.memos.push({
       id: generateId('MEMO'),
       title,
       content,
+      publishTo,
       createdAt: new Date().toISOString()
     });
     saveData();
@@ -3997,6 +4040,19 @@ document.getElementById('addMemoBtn').onclick = function () {
 window.editMemo = function (id) {
   const m = data.memos.find(x => x.id === id);
   if (!m) return;
+  
+  const semesters = data.semesters || [];
+  const currentTarget = m.publishTo || 'all';
+  
+  let publishHtml = '<div class="form-group"><label>Publish Kepada</label>';
+  publishHtml += '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">';
+  publishHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="memoPublishTo" value="all"' + (currentTarget === 'all' ? ' checked' : '') + '> Semua (Pengajar & Pelajar)</label>';
+  publishHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="memoPublishTo" value="teachers"' + (currentTarget === 'teachers' ? ' checked' : '') + '> Pengajar Sahaja</label>';
+  semesters.forEach(s => {
+    publishHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="radio" name="memoPublishTo" value="' + s.name + '"' + (currentTarget === s.name ? ' checked' : '') + '> Pelajar ' + s.name + '</label>';
+  });
+  publishHtml += '</div></div>';
+  
   openModal('Edit Memo', `
     <div class="form-group">
       <label>Tajuk</label>
@@ -4006,12 +4062,15 @@ window.editMemo = function (id) {
       <label>Kandungan</label>
       <textarea id="fMemoContent" rows="5" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.9rem;font-family:inherit;resize:vertical;" required>${esc(m.content)}</textarea>
     </div>
+    ${publishHtml}
   `, function () {
     const title = document.getElementById('fMemoTitle').value.trim();
     const content = document.getElementById('fMemoContent').value.trim();
+    const publishTo = document.querySelector('input[name="memoPublishTo"]:checked')?.value || 'all';
     if (!title || !content) return;
     m.title = title;
     m.content = content;
+    m.publishTo = publishTo;
     saveData();
     renderMemos();
     closeModal();
