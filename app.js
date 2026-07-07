@@ -1202,12 +1202,40 @@ async function saveData() {
     }
     
     await db.collection('app_data').doc('sistem-markah-1').set(payload);
-    console.log('Data saved to Firebase. Carrymark templates:', (data.carrymark?.templates || []).length, '| FYP assessments:', (data.fyp?.assessments || []).length);
+    console.log('✅ Data saved to Firebase. Carrymark:', (data.carrymark?.templates || []).length, 'templates | FYP:', (data.fyp?.assessments || []).length, 'assessments');
     updateSyncStatus('synced');
+    
+    // Show brief success toast
+    showSaveToast('✅ Data berjaya disimpan ke Firebase');
   } catch (e) {
-    console.error('Firebase save error:', e);
+    console.error('❌ Firebase save error:', e);
     updateSyncStatus('error');
+    
+    // Show error toast
+    showSaveToast('❌ Gagal simpan: ' + (e.message || 'Unknown error'), true);
+    
+    // Fallback: save to localStorage
+    try {
+      localStorage.setItem('cm_fyp_backup', JSON.stringify({ fyp: data.fyp, carrymark: data.carrymark }));
+      console.log('Data backed up to localStorage as fallback');
+    } catch(le) { console.warn('localStorage backup also failed:', le); }
   }
+}
+
+// Show brief save status toast
+function showSaveToast(msg, isError) {
+  const existing = document.getElementById('saveToast');
+  if (existing) existing.remove();
+  
+  const toast = document.createElement('div');
+  toast.id = 'saveToast';
+  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;padding:10px 20px;border-radius:8px;font-size:0.9rem;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.15);transition:opacity 0.3s;';
+  toast.style.background = isError ? '#dc2626' : '#059669';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+  setTimeout(() => { toast.remove(); }, 3000);
 }
 
 async function loadFromSupabase() {
