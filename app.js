@@ -8972,6 +8972,12 @@ function renderFYPSupervisor(area) {
     
     html += renderFYPTable(sem4Assessments, sem4 ? sem4.name : 'Semester 4', 'FYP 1');
     html += renderFYPTable(sem5Assessments, sem5 ? sem5.name : 'Semester 5', 'FYP 2');
+    
+    // Export Word button
+    html += '<div style="margin-top:1.5rem;display:flex;gap:10px;">';
+    html += '<button class="btn btn-primary" onclick="exportFYPToWord(\'' + teacherName + '\')">📄 Export ke Word</button>';
+    html += '<button class="btn btn-outline" onclick="exportFYPToWord(\'' + teacherName + '\', true)" style="color:#059669;border-color:#059669;">📊 Export Semua Pelajar</button>';
+    html += '</div>';
   }
   
   html += '</div>';
@@ -10672,3 +10678,153 @@ window.renderStudents = function() {
   originalRenderStudents();
   setTimeout(addReportCardButtons, 100);
 };
+
+// ============================================
+// EXPORT FYP MARKS TO WORD
+// ============================================
+function exportFYPToWord(supervisorName, exportAll) {
+  const assessments = exportAll 
+    ? (data.fyp.assessments || [])
+    : (data.fyp.assessments || []).filter(a => a.supervisor === supervisorName);
+  
+  if (assessments.length === 0) {
+    showToast('Tiada data FYP untuk eksport', 'warning');
+    return;
+  }
+  
+  const sem4 = data.semesters.find(s => s.name.includes('Semester 4'));
+  const sem5 = data.semesters.find(s => s.name.includes('Semester 5'));
+  
+  const sem4Assessments = assessments.filter(a => a.semesterId === sem4?.id);
+  const sem5Assessments = assessments.filter(a => a.semesterId === sem5?.id);
+  
+  function buildTableRows(assessments) {
+    return assessments.map((a, i) => {
+      const student = data.students.find(s => s.id === a.studentId);
+      const criteria = FYP_CRITERIA[a.semesterId];
+      const gradeInfo = a.totalMarks > 0 ? calculateFYPGrade(a.totalMarks, 100) : null;
+      
+      let scoreRows = '';
+      if (criteria && a.scores) {
+        criteria.sections.forEach(section => {
+          section.items.forEach(item => {
+            const score = a.scores[item.id] || '-';
+            scoreRows += `<td style="text-align:center;padding:6px;border:1px solid #dee2e6;">${score}</td>`;
+          });
+        });
+      }
+      
+      return `<tr>
+        <td style="padding:6px;border:1px solid #dee2e6;text-align:center;">${i + 1}</td>
+        <td style="padding:6px;border:1px solid #dee2e6;">${student ? student.name : 'Unknown'}</td>
+        <td style="padding:6px;border:1px solid #dee2e6;">${student ? (student.kod || '-') : '-'}</td>
+        <td style="padding:6px;border:1px solid #dee2e6;">${a.groupName || '-'}</td>
+        <td style="padding:6px;border:1px solid #dee2e6;">${a.projectTitle || '-'}</td>
+        ${scoreRows}
+        <td style="padding:6px;border:1px solid #dee2e6;text-align:center;font-weight:bold;">${a.totalMarks || '-'}</td>
+        <td style="padding:6px;border:1px solid #dee2e6;text-align:center;">${a.percentage || '-'}%</td>
+        <td style="padding:6px;border:1px solid #dee2e6;text-align:center;">${gradeInfo ? gradeInfo.grade : '-'}</td>
+        <td style="padding:6px;border:1px solid #dee2e6;">${a.supervisorComments || '-'}</td>
+      </tr>`;
+    }).join('');
+  }
+  
+  function buildHeaderRow(criteria) {
+    if (!criteria) return '<th>Bil</th><th>Nama</th><th>Kod</th><th>Kumpulan</th><th>Tajuk</th><th>Jumlah</th><th>%</th><th>Gred</th><th>Komen</th>';
+    
+    let headers = '<th style="padding:8px;border:1px solid #dee2e6;background:#0f3460;color:white;">Bil</th>';
+    headers += '<th style="padding:8px;border:1px solid #dee2e6;background:#0f3460;color:white;">Nama</th>';
+    headers += '<th style="padding:8px;border:1px solid #dee2e6;background:#0f3460;color:white;">Kod</th>';
+    headers += '<th style="padding:8px;border:1px solid #dee2e6;background:#0f3460;color:white;">Kumpulan</th>';
+    headers += '<th style="padding:8px;border:1px solid #dee2e6;background:#0f3460;color:white;">Tajuk</th>';
+    
+    criteria.sections.forEach(section => {
+      section.items.forEach(item => {
+        headers += `<th style="padding:8px;border:1px solid #dee2e6;background:#0f3460;color:white;text-align:center;font-size:0.8rem;">${item.name}<br>(${item.max})</th>`;
+      });
+    });
+    
+    headers += '<th style="padding:8px;border:1px solid #dee2e6;background:#0f3460;color:white;text-align:center;">Jumlah</th>';
+    headers += '<th style="padding:8px;border:1px solid #dee2e6;background:#0f3460;color:white;text-align:center;">%</th>';
+    headers += '<th style="padding:8px;border:1px solid #dee2e6;background:#0f3460;color:white;text-align:center;">Gred</th>';
+    headers += '<th style="padding:8px;border:1px solid #dee2e6;background:#0f3460;color:white;">Komen</th>';
+    
+    return headers;
+  }
+  
+  const criteria4 = FYP_CRITERIA[sem4?.id];
+  const criteria5 = FYP_CRITERIA[sem5?.id];
+  
+  let html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>FYP Marks - ${esc(supervisorName)}</title>
+  <style>
+    body { font-family: 'Calibri', Arial, sans-serif; padding: 20px; color: #333; }
+    h1 { text-align: center; color: #0f3460; font-size: 18px; margin-bottom: 5px; }
+    h2 { text-align: center; color: #6b7280; font-size: 14px; font-weight: normal; margin-bottom: 20px; }
+    .info { margin-bottom: 20px; background: #f9fafb; padding: 15px; border-radius: 8px; }
+    .info p { margin: 4px 0; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 12px; }
+    th { background: #0f3460; color: white; padding: 8px; border: 1px solid #dee2e6; }
+    td { padding: 6px; border: 1px solid #dee2e6; }
+    .section-title { color: #0f3460; font-size: 16px; margin: 20px 0 10px 0; border-bottom: 2px solid #0f3460; padding-bottom: 5px; }
+    @media print { body { padding: 10px; } }
+  </style>
+</head>
+<body>
+  <h1>TVET Digital Management System (TDMS)</h1>
+  <h2>Senarai Markah Final Year Project (FYP)</h2>
+  
+  <div class="info">
+    <p><strong>Nama Penyelia:</strong> ${esc(supervisorName)}</p>
+    <p><strong>Tarikh:</strong> ${new Date().toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+    <p><strong>Jumlah Pelajar:</strong> ${assessments.length} orang</p>
+  </div>`;
+  
+  if (sem4Assessments.length > 0) {
+    html += `
+  <h3 class="section-title">${sem4 ? sem4.name : 'Semester 4'} (FYP 1)</h3>
+  <table>
+    <thead><tr>${buildHeaderRow(criteria4)}</tr></thead>
+    <tbody>${buildTableRows(sem4Assessments)}</tbody>
+  </table>`;
+  }
+  
+  if (sem5Assessments.length > 0) {
+    html += `
+  <h3 class="section-title">${sem5 ? sem5.name : 'Semester 5'} (FYP 2)</h3>
+  <table>
+    <thead><tr>${buildHeaderRow(criteria5)}</tr></thead>
+    <tbody>${buildTableRows(sem5Assessments)}</tbody>
+  </table>`;
+  }
+  
+  html += `
+  
+  <div style="margin-top:40px;display:flex;justify-content:space-between;">
+    <div style="text-align:center;width:45%;">
+      <div style="border-bottom:1px solid #333;height:60px;margin-bottom:5px;"></div>
+      <p><strong>(${esc(supervisorName)})</strong></p>
+      <p>Penyelia</p>
+      <p>Tarikh: ___/___/______</p>
+    </div>
+    <div style="text-align:center;width:45%;">
+      <div style="border-bottom:1px solid #333;height:60px;margin-bottom:5px;"></div>
+      <p><strong>(Puan Maisarah Binti Mansor Sanusi)</strong></p>
+      <p>Ketua Bahagian</p>
+      <p>Tarikh: ___/___/______</p>
+    </div>
+  </div>
+  
+  <script>window.print();</script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  
+  showToast('Fail Word dijana!', 'success');
+}
