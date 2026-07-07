@@ -10410,4 +10410,264 @@ document.addEventListener('DOMContentLoaded', function() {
   initTableRowHighlight();
   initKeyboardShortcuts();
   initAutoSaveDraft();
+  initDarkMode();
 });
+
+// ============================================
+// 1. DARK MODE TOGGLE
+// ============================================
+function initDarkMode() {
+  const toggle = document.getElementById('darkModeToggle');
+  if (!toggle) return;
+  
+  // Load saved preference
+  const isDark = localStorage.getItem('darkMode') === 'true';
+  if (isDark) {
+    document.body.classList.add('dark-mode');
+    toggle.textContent = '☀️';
+    toggle.title = 'Tukar ke Tema Cerah';
+  }
+  
+  toggle.addEventListener('click', function() {
+    document.body.classList.toggle('dark-mode');
+    const isDarkNow = document.body.classList.contains('dark-mode');
+    localStorage.setItem('darkMode', isDarkNow);
+    this.textContent = isDarkNow ? '☀️' : '🌙';
+    this.title = isDarkNow ? 'Tukar ke Tema Cerah' : 'Tukar ke Tema Gelap';
+    showToast(isDarkNow ? 'Tema gelap diaktifkan' : 'Tema cerah diaktifkan', 'info');
+  });
+}
+
+// ============================================
+// 7. EXAM SCHEDULE
+// ============================================
+function renderExamSchedule() {
+  const container = document.getElementById('examScheduleContent');
+  if (!container) return;
+  
+  const semesters = data.semesters || [];
+  const subjects = data.subjects || [];
+  
+  let html = '<div style="margin-bottom:1rem;">';
+  html += '<h3 style="color:#0f3460;margin-bottom:1rem;">Jadual Peperiksaan</h3>';
+  
+  // Generate sample exam schedule based on subjects
+  semesters.forEach(sem => {
+    const semSubjects = subjects.filter(s => s.semester === sem.id);
+    if (semSubjects.length === 0) return;
+    
+    html += '<div style="margin-bottom:1.5rem;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;">';
+    html += '<h4 style="color:#0f3460;margin-bottom:0.5rem;">' + esc(sem.name) + '</h4>';
+    html += '<table><thead><tr>';
+    html += '<th>Bil</th><th>Mata Pelajaran</th><th>Kod</th><th>Tarikh</th><th>Masa</th><th>Dewan</th>';
+    html += '</tr></thead><tbody>';
+    
+    semSubjects.forEach((subj, i) => {
+      const examDate = getExamDate(sem.name, i);
+      html += '<tr>';
+      html += '<td>' + (i + 1) + '</td>';
+      html += '<td>' + esc(subj.name) + '</td>';
+      html += '<td>' + esc(subj.code || '-') + '</td>';
+      html += '<td>' + examDate.date + '</td>';
+      html += '<td>' + examDate.time + '</td>';
+      html += '<td>' + examDate.hall + '</td>';
+      html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
+    html += '</div>';
+  });
+  
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function getExamDate(semesterName, index) {
+  // Generate sample exam dates
+  const dates = [
+    { date: '15 Jul 2026', time: '09:00 - 11:00', hall: 'Dewan A' },
+    { date: '16 Jul 2026', time: '09:00 - 11:00', hall: 'Dewan B' },
+    { date: '17 Jul 2026', time: '14:00 - 16:00', hall: 'Dewan A' },
+    { date: '18 Jul 2026', time: '09:00 - 11:00', hall: 'Dewan C' },
+    { date: '19 Jul 2026', time: '14:00 - 16:00', hall: 'Dewan B' },
+    { date: '20 Jul 2026', time: '09:00 - 11:00', hall: 'Dewan A' },
+    { date: '21 Jul 2026', time: '14:00 - 16:00', hall: 'Dewan C' },
+    { date: '22 Jul 2026', time: '09:00 - 11:00', hall: 'Dewan B' }
+  ];
+  return dates[index % dates.length];
+}
+
+// ============================================
+// 10. REPORT CARD GENERATOR
+// ============================================
+function generateReportCard(studentId) {
+  const student = data.students.find(s => s.id === studentId);
+  if (!student) {
+    showToast('Pelajar tidak dijumpai', 'error');
+    return;
+  }
+  
+  const marks = data.marks.filter(m => m.studentId === studentId);
+  const subjects = data.subjects || [];
+  const semesters = data.semesters || [];
+  
+  // Get student's subjects
+  const studentSubjects = student.subjects || [];
+  const studentSubjectData = subjects.filter(s => studentSubjects.includes(s.id));
+  
+  // Calculate grades
+  let totalCredits = 0;
+  let totalPoints = 0;
+  let subjectRows = '';
+  
+  studentSubjectData.forEach((subj, i) => {
+    const mark = marks.find(m => m.semesterId === student.class && m.scores && m.scores[subj.id] !== undefined);
+    const score = mark ? mark.scores[subj.id] : null;
+    const grade = score !== null ? getGrade(score) : null;
+    const credit = subj.credit || 0;
+    
+    if (grade) {
+      totalCredits += credit;
+      totalPoints += grade.points * credit;
+    }
+    
+    subjectRows += '<tr>';
+    subjectRows += '<td>' + (i + 1) + '</td>';
+    subjectRows += '<td>' + esc(subj.code || '-') + '</td>';
+    subjectRows += '<td>' + esc(subj.name) + '</td>';
+    subjectRows += '<td>' + credit + '</td>';
+    subjectRows += '<td>' + (score !== null ? score : '-') + '</td>';
+    subjectRows += '<td>' + (grade ? grade.letter : '-') + '</td>';
+    subjectRows += '<td>' + (grade ? grade.points.toFixed(2) : '-') + '</td>';
+    subjectRows += '</tr>';
+  });
+  
+  const gpa = totalCredits > 0 ? (totalPoints / totalCredits).toFixed(2) : '-';
+  
+  // Generate HTML for printing
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Report Card - ${esc(student.name)}</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 30px; color: #333; }
+    .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #0f3460; padding-bottom: 20px; }
+    .header h1 { color: #0f3460; margin: 0; font-size: 24px; }
+    .header h2 { color: #6b7280; margin: 5px 0 0 0; font-size: 16px; font-weight: normal; }
+    .student-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 30px; background: #f9fafb; padding: 20px; border-radius: 8px; }
+    .student-info p { margin: 4px 0; font-size: 14px; }
+    .student-info strong { color: #0f3460; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th { background: #0f3460; color: white; padding: 10px; text-align: left; font-size: 13px; }
+    td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+    tr:nth-child(even) { background: #f9fafb; }
+    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 30px 0; }
+    .summary-card { background: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 15px; text-align: center; }
+    .summary-card .value { font-size: 28px; font-weight: bold; color: #0f3460; }
+    .summary-card .label { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .signatures { display: flex; justify-content: space-between; margin-top: 60px; }
+    .sign-box { width: 45%; text-align: center; }
+    .sign-box .line { border-bottom: 1px solid #333; height: 60px; margin-bottom: 5px; }
+    @media print { body { padding: 15px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>TVET Digital Management System (TDMS)</h1>
+    <h2>Slip Keputusan Peperiksaan</h2>
+  </div>
+  
+  <div class="student-info">
+    <p><strong>Nama Pelajar:</strong> ${esc(student.name)}</p>
+    <p><strong>No. Pelajar:</strong> ${esc(student.kod || '-')}</p>
+    <p><strong>Kelas:</strong> ${esc(student.class)}</p>
+    <p><strong>Status:</strong> ${esc(student.track || 'Regular')}</p>
+  </div>
+  
+  <table>
+    <thead>
+      <tr>
+        <th>Bil</th>
+        <th>Kod</th>
+        <th>Mata Pelajaran</th>
+        <th>Kredit</th>
+        <th>Markah</th>
+        <th>Gred</th>
+        <th>Point</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${subjectRows}
+    </tbody>
+  </table>
+  
+  <div class="summary">
+    <div class="summary-card">
+      <div class="value">${totalCredits}</div>
+      <div class="label">Jumlah Kredit</div>
+    </div>
+    <div class="summary-card">
+      <div class="value">${gpa}</div>
+      <div class="label">GPA</div>
+    </div>
+    <div class="summary-card">
+      <div class="value">${studentSubjectData.length}</div>
+      <div class="label">Jumlah Subjek</div>
+    </div>
+  </div>
+  
+  <div class="signatures">
+    <div class="sign-box">
+      <div class="line"></div>
+      <p><strong>(____________________)</strong></p>
+      <p>Penyelia</p>
+      <p>Tarikh: ___/___/______</p>
+    </div>
+    <div class="sign-box">
+      <div class="line"></div>
+      <p><strong>(Puan Maisarah Binti Mansor Sanusi)</strong></p>
+      <p>Ketua Bahagian</p>
+      <p>Tarikh: ___/___/______</p>
+    </div>
+  </div>
+  
+  <script>window.print();</script>
+</body>
+</html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  
+  showToast('Report card dijana!', 'success');
+}
+
+// Add report card button to student list
+function addReportCardButtons() {
+  document.querySelectorAll('#studentBody tr').forEach(row => {
+    const actionCell = row.cells[row.cells.length - 1];
+    if (!actionCell) return;
+    
+    // Check if button already exists
+    if (actionCell.querySelector('.report-card-btn')) return;
+    
+    const studentId = row.querySelector('input[type="checkbox"]')?.value;
+    if (!studentId) return;
+    
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-sm btn-outline report-card-btn';
+    btn.textContent = '📄';
+    btn.title = 'Jana Report Card';
+    btn.style.cssText = 'margin-left:4px;padding:2px 6px;font-size:0.75rem;';
+    btn.onclick = function() { generateReportCard(studentId); };
+    actionCell.appendChild(btn);
+  });
+}
+
+// Call after rendering students
+const originalRenderStudents = window.renderStudents || function(){};
+window.renderStudents = function() {
+  originalRenderStudents();
+  setTimeout(addReportCardButtons, 100);
+};

@@ -1926,3 +1926,124 @@ mark {
     color: #000 !important;
   }
 }
+
+/* Dark Mode */
+body.dark-mode {
+  background: #1a1a2e;
+  color: #e5e7eb;
+}
+
+body.dark-mode header {
+  background: #16213e;
+}
+
+body.dark-mode .login-card {
+  background: #16213e;
+  color: #e5e7eb;
+}
+
+body.dark-mode .login-card h1,
+body.dark-mode .login-card label {
+  color: #e5e7eb;
+}
+
+body.dark-mode .login-card input,
+body.dark-mode .login-card select {
+  background: #0f3460;
+  color: #e5e7eb;
+  border-color: #3b82f6;
+}
+
+body.dark-mode main {
+  background: #1a1a2e;
+}
+
+body.dark-mode .tab-content {
+  background: #1a1a2e;
+  color: #e5e7eb;
+}
+
+body.dark-mode .tab-btn {
+  color: #9ca3af;
+}
+
+body.dark-mode .tab-btn.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+body.dark-mode table {
+  background: #16213e;
+  color: #e5e7eb;
+}
+
+body.dark-mode table th {
+  background: #0f3460;
+  color: #e5e7eb;
+}
+
+body.dark-mode table td {
+  border-color: #374151;
+}
+
+body.dark-mode .stat-card,
+body.dark-mode .credit-card {
+  background: #16213e;
+  color: #e5e7eb;
+}
+
+body.dark-mode .individual-analysis-card {
+  background: #16213e;
+  color: #e5e7eb;
+}
+
+body.dark-mode .form-group input,
+body.dark-mode .form-group select,
+body.dark-mode .form-group textarea {
+  background: #0f3460;
+  color: #e5e7eb;
+  border-color: #3b82f6;
+}
+
+body.dark-mode .modal-content {
+  background: #16213e;
+  color: #e5e7eb;
+}
+
+body.dark-mode .modal-header {
+  background: #0f3460;
+}
+
+body.dark-mode .btn-secondary {
+  background: #374151;
+  color: #e5e7eb;
+}
+
+body.dark-mode .memo-card {
+  background: #16213e;
+  border-color: #374151;
+}
+
+body.dark-mode .toolbar {
+  background: #16213e;
+}
+
+body.dark-mode .search-input {
+  background: #0f3460;
+  color: #e5e7eb;
+  border-color: #3b82f6;
+}
+
+body.dark-mode .confirm-dialog-content {
+  background: #16213e;
+  color: #e5e7eb;
+}
+
+body.dark-mode .loading-spinner {
+  background: rgba(26, 26, 46, 0.95);
+}
+
+body.dark-mode .spinner {
+  border-color: #374151;
+  border-top-color: #3b82f6;
+}
