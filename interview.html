@@ -115,6 +115,23 @@
   
   <div class="notification" id="notification"></div>
   
+  <!-- Room Selection Modal -->
+  <div id="roomModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1001;justify-content:center;align-items:center;">
+    <div style="background:#1e293b;border-radius:12px;padding:2rem;max-width:400px;width:90%;border:2px solid #3b82f6;">
+      <h3 style="color:#60a5fa;margin-bottom:1rem;">Pilih Bilik Temuduga</h3>
+      <p style="color:#94a3b8;margin-bottom:1.5rem;">Pilih bilik untuk panggilan seterusnya:</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button class="btn btn-primary btn-lg" onclick="callWithRoom('Bilik 1')">🏢 Bilik 1</button>
+        <button class="btn btn-primary btn-lg" onclick="callWithRoom('Bilik 2')">🏢 Bilik 2</button>
+        <button class="btn btn-primary btn-lg" onclick="callWithRoom('Bilik 3')">🏢 Bilik 3</button>
+        <button class="btn btn-primary btn-lg" onclick="callWithRoom('Bilik 4')">🏢 Bilik 4</button>
+        <button class="btn btn-primary btn-lg" onclick="callWithRoom('Bilik 5')">🏢 Bilik 5</button>
+        <button class="btn btn-warning btn-lg" onclick="callWithRoom('Dewan')">🏛️ Dewan</button>
+      </div>
+      <button class="btn btn-danger btn-block" style="margin-top:1rem;" onclick="closeRoomModal()">Batal</button>
+    </div>
+  </div>
+  
   <div class="container">
     <!-- Current Queue Display -->
     <div class="card current-queue">
@@ -377,11 +394,29 @@
       showNotification('Berjaya ditambah ke queue: ' + entry.number, 'success');
     }
     
-    // Call Next
+    // Call Next - Show Room Selection Modal
     function callNext() {
       const next = queue.find(q => q.status === 'waiting');
       if (!next) {
         showNotification('Tiada lagi dalam queue', 'warning');
+        return;
+      }
+      
+      // Show room selection modal
+      document.getElementById('roomModal').style.display = 'flex';
+    }
+    
+    // Close Room Modal
+    function closeRoomModal() {
+      document.getElementById('roomModal').style.display = 'none';
+    }
+    
+    // Call with Selected Room
+    function callWithRoom(room) {
+      const next = queue.find(q => q.status === 'waiting');
+      if (!next) {
+        showNotification('Tiada lagi dalam queue', 'warning');
+        closeRoomModal();
         return;
       }
       
@@ -396,11 +431,13 @@
       }
       
       next.status = 'called';
+      next.room = room;
       currentCalled = next;
       saveData();
       updateDisplay();
+      closeRoomModal();
       
-      showNotification('Memanggil: ' + next.number + ' - ' + next.name, 'success');
+      showNotification('Memanggil: ' + next.number + ' - ' + next.name + ' ke ' + room, 'success');
       playSound();
     }
     
