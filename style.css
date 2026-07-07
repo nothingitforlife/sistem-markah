@@ -777,7 +777,7 @@ tr:hover td {
 }
 
 .login-logo {
-  height: 60px;
+  height: 100px;
   margin-bottom: 0.75rem;
 }
 
@@ -1628,7 +1628,7 @@ tr:hover .tt-cell-empty {
   }
   
   .login-logo {
-    height: 50px;
+    height: 80px;
     margin-bottom: 0.5rem;
   }
   
