@@ -9,13 +9,11 @@ let currentRole = null;
 let currentUser = null;
 
 function setSession(role, user) {
-  console.log('Setting session:', role, user);
   currentRole = role;
   currentUser = user;
   localStorage.setItem(LOGIN_KEY, '1');
   localStorage.setItem(ROLE_KEY, role);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
-  console.log('Session saved to localStorage');
 }
 
 function clearSession() {
@@ -114,9 +112,7 @@ function studentHasAnyOfSubjects(student, subjectIds) {
 
 function checkLogin() {
   try {
-    console.log('Checking login...');
     const loggedIn = localStorage.getItem(LOGIN_KEY);
-    console.log('Login key:', loggedIn);
     
     if (loggedIn === '1') {
       currentRole = localStorage.getItem(ROLE_KEY);
@@ -127,7 +123,6 @@ function checkLogin() {
       }
       
       if (currentRole && currentUser) {
-        console.log('Role:', currentRole, 'User:', currentUser);
         
         const loginScreen = document.getElementById('loginScreen');
         const appMain = document.getElementById('appMain');
@@ -136,14 +131,11 @@ function checkLogin() {
           loginScreen.classList.add('hidden');
           appMain.classList.remove('hidden');
           applyRoleRestrictions();
-          console.log('Login restored successfully');
         }
       } else {
-        console.log('Invalid login data, clearing...');
         clearSession();
       }
     } else {
-      console.log('No login found, showing login screen');
     }
   } catch (e) {
     console.error('Login check error:', e);
@@ -851,7 +843,6 @@ async function clearAllData() {
     // Stop auto-sync first
     stopAutoSync();
     
-    console.log('Starting data clear...');
     
     // Delete from Firebase and wait for confirmation
     const docRef = db.collection('app_data').doc('sistem-markah-1');
@@ -873,7 +864,6 @@ async function clearAllData() {
       });
     }
     
-    console.log('Firebase data cleared');
     
     // Clear ALL IndexedDB databases (Firebase cache)
     if (window.indexedDB) {
@@ -882,7 +872,6 @@ async function clearAllData() {
         if (dbInfo.name) {
           try {
             indexedDB.deleteDatabase(dbInfo.name);
-            console.log('Deleted database:', dbInfo.name);
           } catch (e) {
             console.warn('Could not delete:', dbInfo.name, e);
           }
@@ -903,7 +892,6 @@ async function clearAllData() {
       memos: [],
     };
     
-    console.log('All data cleared successfully');
     alert('Semua data telah dipadam. Halaman akan dimuat semula.');
     
     // Wait a moment then reload
@@ -997,7 +985,6 @@ async function loadFromFirebase() {
     if (doc.exists) {
       const remote = doc.data();
       if (remote.deleted === true) {
-        console.log('Data was deleted, using default data');
         return;
       }
       
@@ -1158,9 +1145,7 @@ async function loadFromFirebase() {
         }
       }
       
-      console.log('Data loaded from Firebase');
     } else {
-      console.log('No data in Firebase, keeping default data');
     }
   } catch (e) {
     console.warn('Firebase load error:', e);
@@ -1174,18 +1159,15 @@ async function loadFromFirebase() {
       if ((!data.carrymark || !data.carrymark.templates || data.carrymark.templates.length === 0) &&
           fullBackup.data.carrymark && fullBackup.data.carrymark.templates && fullBackup.data.carrymark.templates.length > 0) {
         data.carrymark = fullBackup.data.carrymark;
-        console.log('✅ Carrymark restored from localStorage backup (' + fullBackup.backedUpAt + ')');
       }
       // Restore FYP if empty
       if ((!data.fyp || !data.fyp.assessments || data.fyp.assessments.length === 0) &&
           fullBackup.data.fyp && fullBackup.data.fyp.assessments && fullBackup.data.fyp.assessments.length > 0) {
         data.fyp = fullBackup.data.fyp;
-        console.log('✅ FYP restored from localStorage backup (' + fullBackup.backedUpAt + ')');
       }
       // Restore memos if empty
       if ((!data.memos || data.memos.length === 0) && fullBackup.data.memos && fullBackup.data.memos.length > 0) {
         data.memos = fullBackup.data.memos;
-        console.log('✅ Memos restored from localStorage backup');
       }
     }
   } catch(e) { console.warn('localStorage full backup restore failed:', e); }
@@ -1198,11 +1180,9 @@ async function loadFromFirebase() {
       if (backup) {
         if (backup.carrymark && backup.carrymark.templates && backup.carrymark.templates.length > 0) {
           data.carrymark = backup.carrymark;
-          console.log('Carrymark data restored from cm_fyp_backup');
         }
         if (backup.fyp && backup.fyp.assessments && backup.fyp.assessments.length > 0) {
           data.fyp = backup.fyp;
-          console.log('FYP data restored from cm_fyp_backup');
         }
       }
     } catch(e) { console.warn('localStorage cm_fyp_backup restore failed:', e); }
@@ -1210,7 +1190,6 @@ async function loadFromFirebase() {
 }
 
 async function saveData() {
-  console.log('🔄 saveData() dipanggil...');
   
   if (!db) {
     console.error('❌ db (Firebase) tidak wujud!');
@@ -1228,15 +1207,12 @@ async function saveData() {
     
     // Check payload size
     const payloadSize = new Blob([JSON.stringify(payload)]).size;
-    console.log('📦 Payload size:', (payloadSize / 1024).toFixed(1) + ' KB');
     
     if (payloadSize > 900000) {
       console.warn('⚠️ Data hampir had 1MB!');
     }
     
-    console.log('📤 Menghantar ke Firebase...');
     await db.collection('app_data').doc('sistem-markah-1').set(payload);
-    console.log('✅ Berjaya simpan ke Firebase!');
     updateSyncStatus('synced');
     
     // Show brief success toast
@@ -1251,7 +1227,6 @@ async function saveData() {
     // Fallback: save to localStorage
     try {
       localStorage.setItem('cm_fyp_backup', JSON.stringify({ fyp: data.fyp, carrymark: data.carrymark }));
-      console.log('📦 Data backed up to localStorage');
     } catch(le) { console.warn('localStorage backup also failed:', le); }
   }
 }
@@ -4607,7 +4582,6 @@ async function autoSyncToFirebase() {
         backedUpAt: new Date().toISOString(),
         firebaseError: e.message
       }));
-      console.log('Data backed up to localStorage due to Firebase error');
     } catch(le) {
       console.warn('localStorage fallback also failed:', le);
     }
@@ -4647,14 +4621,12 @@ function startAutoSync() {
   autoSyncInterval = setInterval(autoSyncToFirebase, 3000);
   // Also sync immediately
   autoSyncToFirebase();
-  console.log('Auto-sync started (every 3 seconds)');
 }
 
 function stopAutoSync() {
   if (autoSyncInterval) {
     clearInterval(autoSyncInterval);
     autoSyncInterval = null;
-    console.log('Auto-sync stopped');
   }
 }
 
@@ -9916,7 +9888,6 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
     await loadFromFirebase();
     
     // Force save default data to Firebase to ensure all data is synced
-    console.log('Force saving default data to Firebase...');
     await saveData();
   } catch (e) {
     console.warn('Error loading data:', e);
