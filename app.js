@@ -6334,6 +6334,16 @@ function renderCarrymarkAdmin(area) {
         html += '<button class="btn btn-sm btn-success" onclick="carrymarkPublish(\'' + t.id + '\')">Publish</button> ';
       }
       
+      // Butang Download Borang - untuk pending_approval
+      if (t.status === 'pending_approval') {
+        html += '<button class="btn btn-sm btn-outline" onclick="downloadBorangPermohonan(\'' + t.id + '\')" style="color:#0f3460;border-color:#0f3460;">📄 Borang Permohonan</button> ';
+      }
+      
+      // Butang Download Borang Kelulusan - untuk approved dan selepasnya
+      if (t.status === 'approved' || t.status === 'marks_entry' || t.status === 'submitted' || t.status === 'published') {
+        html += '<button class="btn btn-sm btn-outline" onclick="downloadBorangKelulusan(\'' + t.id + '\')" style="color:#059669;border-color:#059669;">📄 Borang Kelulusan</button> ';
+      }
+      
       // Butang Admin untuk assessment yang telah diluluskan
       if (t.status === 'approved' || t.status === 'marks_entry' || t.status === 'submitted' || t.status === 'published') {
         html += '<button class="btn btn-sm btn-danger" onclick="carrymarkDeleteApproved(\'' + t.id + '\')">Padam</button> ';
@@ -7919,6 +7929,166 @@ window.carrymarkDuplicateAssessment = function(templateId) {
   saveData();
   renderCarrymark();
   alert('Assessment berjaya diduplikasi. Sila semak dan hantar untuk kelulusan.');
+};
+
+// Download Borang Permohonan Assessment
+window.downloadBorangPermohonan = function(templateId) {
+  const t = data.carrymark.templates.find(x => x.id === templateId);
+  if (!t) { alert('Assessment tidak dijumpai.'); return; }
+
+  const componentRows = (t.components || []).map((c, i) =>
+    '<tr><td style="padding:8px;border:1px solid #333;text-align:center;">' + (i + 1) + '</td>' +
+    '<td style="padding:8px;border:1px solid #333;">' + c.name + '</td>' +
+    '<td style="padding:8px;border:1px solid #333;text-align:center;">' + c.category + '</td>' +
+    '<td style="padding:8px;border:1px solid #333;text-align:center;">' + c.weight + '%</td>' +
+    '<td style="padding:8px;border:1px solid #333;text-align:center;">' + (c.maxMark || 100) + '</td>' +
+    '<td style="padding:8px;border:1px solid #333;text-align:center;">' + (c.passingMark || 0) + '</td>' +
+    '<td style="padding:8px;border:1px solid #333;text-align:center;">' + (c.date || '-') + '</td></tr>'
+  ).join('');
+
+  const cw = (t.components || []).filter(c => c.category === 'coursework').reduce((s, c) => s + (c.weight || 0), 0);
+  const fn = (t.components || []).filter(c => c.category === 'final').reduce((s, c) => s + (c.weight || 0), 0);
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Borang Permohonan Assessment</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 30px; color: #333; }
+    h1 { text-align: center; font-size: 18px; margin-bottom: 5px; }
+    h2 { text-align: center; font-size: 14px; font-weight: normal; margin-bottom: 30px; }
+    .info { margin-bottom: 20px; }
+    .info p { margin: 4px 0; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th { background: #0f3460; color: white; padding: 10px 8px; border: 1px solid #333; font-size: 13px; }
+    td { font-size: 13px; }
+    .total { font-weight: bold; background: #f0f2f5; }
+    .signatures { display: flex; justify-content: space-between; margin-top: 60px; }
+    .sign-box { width: 45%; text-align: center; }
+    .sign-box .line { border-bottom: 1px solid #333; height: 60px; margin-bottom: 5px; }
+    @media print { body { padding: 15px; } }
+  </style></head><body>
+  <h1>BORANG PERMOHONAN PENILAIAN COURSEMARK</h1>
+  <h2>Program Teknologi Komputer Rangkaian</h2>
+  <div class="info">
+    <p><strong>Nama Pengajar:</strong> ${t.lecturer || '-'}</p>
+    <p><strong>Mata Pelajaran:</strong> ${t.course || '-'} (${t.courseCode || '-'})</p>
+    <p><strong>Semester:</strong> ${t.semester || '-'}</p>
+    <p><strong>Sesi Akademik:</strong> ${t.academicSession || '-'}</p>
+    <p><strong>Kelas:</strong> ${t.class || '-'} &nbsp;&nbsp; <strong>Seksyen:</strong> ${t.section || '-'}</p>
+    <p><strong>Tarikh:</strong> ${new Date().toLocaleDateString('ms-MY')}</p>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Bil</th><th>Nama Komponen</th><th>Kategori</th><th>Berat</th><th>Markah Maksimum</th><th>Markah Lulus</th><th>Tarikh</th>
+    </tr></thead>
+    <tbody>
+      ${componentRows}
+      <tr class="total"><td colspan="3" style="padding:8px;border:1px solid #333;text-align:right;">Jumlah Coursework</td><td style="padding:8px;border:1px solid #333;text-align:center;">${cw}%</td><td colspan="3" style="padding:8px;border:1px solid #333;"></td></tr>
+      <tr class="total"><td colspan="3" style="padding:8px;border:1px solid #333;text-align:right;">Jumlah Final Assessment</td><td style="padding:8px;border:1px solid #333;text-align:center;">${fn}%</td><td colspan="3" style="padding:8px;border:1px solid #333;"></td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:13px;"><strong>PERATURAN:</strong> Coursework = 60% | Final Assessment = 40% | Jumlah = 100%</p>
+  <div class="signatures">
+    <div class="sign-box"><div class="line"></div><p><strong>(${t.lecturer || 'Pengajar'})</strong></p><p>Tandatangan Pengajar</p></div>
+    <div class="sign-box"><div class="line"></div><p><strong>(____________________)</strong></p><p>Tandatangan Ketua Bahagian</p></div>
+  </div>
+  <script>window.print();</script>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+};
+
+// Download Borang Kelulusan Assessment oleh Puan Maisarah
+window.downloadBorangKelulusan = function(templateId) {
+  const t = data.carrymark.templates.find(x => x.id === templateId);
+  if (!t) { alert('Assessment tidak dijumpai.'); return; }
+
+  const componentRows = (t.components || []).map((c, i) =>
+    '<tr><td style="padding:8px;border:1px solid #333;text-align:center;">' + (i + 1) + '</td>' +
+    '<td style="padding:8px;border:1px solid #333;">' + c.name + '</td>' +
+    '<td style="padding:8px;border:1px solid #333;text-align:center;">' + c.category + '</td>' +
+    '<td style="padding:8px;border:1px solid #333;text-align:center;">' + c.weight + '%</td>' +
+    '<td style="padding:8px;border:1px solid #333;text-align:center;">' + (c.maxMark || 100) + '</td></tr>'
+  ).join('');
+
+  const cw = (t.components || []).filter(c => c.category === 'coursework').reduce((s, c) => s + (c.weight || 0), 0);
+  const fn = (t.components || []).filter(c => c.category === 'final').reduce((s, c) => s + (c.weight || 0), 0);
+  const approveDate = t.approvedAt ? new Date(t.approvedAt).toLocaleDateString('ms-MY') : '-';
+  const requestDate = t.requestedAt ? new Date(t.requestedAt).toLocaleDateString('ms-MY') : '-';
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Borang Kelulusan Assessment</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 30px; color: #333; }
+    h1 { text-align: center; font-size: 18px; margin-bottom: 5px; }
+    h2 { text-align: center; font-size: 14px; font-weight: normal; margin-bottom: 10px; }
+    .stamp { text-align: center; margin: 20px 0; }
+    .stamp-box { display: inline-block; border: 3px solid #059669; color: #059669; padding: 10px 30px; font-size: 20px; font-weight: bold; border-radius: 8px; }
+    .info { margin-bottom: 20px; }
+    .info p { margin: 4px 0; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th { background: #0f3460; color: white; padding: 10px 8px; border: 1px solid #333; font-size: 13px; }
+    td { font-size: 13px; }
+    .total { font-weight: bold; background: #f0f2f5; }
+    .approval-box { border: 2px solid #059669; border-radius: 8px; padding: 20px; margin: 20px 0; background: #f0fdf4; }
+    .approval-box h3 { color: #059669; margin-top: 0; }
+    .signatures { display: flex; justify-content: space-between; margin-top: 40px; }
+    .sign-box { width: 45%; text-align: center; }
+    .sign-box .line { border-bottom: 1px solid #333; height: 60px; margin-bottom: 5px; }
+    @media print { body { padding: 15px; } }
+  </style></head><body>
+  <h1>BORANG KELULUSAN PENILAIAN COURSEMARK</h1>
+  <h2>Program Teknologi Komputer Rangkaian</h2>
+  
+  <div class="stamp"><div class="stamp-box">✓ DILULUSKAN</div></div>
+  
+  <div class="info">
+    <p><strong>Nama Pengajar:</strong> ${t.lecturer || '-'}</p>
+    <p><strong>Mata Pelajaran:</strong> ${t.course || '-'} (${t.courseCode || '-'})</p>
+    <p><strong>Semester:</strong> ${t.semester || '-'}</p>
+    <p><strong>Sesi Akademik:</strong> ${t.academicSession || '-'}</p>
+    <p><strong>Kelas:</strong> ${t.class || '-'} &nbsp;&nbsp; <strong>Seksyen:</strong> ${t.section || '-'}</p>
+  </div>
+  
+  <table>
+    <thead><tr>
+      <th>Bil</th><th>Nama Komponen</th><th>Kategori</th><th>Berat</th><th>Markah Maksimum</th>
+    </tr></thead>
+    <tbody>
+      ${componentRows}
+      <tr class="total"><td colspan="3" style="padding:8px;border:1px solid #333;text-align:right;">Jumlah Coursework</td><td style="padding:8px;border:1px solid #333;text-align:center;">${cw}%</td><td style="padding:8px;border:1px solid #333;"></td></tr>
+      <tr class="total"><td colspan="3" style="padding:8px;border:1px solid #333;text-align:right;">Jumlah Final Assessment</td><td style="padding:8px;border:1px solid #333;text-align:center;">${fn}%</td><td style="padding:8px;border:1px solid #333;"></td></tr>
+    </tbody>
+  </table>
+  
+  <div class="approval-box">
+    <h3>KELULUSAN</h3>
+    <p><strong>Status:</strong> ${t.status === 'published' ? 'DIPUBLIKASI' : 'DILULUSKAN'}</p>
+    <p><strong>Tarikh Permohonan:</strong> ${requestDate}</p>
+    <p><strong>Tarikh Kelulusan:</strong> ${approveDate}</p>
+    <p><strong>Diluluskan oleh:</strong> Puan Maisarah Binti Mansor Sanusi</p>
+    <p><strong>Jawatan:</strong> Ketua Bahagian</p>
+  </div>
+  
+  <div class="signatures">
+    <div class="sign-box">
+      <div class="line"></div>
+      <p><strong>(${t.lecturer || 'Pengajar'})</strong></p>
+      <p>Tandatangan Pengajar</p>
+      <p>Tarikh: ${requestDate}</p>
+    </div>
+    <div class="sign-box">
+      <div class="line"></div>
+      <p><strong>(Puan Maisarah Binti Mansor Sanusi)</strong></p>
+      <p>Ketua Bahagian</p>
+      <p>Tarikh: ${approveDate}</p>
+    </div>
+  </div>
+  <script>window.print();</script>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
 };
 
 // Grade Config
