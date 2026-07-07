@@ -249,12 +249,12 @@ function applyRoleRestrictions() {
   userInfo.textContent = (roleLabels[currentRole] || currentRole) + ': ' + (currentUser ? currentUser.name : '');
 
   if (currentRole === 'admin') {
-    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'graduation', 'fyp', 'carrymark'];
+    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'graduation', 'fyp', 'carrymark'];
     allTabs.forEach(t => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (t === 'dashboard' ? ' active' : '');
       btn.dataset.tab = t;
-      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark' };
+      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark' };
       btn.textContent = labels[t];
       nav.appendChild(btn);
     });
@@ -269,12 +269,12 @@ function applyRoleRestrictions() {
     document.getElementById('deleteAllTimetableBtn').style.display = '';
     document.getElementById('deleteAllMemosBtn').style.display = '';
   } else if (currentRole === 'teacher') {
-    const t = ['students', 'marks', 'timetable', 'memos', 'fyp', 'carrymark'];
+    const t = ['students', 'marks', 'timetable', 'memos', 'exam', 'fyp', 'carrymark'];
     t.forEach((tab, i) => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
       btn.dataset.tab = tab;
-      const labels = { students: 'Pelajar', marks: 'Markah', timetable: 'Jadual', memos: 'Memo', fyp: 'FYP', carrymark: 'Carrymark' };
+      const labels = { students: 'Pelajar', marks: 'Markah', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', fyp: 'FYP', carrymark: 'Carrymark' };
       btn.textContent = labels[tab];
       nav.appendChild(btn);
     });
@@ -333,6 +333,7 @@ function applyRoleRestrictions() {
       if (this.dataset.tab === 'results') renderResults();
       if (this.dataset.tab === 'timetable') renderTimetable();
       if (this.dataset.tab === 'memos') renderMemos();
+      if (this.dataset.tab === 'exam') renderExamSchedule();
       if (this.dataset.tab === 'teachers') renderTeachers();
       if (this.dataset.tab === 'graduation') renderGraduation();
       if (this.dataset.tab === 'fyp') renderFYP();
