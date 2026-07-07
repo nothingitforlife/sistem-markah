@@ -4011,12 +4011,12 @@ document.getElementById('addMemoBtn').onclick = function () {
   
   openModal('Tambah Memo', `
     <div class="form-group">
-      <label>Tajuk</label>
-      <input type="text" id="fMemoTitle" placeholder="Tajuk memo" required>
+      <label style="font-size:1.05rem;font-weight:600;">Tajuk</label>
+      <input type="text" id="fMemoTitle" placeholder="Tajuk memo" required style="font-size:1.05rem;padding:10px;">
     </div>
     <div class="form-group">
-      <label>Kandungan</label>
-      <textarea id="fMemoContent" rows="5" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.9rem;font-family:inherit;resize:vertical;" placeholder="Tulis kandungan memo" required></textarea>
+      <label style="font-size:1.05rem;font-weight:600;">Kandungan</label>
+      <textarea id="fMemoContent" rows="10" style="width:100%;padding:12px;border:2px solid #d1d5db;border-radius:6px;font-size:1.05rem;font-family:inherit;resize:vertical;min-height:200px;" placeholder="Tulis kandungan memo" required></textarea>
     </div>
     ${publishHtml}
   `, function () {
@@ -4035,6 +4035,17 @@ document.getElementById('addMemoBtn').onclick = function () {
     renderMemos();
     closeModal();
   });
+  
+  // Besarkan modal
+  setTimeout(() => {
+    const modal = document.querySelector('.modal-content');
+    if (modal) {
+      modal.style.maxWidth = '800px';
+      modal.style.width = '90vw';
+      modal.style.maxHeight = '85vh';
+      modal.style.overflow = 'auto';
+    }
+  }, 50);
 };
 
 window.editMemo = function (id) {
@@ -4055,12 +4066,12 @@ window.editMemo = function (id) {
   
   openModal('Edit Memo', `
     <div class="form-group">
-      <label>Tajuk</label>
-      <input type="text" id="fMemoTitle" value="${esc(m.title)}" required>
+      <label style="font-size:1.05rem;font-weight:600;">Tajuk</label>
+      <input type="text" id="fMemoTitle" value="${esc(m.title)}" required style="font-size:1.05rem;padding:10px;">
     </div>
     <div class="form-group">
-      <label>Kandungan</label>
-      <textarea id="fMemoContent" rows="5" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #d1d5db;border-radius:6px;font-size:0.9rem;font-family:inherit;resize:vertical;" required>${esc(m.content)}</textarea>
+      <label style="font-size:1.05rem;font-weight:600;">Kandungan</label>
+      <textarea id="fMemoContent" rows="10" style="width:100%;padding:12px;border:2px solid #d1d5db;border-radius:6px;font-size:1.05rem;font-family:inherit;resize:vertical;min-height:200px;" required>${esc(m.content)}</textarea>
     </div>
     ${publishHtml}
   `, function () {
@@ -4075,6 +4086,17 @@ window.editMemo = function (id) {
     renderMemos();
     closeModal();
   });
+  
+  // Besarkan modal
+  setTimeout(() => {
+    const modal = document.querySelector('.modal-content');
+    if (modal) {
+      modal.style.maxWidth = '800px';
+      modal.style.width = '90vw';
+      modal.style.maxHeight = '85vh';
+      modal.style.overflow = 'auto';
+    }
+  }, 50);
 };
 
 window.deleteMemo = function (id) {
