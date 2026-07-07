@@ -10189,3 +10189,225 @@ function sortTable(th, columnIndex) {
   // Re-append sorted rows
   rows.forEach(row => tbody.appendChild(row));
 }
+
+// ============================================
+// 1. STUDENT AVATAR COLORS
+// ============================================
+function getAvatarColor(name) {
+  if (!name) return '#6b7280';
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'];
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function getInitials(name) {
+  if (!name) return '?';
+  const parts = name.split(' ');
+  return parts.length > 1 
+    ? parts[0][0] + parts[parts.length - 1][0]
+    : name.substring(0, 2);
+}
+
+// ============================================
+// 2. QUICK ADD BUTTON
+// ============================================
+function initQuickAddButton() {
+  // Already handled by existing add buttons
+}
+
+// ============================================
+// 3. TABLE ROW HIGHLIGHT
+// ============================================
+function initTableRowHighlight() {
+  document.querySelectorAll('table tbody tr').forEach(row => {
+    row.addEventListener('mouseenter', function() {
+      this.style.backgroundColor = '#f0f9ff';
+      this.style.transition = 'background-color 0.2s';
+    });
+    row.addEventListener('mouseleave', function() {
+      this.style.backgroundColor = '';
+    });
+  });
+}
+
+// ============================================
+// 4. COPY STUDENT INFO
+// ============================================
+function copyStudentInfo(studentId) {
+  const student = data.students.find(s => s.id === studentId);
+  if (!student) return;
+  
+  const info = [
+    'Nama: ' + student.name,
+    'Kod: ' + (student.kod || '-'),
+    'Kelas: ' + student.class,
+    'Track: ' + (student.track || 'regular')
+  ].join('\n');
+  
+  navigator.clipboard.writeText(info).then(function() {
+    showToast('Maklumat pelajar disalin!', 'success');
+  }).catch(function() {
+    showToast('Gagal menyalin', 'error');
+  });
+}
+
+// ============================================
+// 5. PRINT MARKS
+// ============================================
+function printMarks() {
+  const printContent = document.querySelector('#tab-marks');
+  if (!printContent) return;
+  
+  const originalDisplay = printContent.style.display;
+  printContent.style.display = 'block';
+  
+  window.print();
+  
+  printContent.style.display = originalDisplay;
+}
+
+// ============================================
+// 6. EXPORT CSV
+// ============================================
+function exportCSV(dataArray, filename) {
+  if (!dataArray || dataArray.length === 0) {
+    showToast('Tiada data untuk eksport', 'warning');
+    return;
+  }
+  
+  const headers = Object.keys(dataArray[0]);
+  const csv = [
+    headers.join(','),
+    ...dataArray.map(row => headers.map(h => '"' + (row[h] || '') + '"').join(','))
+  ].join('\n');
+  
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  showToast('CSV berjaya dimuat turun!', 'success');
+}
+
+// ============================================
+// 7. KEYBOARD SHORTCUTS
+// ============================================
+function initKeyboardShortcuts() {
+  document.addEventListener('keydown', function(e) {
+    // Ctrl+S = Save
+    if (e.ctrlKey && e.key === 's') {
+      e.preventDefault();
+      saveData();
+      showToast('Data disimpan!', 'success');
+    }
+    
+    // Esc = Close modal
+    if (e.key === 'Escape') {
+      const modal = document.querySelector('.modal:not(.hidden)');
+      if (modal) {
+        closeModal();
+      }
+    }
+    
+    // Ctrl+N = New (depends on active tab)
+    if (e.ctrlKey && e.key === 'n') {
+      e.preventDefault();
+      const activeTab = document.querySelector('.tab-btn.active');
+      if (activeTab) {
+        const tab = activeTab.dataset.tab;
+        if (tab === 'students' && typeof addStudent === 'function') addStudent();
+        if (tab === 'memos' && document.getElementById('addMemoBtn')) document.getElementById('addMemoBtn').click();
+      }
+    }
+  });
+}
+
+// ============================================
+// 8. AUTO SAVE DRAFT
+// ============================================
+let autoSaveTimer = null;
+
+function initAutoSaveDraft() {
+  document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('cm-mark-input') || e.target.classList.contains('fyp-score-input')) {
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(function() {
+        // Auto save to localStorage
+        try {
+          localStorage.setItem('draftBackup', JSON.stringify({
+            carrymark: data.carrymark,
+            fyp: data.fyp,
+            savedAt: new Date().toISOString()
+          }));
+        } catch(ex) {}
+      }, 2000);
+    }
+  });
+}
+
+// ============================================
+// 9. FILTER BY STATUS
+// ============================================
+function initStatusFilter() {
+  // Add filter dropdown to carrymark admin
+  const carrymarkArea = document.getElementById('carrymarkArea');
+  if (carrymarkArea) {
+    const filterDiv = document.createElement('div');
+    filterDiv.className = 'status-filter';
+    filterDiv.style.cssText = 'margin-bottom:1rem;display:flex;gap:10px;align-items:center;';
+    filterDiv.innerHTML = `
+      <label style="font-weight:600;">Filter Status:</label>
+      <select id="carrymarkStatusFilter" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:4px;">
+        <option value="">Semua</option>
+        <option value="draft">Draft</option>
+        <option value="pending_approval">Pending</option>
+        <option value="approved">Approved</option>
+        <option value="marks_entry">Marks Entry</option>
+        <option value="submitted">Submitted</option>
+        <option value="published">Published</option>
+      </select>
+    `;
+    carrymarkArea.insertBefore(filterDiv, carrymarkArea.firstChild);
+  }
+}
+
+// ============================================
+// 10. SEARCH HIGHLIGHT
+// ============================================
+function highlightSearch(text, query) {
+  if (!query || !text) return text;
+  const regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+  return text.replace(regex, '<mark style="background:#fef08a;padding:0 2px;border-radius:2px;">$1</mark>');
+}
+
+// Apply search highlight to student list
+function applySearchHighlight() {
+  const searchInput = document.getElementById('studentSearch');
+  if (!searchInput) return;
+  
+  const query = searchInput.value.toLowerCase();
+  if (!query) return;
+  
+  document.querySelectorAll('#studentBody tr').forEach(row => {
+    const nameCell = row.cells[2]; // Name column
+    if (nameCell) {
+      const originalText = nameCell.textContent;
+      if (originalText.toLowerCase().includes(query)) {
+        nameCell.innerHTML = highlightSearch(originalText, query);
+      }
+    }
+  });
+}
+
+// Initialize all features on page load
+document.addEventListener('DOMContentLoaded', function() {
+  initTableRowHighlight();
+  initKeyboardShortcuts();
+  initAutoSaveDraft();
+});

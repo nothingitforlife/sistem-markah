@@ -1829,3 +1829,100 @@ tr:hover .tt-cell-empty {
 .hidden {
   display: none !important;
 }
+
+/* Student Avatar */
+.student-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Table Row Highlight */
+table tbody tr {
+  transition: background-color 0.2s;
+}
+
+table tbody tr:hover {
+  background-color: #f0f9ff !important;
+}
+
+/* Search Highlight */
+mark {
+  background: #fef08a;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* Status Filter */
+.status-filter {
+  margin-bottom: 1rem;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.status-filter label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.status-filter select {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+/* Keyboard Shortcut Hints */
+.shortcut-hint {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  margin-left: 4px;
+}
+
+/* Auto Save Indicator */
+.auto-save-indicator {
+  position: fixed;
+  bottom: 70px;
+  right: 20px;
+  background: #059669;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 9997;
+}
+
+.auto-save-indicator.show {
+  opacity: 1;
+}
+
+/* Print Styles */
+@media print {
+  .header-actions,
+  .toolbar,
+  .tab-btn,
+  .scroll-to-top,
+  .toast-container,
+  .loading-spinner {
+    display: none !important;
+  }
+  
+  table {
+    font-size: 0.8rem;
+  }
+  
+  table th {
+    background: #f3f4f6 !important;
+    color: #000 !important;
+  }
+}
