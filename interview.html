@@ -153,6 +153,18 @@
         </select>
       </div>
       <div class="form-group">
+        <label>Bilik Temuduga</label>
+        <select id="queueRoom">
+          <option value="">-- Pilih Bilik --</option>
+          <option value="Bilik 1">Bilik 1</option>
+          <option value="Bilik 2">Bilik 2</option>
+          <option value="Bilik 3">Bilik 3</option>
+          <option value="Bilik 4">Bilik 4</option>
+          <option value="Bilik 5">Bilik 5</option>
+          <option value="Dewan">Dewan</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label>Nota (pilihan)</label>
         <textarea id="queueNotes" rows="2" placeholder="Nota tambahan..."></textarea>
       </div>
@@ -266,6 +278,10 @@
       if (currentCalled) {
         currentNumEl.textContent = currentCalled.number;
         currentNameEl.textContent = currentCalled.name + ' - ' + (currentCalled.position || '-');
+        // Show room if available
+        if (currentCalled.room) {
+          currentNameEl.textContent += ' | Bilik: ' + currentCalled.room;
+        }
       } else {
         currentNumEl.textContent = '-';
         currentNameEl.textContent = 'Tiada dalam sesi';
@@ -328,6 +344,7 @@
       const name = document.getElementById('queueName').value.trim();
       const studentId = document.getElementById('queueStudentId').value.trim();
       const position = document.getElementById('queuePosition').value;
+      const room = document.getElementById('queueRoom').value;
       const notes = document.getElementById('queueNotes').value.trim();
       
       if (!name) {
@@ -341,6 +358,7 @@
         name: name,
         studentId: studentId,
         position: position,
+        room: room,
         notes: notes,
         status: 'waiting',
         addedAt: new Date().toISOString()

@@ -67,6 +67,7 @@
       <div class="number" id="currentNumber">-</div>
       <div class="name" id="currentName">Tiada dalam sesi</div>
       <div class="position" id="currentPosition"></div>
+      <div class="room" id="currentRoom" style="font-size:3rem;color:#f59e0b;font-weight:700;margin-top:1rem;text-shadow:0 0 20px rgba(245,158,11,0.5);"></div>
       <div class="counter">
         Menunggu: <span id="waitingCount">0</span> | Selesai: <span id="doneCount">0</span>
       </div>
@@ -109,15 +110,23 @@
       const currentNumEl = document.getElementById('currentNumber');
       const currentNameEl = document.getElementById('currentName');
       const currentPositionEl = document.getElementById('currentPosition');
+      const currentRoomEl = document.getElementById('currentRoom');
       
       if (currentCalled) {
         currentNumEl.textContent = currentCalled.number;
         currentNameEl.textContent = currentCalled.name;
         currentPositionEl.textContent = currentCalled.position || '';
+        // Show room prominently
+        if (currentCalled.room) {
+          currentRoomEl.textContent = '🏢 ' + currentCalled.room;
+        } else {
+          currentRoomEl.textContent = '';
+        }
       } else {
         currentNumEl.textContent = '-';
         currentNameEl.textContent = 'Tiada dalam sesi';
         currentPositionEl.textContent = '';
+        currentRoomEl.textContent = '';
       }
       
       // Stats
