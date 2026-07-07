@@ -975,6 +975,8 @@ function optimizeData(data) {
       date: e.date || '',
       time: e.time || '',
       hall: e.hall || '',
+      chiefInvigilator: e.chiefInvigilator || '',
+      invigilators: e.invigilators || '',
       createdAt: e.createdAt || ''
     })),
     fyp: {
@@ -10501,7 +10503,7 @@ function renderExamSchedule() {
     html += '<div style="margin-bottom:1.5rem;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;">';
     html += '<h4 style="color:#0f3460;margin-bottom:0.5rem;">' + esc(sem.name) + '</h4>';
     html += '<table><thead><tr>';
-    html += '<th>Bil</th><th>Mata Pelajaran</th><th>Kod</th><th>Tarikh</th><th>Masa</th><th>Dewan</th>';
+    html += '<th>Bil</th><th>Mata Pelajaran</th><th>Kod</th><th>Tarikh</th><th>Masa</th><th>Dewan</th><th>Ketua Pengawas</th><th>Pengawas</th>';
     if (currentRole === 'admin') html += '<th>Tindakan</th>';
     html += '</tr></thead><tbody>';
     
@@ -10513,6 +10515,8 @@ function renderExamSchedule() {
       html += '<td>' + esc(exam.date || '-') + '</td>';
       html += '<td>' + esc(exam.time || '-') + '</td>';
       html += '<td>' + esc(exam.hall || '-') + '</td>';
+      html += '<td>' + esc(exam.chiefInvigilator || '-') + '</td>';
+      html += '<td>' + esc(exam.invigilators || '-') + '</td>';
       if (currentRole === 'admin') {
         html += '<td>';
         html += '<button class="btn btn-sm btn-warning" onclick="editExamEntry(\'' + exam.id + '\')">Edit</button> ';
@@ -10575,6 +10579,16 @@ window.addExamEntry = function() {
   html += '<input type="text" id="examHall" placeholder="Contoh: Dewan A" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
   html += '</div>';
   
+  html += '<div class="form-group">';
+  html += '<label>Ketua Pengawas</label>';
+  html += '<input type="text" id="examChiefInvigilator" placeholder="Nama ketua pengawas" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Pengawas (asingkan dengan koma)</label>';
+  html += '<input type="text" id="examInvigilators" placeholder="Contoh: Ahmad, Siti, Ali" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
   openModal('Tambah Jadual Peperiksaan', html, function() {
     const semesterId = document.getElementById('examSemester').value;
     const subjectId = document.getElementById('examSubject').value;
@@ -10582,6 +10596,8 @@ window.addExamEntry = function() {
     const timeStart = document.getElementById('examTimeStart').value;
     const timeEnd = document.getElementById('examTimeEnd').value;
     const hall = document.getElementById('examHall').value.trim();
+    const chiefInvigilator = document.getElementById('examChiefInvigilator').value.trim();
+    const invigilators = document.getElementById('examInvigilators').value.trim();
     
     if (!semesterId || !subjectId || !date) {
       alert('Sila isi semester, subjek, dan tarikh.');
@@ -10601,6 +10617,8 @@ window.addExamEntry = function() {
       date: date,
       time: (timeStart && timeEnd) ? timeStart + ' - ' + timeEnd : '',
       hall: hall,
+      chiefInvigilator: chiefInvigilator,
+      invigilators: invigilators,
       createdAt: new Date().toISOString()
     };
     
@@ -10665,6 +10683,16 @@ window.editExamEntry = function(examId) {
   html += '<input type="text" id="examHall" value="' + esc(exam.hall || '') + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
   html += '</div>';
   
+  html += '<div class="form-group">';
+  html += '<label>Ketua Pengawas</label>';
+  html += '<input type="text" id="examChiefInvigilator" value="' + esc(exam.chiefInvigilator || '') + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Pengawas (asingkan dengan koma)</label>';
+  html += '<input type="text" id="examInvigilators" value="' + esc(exam.invigilators || '') + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
   openModal('Edit Jadual Peperiksaan', html, function() {
     const semesterId = document.getElementById('examSemester').value;
     const subjectId = document.getElementById('examSubject').value;
@@ -10672,6 +10700,8 @@ window.editExamEntry = function(examId) {
     const timeStart = document.getElementById('examTimeStart').value;
     const timeEnd = document.getElementById('examTimeEnd').value;
     const hall = document.getElementById('examHall').value.trim();
+    const chiefInvigilator = document.getElementById('examChiefInvigilator').value.trim();
+    const invigilators = document.getElementById('examInvigilators').value.trim();
     
     if (!semesterId || !subjectId || !date) {
       alert('Sila isi semester, subjek, dan tarikh.');
@@ -10689,6 +10719,8 @@ window.editExamEntry = function(examId) {
     exam.date = date;
     exam.time = (timeStart && timeEnd) ? timeStart + ' - ' + timeEnd : '';
     exam.hall = hall;
+    exam.chiefInvigilator = chiefInvigilator;
+    exam.invigilators = invigilators;
     exam.updatedAt = new Date().toISOString();
     
     saveData();
