@@ -9911,7 +9911,151 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
     setSyncStatus('');
     // Start auto-sync
     startAutoSync();
+    
+    // Initialize new features
+    initScrollToTop();
+    initLastLoginInfo();
+    hideLoading();
   } catch (e) {
     console.warn('Init render error:', e);
+    hideLoading();
   }
 })();
+
+// ============================================
+// LOADING SPINNER
+// ============================================
+function showLoading(message) {
+  const spinner = document.getElementById('loadingSpinner');
+  if (spinner) {
+    const msg = spinner.querySelector('p');
+    if (msg) msg.textContent = message || 'Memuatkan data...';
+    spinner.classList.remove('hidden');
+  }
+}
+
+function hideLoading() {
+  const spinner = document.getElementById('loadingSpinner');
+  if (spinner) {
+    spinner.classList.add('hidden');
+  }
+}
+
+// ============================================
+// TOAST NOTIFICATION
+// ============================================
+function showToast(message, type, duration) {
+  type = type || 'info';
+  duration = duration || 3000;
+  
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-' + type;
+  toast.textContent = message;
+  container.appendChild(toast);
+  
+  setTimeout(function() {
+    toast.style.animation = 'slideOut 0.3s ease-in forwards';
+    setTimeout(function() {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 300);
+  }, duration);
+}
+
+// ============================================
+// CONFIRM DIALOG
+// ============================================
+function showConfirm(title, message, onConfirm, onCancel) {
+  const dialog = document.getElementById('confirmDialog');
+  const titleEl = document.getElementById('confirmTitle');
+  const msgEl = document.getElementById('confirmMessage');
+  const okBtn = document.getElementById('confirmOk');
+  const cancelBtn = document.getElementById('confirmCancel');
+  
+  if (!dialog || !titleEl || !msgEl || !okBtn || !cancelBtn) {
+    // Fallback to standard confirm
+    if (confirm(message)) {
+      if (onConfirm) onConfirm();
+    } else {
+      if (onCancel) onCancel();
+    }
+    return;
+  }
+  
+  titleEl.textContent = title || 'Pengesahan';
+  msgEl.textContent = message || 'Anda pasti?';
+  dialog.classList.remove('hidden');
+  
+  // Remove old event listeners
+  const newOkBtn = okBtn.cloneNode(true);
+  const newCancelBtn = cancelBtn.cloneNode(true);
+  okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+  cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+  
+  newOkBtn.addEventListener('click', function() {
+    dialog.classList.add('hidden');
+    if (onConfirm) onConfirm();
+  });
+  
+  newCancelBtn.addEventListener('click', function() {
+    dialog.classList.add('hidden');
+    if (onCancel) onCancel();
+  });
+}
+
+// ============================================
+// SCROLL TO TOP
+// ============================================
+function initScrollToTop() {
+  const btn = document.getElementById('scrollToTop');
+  if (!btn) return;
+  
+  window.addEventListener('scroll', function() {
+    if (window.pageYOffset > 300) {
+      btn.classList.remove('hidden');
+    } else {
+      btn.classList.add('hidden');
+    }
+  });
+  
+  btn.addEventListener('click', function() {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  });
+}
+
+// ============================================
+// LAST LOGIN INFO
+// ============================================
+function initLastLoginInfo() {
+  const userInfo = document.getElementById('userInfo');
+  if (!userInfo || !currentUser) return;
+  
+  const loginKey = 'lastLogin_' + currentUser.name;
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = now.toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+  
+  // Get last login
+  const lastLogin = localStorage.getItem(loginKey);
+  
+  // Save current login
+  localStorage.setItem(loginKey, now.toISOString());
+  
+  // Display
+  if (lastLogin) {
+    const last = new Date(lastLogin);
+    const lastTimeStr = last.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' });
+    const lastDateStr = last.toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+    
+    const infoSpan = document.createElement('span');
+    infoSpan.className = 'last-login-info';
+    infoSpan.textContent = 'Login terakhir: ' + lastDateStr + ' ' + lastTimeStr;
+    infoSpan.title = 'Kali terakhir login';
+    userInfo.parentNode.insertBefore(infoSpan, userInfo);
+  }
+}

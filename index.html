@@ -353,7 +353,30 @@
   <script src="firebase-config.js"></script>
   <!-- App Scripts -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-  <script src="supabase-config.js"></script>
   <script src="app.js"></script>
+  
+  <!-- Loading Spinner -->
+  <div id="loadingSpinner" class="loading-spinner hidden">
+    <div class="spinner"></div>
+    <p>Memuatkan data...</p>
+  </div>
+  
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+  
+  <!-- Scroll to Top Button -->
+  <button id="scrollToTop" class="scroll-to-top hidden" title="Naik ke atas">↑</button>
+  
+  <!-- Confirm Dialog -->
+  <div id="confirmDialog" class="confirm-dialog hidden">
+    <div class="confirm-dialog-content">
+      <h3 id="confirmTitle">Pengesahan</h3>
+      <p id="confirmMessage">Anda pasti?</p>
+      <div class="confirm-dialog-actions">
+        <button id="confirmCancel" class="btn btn-secondary">Batal</button>
+        <button id="confirmOk" class="btn btn-danger">Padam</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
