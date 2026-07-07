@@ -8821,33 +8821,44 @@ function renderFYPSupervisor(area) {
     html += '<p style="color:#6b7280;">Tiada pelajar FYP yang ditugaskan kepada anda.</p>';
     html += '</div>';
   } else {
-    html += '<table><thead><tr>';
-    html += '<th>Bil</th><th>Nama Pelajar</th><th>Semester</th><th>Kumpulan</th><th>Tajuk Projek</th><th>Status</th><th>Marks</th><th>Tindakan</th>';
-    html += '</tr></thead><tbody>';
+    // Asingkan mengikut semester
+    const sem4Assessments = myAssessments.filter(a => a.semesterId === sem4?.id);
+    const sem5Assessments = myAssessments.filter(a => a.semesterId === sem5?.id);
     
-    myAssessments.forEach((a, i) => {
-      const student = data.students.find(s => s.id === a.studentId);
-      const statusBadge = getFYPStatusBadge(a.status);
+    function renderFYPTable(assessments, semLabel, fypType) {
+      if (assessments.length === 0) return '';
+      let t = '<h4 style="margin:1.2rem 0 0.5rem;color:#0f3460;">' + semLabel + ' (' + fypType + ')</h4>';
+      t += '<table><thead><tr>';
+      t += '<th>Bil</th><th>Nama Pelajar</th><th>Kumpulan</th><th>Tajuk Projek</th><th>Status</th><th>Marks</th><th>Tindakan</th>';
+      t += '</tr></thead><tbody>';
       
-      html += '<tr>';
-      html += '<td>' + (i + 1) + '</td>';
-      html += '<td><strong>' + (student ? student.name : 'Unknown') + '</strong></td>';
-      html += '<td>' + (a.semesterName || '-') + '</td>';
-      html += '<td>' + (a.groupName || '-') + '</td>';
-      html += '<td>' + (a.projectTitle || '-') + '</td>';
-      html += '<td>' + statusBadge + '</td>';
-      html += '<td>' + (a.totalMarks || '-') + ' (' + (a.grade || '-') + ')</td>';
-      html += '<td>';
-      if (a.status === 'draft' || a.status === 'rejected') {
-        html += '<button class="btn btn-sm btn-primary" onclick="fypFillAssessment(\'' + a.id + '\')">Isi Markah</button> ';
-      } else {
-        html += '<button class="btn btn-sm btn-outline" onclick="fypViewAssessment(\'' + a.id + '\')">Lihat</button> ';
-      }
-      html += '</td>';
-      html += '</tr>';
-    });
+      assessments.forEach((a, i) => {
+        const student = data.students.find(s => s.id === a.studentId);
+        const statusBadge = getFYPStatusBadge(a.status);
+        
+        t += '<tr>';
+        t += '<td>' + (i + 1) + '</td>';
+        t += '<td><strong>' + (student ? student.name : 'Unknown') + '</strong></td>';
+        t += '<td>' + (a.groupName || '-') + '</td>';
+        t += '<td>' + (a.projectTitle || '-') + '</td>';
+        t += '<td>' + statusBadge + '</td>';
+        t += '<td>' + (a.totalMarks || '-') + ' (' + (a.grade || '-') + ')</td>';
+        t += '<td>';
+        if (a.status === 'draft' || a.status === 'rejected') {
+          t += '<button class="btn btn-sm btn-primary" onclick="fypFillAssessment(\'' + a.id + '\')">Isi Markah</button> ';
+        } else {
+          t += '<button class="btn btn-sm btn-outline" onclick="fypViewAssessment(\'' + a.id + '\')">Lihat</button> ';
+        }
+        t += '</td>';
+        t += '</tr>';
+      });
+      
+      t += '</tbody></table>';
+      return t;
+    }
     
-    html += '</tbody></table>';
+    html += renderFYPTable(sem4Assessments, sem4 ? sem4.name : 'Semester 4', 'FYP 1');
+    html += renderFYPTable(sem5Assessments, sem5 ? sem5.name : 'Semester 5', 'FYP 2');
   }
   
   html += '</div>';
