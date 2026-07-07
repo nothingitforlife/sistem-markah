@@ -1428,11 +1428,24 @@ function renderStudents() {
   const search = document.getElementById('studentSearch').value.toLowerCase();
   const semFilter = document.getElementById('studentSemesterFilter').value;
 
+  // Teacher hanya nampak pelajar dari semester yang diajar
+  let teacherSemesterNames = null;
+  if (currentRole === 'teacher') {
+    const teacherSubjects = (data.subjects || []).filter(s => s.pengajar === currentUser.name);
+    const semesterIds = [...new Set(teacherSubjects.map(s => s.semester).filter(Boolean))];
+    teacherSemesterNames = semesterIds.map(sid => {
+      const sem = data.semesters.find(s => s.id === sid);
+      return sem ? sem.name : null;
+    }).filter(Boolean);
+  }
+
   const filtered = data.students.filter(s => {
     const matchSearch = s.name.toLowerCase().includes(search) || (s.kod || '').toLowerCase().includes(search) || s.class.toLowerCase().includes(search);
     const matchSem = !semFilter || s.class === semFilter;
     const notGraduated = s.track !== 'graduated';
-    return matchSearch && matchSem && notGraduated;
+    // Teacher: hanya pelajar dari semester yang diajar
+    const matchTeacher = !teacherSemesterNames || teacherSemesterNames.includes(s.class);
+    return matchSearch && matchSem && notGraduated && matchTeacher;
   });
 
   if (filtered.length === 0) {
@@ -1766,8 +1779,18 @@ window.repeatSemester = function(studentId) {
 function rebuildSemesterFilter() {
   const sel = document.getElementById('studentSemesterFilter');
   const prev = sel.value;
+  
+  let semesters = data.semesters;
+  
+  // Teacher hanya nampak semester yang diajar
+  if (currentRole === 'teacher') {
+    const teacherSubjects = (data.subjects || []).filter(s => s.pengajar === currentUser.name);
+    const semesterIds = [...new Set(teacherSubjects.map(s => s.semester).filter(Boolean))];
+    semesters = data.semesters.filter(s => semesterIds.includes(s.id));
+  }
+  
   sel.innerHTML = '<option value="">Semua Semester</option>' +
-    data.semesters.map(s => `<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('');
+    semesters.map(s => `<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('');
   sel.value = prev;
 }
 
