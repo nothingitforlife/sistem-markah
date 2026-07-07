@@ -1185,6 +1185,14 @@ async function loadFromFirebase() {
 }
 
 async function saveData() {
+  console.log('🔄 saveData() dipanggil...');
+  
+  if (!db) {
+    console.error('❌ db (Firebase) tidak wujud!');
+    showSaveToast('❌ Firebase tidak connected', true);
+    return;
+  }
+  
   try {
     const optimizedData = optimizeData(data);
     const payload = {
@@ -1195,14 +1203,15 @@ async function saveData() {
     
     // Check payload size
     const payloadSize = new Blob([JSON.stringify(payload)]).size;
-    console.log('Firebase payload size:', (payloadSize / 1024).toFixed(1) + ' KB');
+    console.log('📦 Payload size:', (payloadSize / 1024).toFixed(1) + ' KB');
     
     if (payloadSize > 900000) {
-      console.warn('WARNING: Data hampir had 1MB Firebase! Size:', (payloadSize / 1024).toFixed(1) + ' KB');
+      console.warn('⚠️ Data hampir had 1MB!');
     }
     
+    console.log('📤 Menghantar ke Firebase...');
     await db.collection('app_data').doc('sistem-markah-1').set(payload);
-    console.log('✅ Data saved to Firebase. Carrymark:', (data.carrymark?.templates || []).length, 'templates | FYP:', (data.fyp?.assessments || []).length, 'assessments');
+    console.log('✅ Berjaya simpan ke Firebase!');
     updateSyncStatus('synced');
     
     // Show brief success toast
@@ -1217,7 +1226,7 @@ async function saveData() {
     // Fallback: save to localStorage
     try {
       localStorage.setItem('cm_fyp_backup', JSON.stringify({ fyp: data.fyp, carrymark: data.carrymark }));
-      console.log('Data backed up to localStorage as fallback');
+      console.log('📦 Data backed up to localStorage');
     } catch(le) { console.warn('localStorage backup also failed:', le); }
   }
 }
