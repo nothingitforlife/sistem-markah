@@ -8772,12 +8772,20 @@ function renderFYPSupervisor(area) {
   const teacherName = currentUser.name;
   const isApprovalOfficer = teacherName.includes('Nurulafiza') || teacherName.includes('Maisarah') || currentRole === 'admin';
   
-  // My students as supervisor
-  const myAssessments = (data.fyp.assessments || []).filter(a => a.supervisor === teacherName);
+  // Get Sem 4 & Sem 5 IDs for filtering
+  const sem4 = data.semesters.find(s => s.name.includes('Semester 4'));
+  const sem5 = data.semesters.find(s => s.name.includes('Semester 5'));
+  const fypSemesterIds = [sem4?.id, sem5?.id].filter(Boolean);
   
-  // Pending approvals for approval officers
+  // My students as supervisor (only Sem 4 & 5)
+  const myAssessments = (data.fyp.assessments || []).filter(a => {
+    if (a.supervisor !== teacherName) return false;
+    // Teacher hanya nampak Sem 4 & Sem 5
+    return fypSemesterIds.includes(a.semesterId);
+  });
+  
+  // Pending approvals for approval officers (all semesters)
   const pendingApprovals = isApprovalOfficer ? (data.fyp.assessments || []).filter(a => {
-    // Only show if this officer hasn't approved yet
     if (a.status === 'pending_approval' || a.status === 'waiting_second') {
       const myApproval = a.approvalStatus ? a.approvalStatus[teacherName] : null;
       return !myApproval || myApproval === 'pending';
