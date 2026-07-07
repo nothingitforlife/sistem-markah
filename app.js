@@ -8919,30 +8919,30 @@ window.fypFillAssessment = function(assessmentId) {
   let html = '';
   
   // Student Info
-  html += '<div style="background:#f0f2f5;padding:1rem;border-radius:8px;margin-bottom:1.5rem;">';
-  html += `<p><strong>Pelajar:</strong> ${esc(student ? student.name : 'Unknown')} (${esc(student ? (student.kod || '-') : '-')})</p>`;
-  html += `<p><strong>Semester:</strong> ${esc(assessment.semesterName)} - ${esc(criteria.title)}</p>`;
+  html += '<div style="background:#f0f2f5;padding:1.2rem;border-radius:8px;margin-bottom:1.5rem;font-size:1.05rem;">';
+  html += `<p style="margin:4px 0;"><strong>Pelajar:</strong> ${esc(student ? student.name : 'Unknown')} (${esc(student ? (student.kod || '-') : '-')})</p>`;
+  html += `<p style="margin:4px 0;"><strong>Semester:</strong> ${esc(assessment.semesterName)} - ${esc(criteria.title)}</p>`;
   html += '</div>';
   
   // Project Title
   html += '<div class="form-group">';
-  html += '<label>Tajuk Projek</label>';
-  html += `<input type="text" id="fypProjectTitle" value="${esc(assessment.projectTitle || '')}" placeholder="Masukkan tajuk projek" required>`;
+  html += '<label style="font-size:1.05rem;font-weight:600;">Tajuk Projek</label>';
+  html += `<input type="text" id="fypProjectTitle" value="${esc(assessment.projectTitle || '')}" placeholder="Masukkan tajuk projek" required style="font-size:1.05rem;padding:10px;">`;
   html += '</div>';
   
   // Assessment Sections
-  html += '<div style="max-height:500px;overflow-y:auto;padding-right:10px;">';
+  html += '<div style="max-height:60vh;overflow-y:auto;padding-right:10px;">';
   
   criteria.sections.forEach(section => {
-    html += `<div style="margin-bottom:1.5rem;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;">`;
-    html += `<h4 style="color:#0f3460;margin-bottom:1rem;">${esc(section.name)}</h4>`;
+    html += `<div style="margin-bottom:1.5rem;border:2px solid #e5e7eb;border-radius:10px;padding:1.2rem;">`;
+    html += `<h4 style="color:#0f3460;margin-bottom:1rem;font-size:1.1rem;">${esc(section.name)}</h4>`;
     
     section.items.forEach(item => {
       const currentScore = assessment.scores[item.id] || '';
-      html += '<div class="form-group" style="display:flex;align-items:center;gap:1rem;">';
-      html += `<label style="flex:1;margin:0;">${esc(item.name)}</label>`;
-      html += `<span style="color:#6b7280;font-size:0.85rem;">/ ${item.max}</span>`;
-      html += `<input type="number" class="fyp-score-input" data-item-id="${item.id}" data-section="${section.name}" data-max="${item.max}" value="${currentScore}" min="0" max="${item.max}" style="width:80px;" placeholder="0">`;
+      html += '<div class="form-group" style="display:flex;align-items:center;gap:1rem;margin-bottom:0.8rem;">';
+      html += `<label style="flex:1;margin:0;font-size:1rem;">${esc(item.name)}</label>`;
+      html += `<span style="color:#6b7280;font-size:1rem;">/ ${item.max}</span>`;
+      html += `<input type="number" class="fyp-score-input" data-item-id="${item.id}" data-section="${section.name}" data-max="${item.max}" value="${currentScore}" min="0" max="${item.max}" style="width:100px;font-size:1.1rem;padding:8px 12px;text-align:center;border:2px solid #d1d5db;border-radius:6px;" placeholder="0">`;
       html += '</div>';
     });
     
@@ -8953,27 +8953,36 @@ window.fypFillAssessment = function(assessmentId) {
   
   // Supervisor Comments
   html += '<div class="form-group">';
-  html += '<label>Komen Penyelia</label>';
-  html += `<textarea id="fypSupervisorComments" rows="3" placeholder="Masukkan komen (pilihan)">${esc(assessment.supervisorComments || '')}</textarea>`;
+  html += '<label style="font-size:1.05rem;font-weight:600;">Komen Penyelia</label>';
+  html += `<textarea id="fypSupervisorComments" rows="4" placeholder="Masukkan komen (pilihan)" style="font-size:1rem;padding:10px;">${esc(assessment.supervisorComments || '')}</textarea>`;
   html += '</div>';
   
   // Current Total
-  html += '<div style="background:#f0f2f5;padding:1rem;border-radius:8px;margin-bottom:1rem;">';
-  html += '<p><strong>Jumlah Markah:</strong> <span id="fypTotalDisplay">0</span> / 100</p>';
-  html += '<p><strong>Peratus:</strong> <span id="fypPercentageDisplay">0</span>%</p>';
-  html += '<p><strong>Gred:</strong> <span id="fypGradeDisplay">-</span></p>';
+  html += '<div style="background:#f0f2f5;padding:1.2rem;border-radius:8px;margin-bottom:1rem;font-size:1.1rem;">';
+  html += '<p style="margin:4px 0;"><strong>Jumlah Markah:</strong> <span id="fypTotalDisplay">0</span> / 100</p>';
+  html += '<p style="margin:4px 0;"><strong>Peratus:</strong> <span id="fypPercentageDisplay">0</span>%</p>';
+  html += '<p style="margin:4px 0;"><strong>Gred:</strong> <span id="fypGradeDisplay">-</span></p>';
   html += '</div>';
   
   // Buttons
-  html += '<div style="display:flex;gap:10px;">';
-  html += '<button type="button" class="btn btn-secondary" onclick="fypSaveDraft(\'' + assessmentId + '\')">💾 Save Draft</button>';
-  html += '<button type="button" class="btn btn-primary" onclick="fypSubmitAssessment(\'' + assessmentId + '\')">📤 Submit Assessment</button>';
+  html += '<div style="display:flex;gap:15px;margin-top:1rem;">';
+  html += '<button type="button" class="btn btn-secondary" style="font-size:1.05rem;padding:12px 24px;" onclick="fypSaveDraft(\'' + assessmentId + '\')">💾 Save Draft</button>';
+  html += '<button type="button" class="btn btn-primary" style="font-size:1.05rem;padding:12px 24px;" onclick="fypSubmitAssessment(\'' + assessmentId + '\')">📤 Submit Assessment</button>';
   html += '</div>';
   
-  openModal('Isi Penilaian FYP', html, null);
+  openModal('📝 Isi Penilaian FYP', html, null);
   
-  // Calculate total on input change
+  // Make modal larger
   setTimeout(() => {
+    const modal = document.querySelector('.modal-content');
+    if (modal) {
+      modal.style.maxWidth = '90vw';
+      modal.style.width = '900px';
+      modal.style.maxHeight = '90vh';
+      modal.style.overflow = 'auto';
+    }
+    
+    // Calculate total on input change
     const inputs = document.querySelectorAll('.fyp-score-input');
     inputs.forEach(input => {
       input.addEventListener('input', calculateFYPTotal);
