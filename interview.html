@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interview Queue Management System - TDMS</title>
+  <link rel="icon" type="image/png" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSq72lkexl5Eh5SqICxEFku6Cn4b1fmiK4Yk_ogQlX1eldvfQBVpUNSO_U&s=10">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+    
+    /* Header */
+    header { background: #1e293b; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #3b82f6; }
+    header h1 { font-size: 1.5rem; color: #60a5fa; }
+    header .logo { display: flex; align-items: center; gap: 10px; }
+    header .logo img { height: 40px; }
+    header .clock { font-size: 1.2rem; color: #94a3b8; font-weight: 600; }
+    
+    /* Main Container */
+    .container { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; padding: 2rem; max-width: 1400px; margin: 0 auto; }
+    
+    /* Cards */
+    .card { background: #1e293b; border-radius: 12px; padding: 1.5rem; border: 1px solid #334155; }
+    .card h2 { color: #60a5fa; margin-bottom: 1rem; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+    
+    /* Current Queue Display */
+    .current-queue { text-align: center; padding: 2rem; }
+    .current-queue .number { font-size: 8rem; font-weight: 800; color: #22c55e; text-shadow: 0 0 30px rgba(34, 197, 94, 0.5); line-height: 1; }
+    .current-queue .label { font-size: 1.5rem; color: #94a3b8; margin-top: 0.5rem; }
+    .current-queue .counter { font-size: 1rem; color: #64748b; margin-top: 1rem; }
+    
+    /* Queue List */
+    .queue-list { max-height: 400px; overflow-y: auto; }
+    .queue-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: #0f172a; border-radius: 8px; margin-bottom: 0.5rem; border-left: 4px solid #3b82f6; transition: all 0.2s; }
+    .queue-item:hover { background: #1e293b; }
+    .queue-item.active { border-left-color: #22c55e; background: #052e16; }
+    .queue-item.called { border-left-color: #f59e0b; background: #451a03; }
+    .queue-item.done { border-left-color: #6b7280; opacity: 0.6; }
+    .queue-item .queue-num { font-size: 1.5rem; font-weight: 700; color: #60a5fa; min-width: 60px; }
+    .queue-item .queue-info { flex: 1; margin-left: 1rem; }
+    .queue-item .queue-name { font-weight: 600; color: #e2e8f0; }
+    .queue-item .queue-position { font-size: 0.8rem; color: #94a3b8; }
+    .queue-item .queue-status { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+    .queue-item .queue-status.waiting { background: #1e3a5f; color: #60a5fa; }
+    .queue-item .queue-status.called { background: #451a03; color: #fbbf24; }
+    .queue-item .queue-status.done { background: #1f2937; color: #9ca3af; }
+    
+    /* Buttons */
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-success { background: #22c55e; color: white; }
+    .btn-success:hover { background: #16a34a; }
+    .btn-warning { background: #f59e0b; color: white; }
+    .btn-warning:hover { background: #d97706; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-lg { padding: 15px 30px; font-size: 1.2rem; }
+    .btn-block { width: 100%; }
+    
+    /* Form */
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; margin-bottom: 0.5rem; color: #94a3b8; font-size: 0.9rem; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; font-size: 1rem; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #3b82f6; }
+    
+    /* Stats */
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem; }
+    .stat-card { background: #0f172a; border-radius: 8px; padding: 1rem; text-align: center; }
+    .stat-value { font-size: 2rem; font-weight: 700; color: #60a5fa; }
+    .stat-label { font-size: 0.8rem; color: #94a3b8; margin-top: 4px; }
+    
+    /* Actions */
+    .actions { display: flex; gap: 10px; margin-top: 1rem; }
+    
+    /* Panel Admin */
+    .admin-panel { background: #1e293b; border-radius: 12px; padding: 1.5rem; border: 1px solid #334155; grid-column: span 2; }
+    .admin-panel h2 { color: #f59e0b; margin-bottom: 1rem; }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container { grid-template-columns: 1fr; padding: 1rem; }
+      .admin-panel { grid-column: span 1; }
+      .current-queue .number { font-size: 5rem; }
+      header { flex-direction: column; gap: 10px; }
+    }
+    
+    /* Sound Notification */
+    .notification { position: fixed; top: 20px; right: 20px; background: #22c55e; color: white; padding: 15px 25px; border-radius: 8px; font-weight: 600; z-index: 1000; animation: slideIn 0.3s ease-out; display: none; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    
+    /* Empty State */
+    .empty-state { text-align: center; padding: 2rem; color: #64748b; }
+    .empty-state p { margin-top: 0.5rem; }
+    
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSq72lkexl5Eh5SqICxEFku6Cn4b1fmiK4Yk_ogQlX1eldvfQBVpUNSO_U&s=10" alt="TDMS">
+      <h1>Interview Queue Management System</h1>
+    </div>
+    <div class="clock" id="clock"></div>
+  </header>
+  
+  <div class="notification" id="notification"></div>
+  
+  <div class="container">
+    <!-- Current Queue Display -->
+    <div class="card current-queue">
+      <h2>📋 Nombor Semasa</h2>
+      <div class="number" id="currentNumber">-</div>
+      <div class="label" id="currentName">Tiada dalam sesi</div>
+      <div class="counter">
+        Menunggu: <span id="waitingCount">0</span> | Selesai: <span id="doneCount">0</span>
+      </div>
+      <div class="actions" style="justify-content:center;margin-top:1.5rem;">
+        <button class="btn btn-success btn-lg" onclick="callNext()">▶ Panggil Seterusnya</button>
+        <button class="btn btn-warning btn-lg" onclick="recallCurrent()">🔄 Panggil Semula</button>
+      </div>
+    </div>
+    
+    <!-- Add to Queue -->
+    <div class="card">
+      <h2>➕ Tambah ke Queue</h2>
+      <div class="form-group">
+        <label>Nama Pelajar</label>
+        <input type="text" id="queueName" placeholder="Nama penuh pelajar">
+      </div>
+      <div class="form-group">
+        <label>No. Pelajar</label>
+        <input type="text" id="queueStudentId" placeholder="Contoh: S001">
+      </div>
+      <div class="form-group">
+        <label>Posisi / Jawatan Dipohon</label>
+        <select id="queuePosition">
+          <option value="">-- Pilih --</option>
+          <option value="Latihan Industri">Latihan Industri</option>
+          <option value="Pembantu Teknikal">Pembantu Teknikal</option>
+          <option value="Juruteknik Komputer">Juruteknik Komputer</option>
+          <option value="Pentadbiran">Pentadbiran</option>
+          <option value="Lain-lain">Lain-lain</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Nota (pilihan)</label>
+        <textarea id="queueNotes" rows="2" placeholder="Nota tambahan..."></textarea>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="addToQueue()">Tambah ke Queue</button>
+    </div>
+    
+    <!-- Queue List -->
+    <div class="card">
+      <h2>📝 Senarai Queue</h2>
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-value" id="totalQueue">0</div>
+          <div class="stat-label">Jumlah</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="waitingQueue" style="color:#3b82f6;">0</div>
+          <div class="stat-label">Menunggu</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="doneQueue" style="color:#22c55e;">0</div>
+          <div class="stat-label">Selesai</div>
+        </div>
+      </div>
+      <div class="queue-list" id="queueList">
+        <div class="empty-state">
+          <p>Tiada dalam queue lagi</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- History -->
+    <div class="card">
+      <h2>📊 Sejarah Hari Ini</h2>
+      <div class="queue-list" id="historyList">
+        <div class="empty-state">
+          <p>Tiada sejarah lagi</p>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:1rem;">
+        <button class="btn btn-danger" onclick="clearHistory()">🗑 Padam Sejarah</button>
+        <button class="btn btn-primary" onclick="exportHistory()">📥 Export CSV</button>
+      </div>
+    </div>
+    
+    <!-- Admin Panel -->
+    <div class="admin-panel">
+      <h2>⚙️ Panel Admin</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div>
+          <div class="form-group">
+            <label>Mula Nombor Dari</label>
+            <input type="number" id="startNumber" value="1" min="1">
+          </div>
+          <button class="btn btn-primary btn-block" onclick="resetQueue()">🔄 Reset Queue</button>
+        </div>
+        <div>
+          <div class="form-group">
+            <label>Tambah Secara Pukal (satu nama satu baris)</label>
+            <textarea id="bulkAdd" rows="4" placeholder="Nama 1&#10;Nama 2&#10;Nama 3"></textarea>
+          </div>
+          <button class="btn btn-success btn-block" onclick="bulkAddToQueue()">Tambah Pukal</button>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:1rem;">
+        <button class="btn btn-warning" onclick="markAllDone()">✅ Tandakan Semua Selesai</button>
+        <button class="btn btn-danger" onclick="clearAll()">🗑 Padam Semua</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Queue Data
+    let queue = [];
+    let history = [];
+    let currentQueueNumber = 1;
+    let currentCalled = null;
+    
+    // Load from localStorage
+    function loadData() {
+      try {
+        const saved = localStorage.getItem('interviewQueue');
+        if (saved) {
+          const data = JSON.parse(saved);
+          queue = data.queue || [];
+          history = data.history || [];
+          currentQueueNumber = data.currentQueueNumber || 1;
+          currentCalled = data.currentCalled || null;
+        }
+      } catch(e) {}
+      updateDisplay();
+    }
+    
+    // Save to localStorage
+    function saveData() {
+      try {
+        localStorage.setItem('interviewQueue', JSON.stringify({
+          queue: queue,
+          history: history,
+          currentQueueNumber: currentQueueNumber,
+          currentCalled: currentCalled
+        }));
+      } catch(e) {}
+    }
+    
+    // Update Display
+    function updateDisplay() {
+      // Current number
+      const currentNumEl = document.getElementById('currentNumber');
+      const currentNameEl = document.getElementById('currentName');
+      
+      if (currentCalled) {
+        currentNumEl.textContent = currentCalled.number;
+        currentNameEl.textContent = currentCalled.name + ' - ' + (currentCalled.position || '-');
+      } else {
+        currentNumEl.textContent = '-';
+        currentNameEl.textContent = 'Tiada dalam sesi';
+      }
+      
+      // Stats
+      const waiting = queue.filter(q => q.status === 'waiting').length;
+      const done = queue.filter(q => q.status === 'done').length;
+      
+      document.getElementById('waitingCount').textContent = waiting;
+      document.getElementById('doneCount').textContent = done;
+      document.getElementById('totalQueue').textContent = queue.length;
+      document.getElementById('waitingQueue').textContent = waiting;
+      document.getElementById('doneQueue').textContent = done;
+      
+      // Queue list
+      const queueListEl = document.getElementById('queueList');
+      const waitingQueue = queue.filter(q => q.status === 'waiting' || q.status === 'called');
+      
+      if (waitingQueue.length === 0) {
+        queueListEl.innerHTML = '<div class="empty-state"><p>Tiada dalam queue lagi</p></div>';
+      } else {
+        queueListEl.innerHTML = waitingQueue.map((q, i) => `
+          <div class="queue-item ${q.status === 'called' ? 'called' : ''}">
+            <div class="queue-num">${q.number}</div>
+            <div class="queue-info">
+              <div class="queue-name">${escapeHtml(q.name)}</div>
+              <div class="queue-position">${escapeHtml(q.position || '-')} ${q.studentId ? '(' + escapeHtml(q.studentId) + ')' : ''}</div>
+            </div>
+            <span class="queue-status ${q.status}">${q.status === 'waiting' ? 'Menunggu' : 'Dipanggil'}</span>
+          </div>
+        `).join('');
+      }
+      
+      // History list
+      const historyListEl = document.getElementById('historyList');
+      const todayHistory = history.filter(h => {
+        const today = new Date().toDateString();
+        return new Date(h.completedAt).toDateString() === today;
+      });
+      
+      if (todayHistory.length === 0) {
+        historyListEl.innerHTML = '<div class="empty-state"><p>Tiada sejarah lagi</p></div>';
+      } else {
+        historyListEl.innerHTML = todayHistory.map((h, i) => `
+          <div class="queue-item done">
+            <div class="queue-num">${h.number}</div>
+            <div class="queue-info">
+              <div class="queue-name">${escapeHtml(h.name)}</div>
+              <div class="queue-position">${escapeHtml(h.position || '-')} | Selesai: ${new Date(h.completedAt).toLocaleTimeString('ms-MY')}</div>
+            </div>
+            <span class="queue-status done">Selesai</span>
+          </div>
+        `).join('');
+      }
+    }
+    
+    // Add to Queue
+    function addToQueue() {
+      const name = document.getElementById('queueName').value.trim();
+      const studentId = document.getElementById('queueStudentId').value.trim();
+      const position = document.getElementById('queuePosition').value;
+      const notes = document.getElementById('queueNotes').value.trim();
+      
+      if (!name) {
+        showNotification('Sila isi nama pelajar', 'error');
+        return;
+      }
+      
+      const entry = {
+        id: Date.now().toString(),
+        number: currentQueueNumber++,
+        name: name,
+        studentId: studentId,
+        position: position,
+        notes: notes,
+        status: 'waiting',
+        addedAt: new Date().toISOString()
+      };
+      
+      queue.push(entry);
+      saveData();
+      updateDisplay();
+      
+      // Clear form
+      document.getElementById('queueName').value = '';
+      document.getElementById('queueStudentId').value = '';
+      document.getElementById('queuePosition').value = '';
+      document.getElementById('queueNotes').value = '';
+      
+      showNotification('Berjaya ditambah ke queue: ' + entry.number, 'success');
+    }
+    
+    // Call Next
+    function callNext() {
+      const next = queue.find(q => q.status === 'waiting');
+      if (!next) {
+        showNotification('Tiada lagi dalam queue', 'warning');
+        return;
+      }
+      
+      // Mark previous as done if any
+      if (currentCalled) {
+        const prev = queue.find(q => q.id === currentCalled.id);
+        if (prev) {
+          prev.status = 'done';
+          prev.completedAt = new Date().toISOString();
+          history.push({...prev});
+        }
+      }
+      
+      next.status = 'called';
+      currentCalled = next;
+      saveData();
+      updateDisplay();
+      
+      showNotification('Memanggil: ' + next.number + ' - ' + next.name, 'success');
+      playSound();
+    }
+    
+    // Recall Current
+    function recallCurrent() {
+      if (!currentCalled) {
+        showNotification('Tiada dalam sesi', 'warning');
+        return;
+      }
+      showNotification('Memanggil semula: ' + currentCalled.number + ' - ' + currentCalled.name, 'info');
+      playSound();
+    }
+    
+    // Mark as Done
+    function markAsDone(id) {
+      const entry = queue.find(q => q.id === id);
+      if (entry) {
+        entry.status = 'done';
+        entry.completedAt = new Date().toISOString();
+        history.push({...entry});
+        
+        if (currentCalled && currentCalled.id === id) {
+          currentCalled = null;
+        }
+        
+        saveData();
+        updateDisplay();
+        showNotification('Ditandakan selesai: ' + entry.name, 'success');
+      }
+    }
+    
+    // Mark All Done
+    function markAllDone() {
+      if (!confirm('Tandakan semua sebagai selesai?')) return;
+      
+      queue.forEach(q => {
+        if (q.status === 'waiting' || q.status === 'called') {
+          q.status = 'done';
+          q.completedAt = new Date().toISOString();
+          history.push({...q});
+        }
+      });
+      
+      currentCalled = null;
+      saveData();
+      updateDisplay();
+      showNotification('Semua ditandakan selesai', 'success');
+    }
+    
+    // Bulk Add
+    function bulkAddToQueue() {
+      const text = document.getElementById('bulkAdd').value.trim();
+      if (!text) return;
+      
+      const names = text.split('\n').map(n => n.trim()).filter(n => n);
+      if (names.length === 0) return;
+      
+      names.forEach(name => {
+        queue.push({
+          id: Date.now().toString() + Math.random(),
+          number: currentQueueNumber++,
+          name: name,
+          studentId: '',
+          position: '',
+          notes: '',
+          status: 'waiting',
+          addedAt: new Date().toISOString()
+        });
+      });
+      
+      saveData();
+      updateDisplay();
+      document.getElementById('bulkAdd').value = '';
+      showNotification(names.length + ' orang ditambah ke queue', 'success');
+    }
+    
+    // Reset Queue
+    function resetQueue() {
+      if (!confirm('Reset queue? Semua data akan dipadam.')) return;
+      
+      const startNum = parseInt(document.getElementById('startNumber').value) || 1;
+      queue = [];
+      history = [];
+      currentQueueNumber = startNum;
+      currentCalled = null;
+      
+      saveData();
+      updateDisplay();
+      showNotification('Queue telah direset', 'success');
+    }
+    
+    // Clear All
+    function clearAll() {
+      if (!confirm('Padam SEMUA data? Tindakan ini tidak boleh dikembalikan.')) return;
+      
+      queue = [];
+      history = [];
+      currentQueueNumber = 1;
+      currentCalled = null;
+      
+      saveData();
+      updateDisplay();
+      showNotification('Semua data dipadam', 'success');
+    }
+    
+    // Clear History
+    function clearHistory() {
+      if (!confirm('Padam sejarah hari ini?')) return;
+      
+      const today = new Date().toDateString();
+      history = history.filter(h => new Date(h.completedAt).toDateString() !== today);
+      
+      saveData();
+      updateDisplay();
+      showNotification('Sejarah dipadam', 'success');
+    }
+    
+    // Export History
+    function exportHistory() {
+      if (history.length === 0) {
+        showNotification('Tiada data untuk eksport', 'warning');
+        return;
+      }
+      
+      const headers = ['No', 'Nama', 'No Pelajar', 'Posisi', 'Nota', 'Masa Mula', 'Masa Selesai'];
+      const rows = history.map(h => [
+        h.number,
+        h.name,
+        h.studentId || '-',
+        h.position || '-',
+        h.notes || '-',
+        new Date(h.addedAt).toLocaleString('ms-MY'),
+        h.completedAt ? new Date(h.completedAt).toLocaleString('ms-MY') : '-'
+      ]);
+      
+      const csv = [headers.join(','), ...rows.map(r => r.map(c => '"' + c + '"').join(','))].join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'interview-queue-' + new Date().toISOString().split('T')[0] + '.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      showNotification('CSV berjaya dimuat turun', 'success');
+    }
+    
+    // Show Notification
+    function showNotification(msg, type) {
+      const el = document.getElementById('notification');
+      el.textContent = msg;
+      el.style.display = 'block';
+      el.style.background = type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : type === 'success' ? '#22c55e' : '#3b82f6';
+      
+      setTimeout(() => { el.style.display = 'none'; }, 3000);
+    }
+    
+    // Play Sound
+    function playSound() {
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVggoKIc2JgZ3mLkYJlWl9vd4eFc2JeYnGChoFsXV5yfIqJfmpZW3B9iYl+a1pbcX2KioBtXF1zfImJgW1dXXJ8iIiBbl5ecnyIiIFuX15yfIiHgW9gX3J8h4eBcGBfcnyHh4FwYWBzfIeHgXFiYHN8h4eBcWJgc3yHh4FxY2BzfIeHgXFjYHN8h4eBcWRgc3yHh4FxZGFzfIeHgXFlYXN8h4eBcWZhc3yHh4FxZ2FzfIeHgXFoYXN8h4eBcWlhc3yHh4FxaWNzfA==');
+        audio.volume = 0.3;
+        audio.play();
+      } catch(e) {}
+    }
+    
+    // Escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').textContent = now.toLocaleDateString('ms-MY', { 
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+      }) + ' | ' + now.toLocaleTimeString('ms-MY');
+    }
+    
+    // Enter key support
+    document.getElementById('queueName').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') addToQueue();
+    });
+    
+    // Init
+    loadData();
+    updateClock();
+    setInterval(updateClock, 1000);
+  </script>
+</body>
+</html>
