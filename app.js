@@ -10551,9 +10551,9 @@ window.addExamEntry = function() {
   html += '<div class="form-group">';
   html += '<label>Mata Pelajaran</label>';
   html += '<select id="examSubject" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
-  html += '<option value="">-- Pilih Subjek --</option>';
+  html += '<option value="">-- Pilih Semester Dahulu --</option>';
   subjects.forEach(s => {
-    html += '<option value="' + s.id + '" data-code="' + (s.code || '') + '">' + s.name + ' (' + (s.code || '') + ')</option>';
+    html += '<option value="' + s.id + '" data-semester="' + (s.semester || '') + '" data-code="' + (s.code || '') + '" style="display:none;">' + s.name + ' (' + (s.code || '') + ')</option>';
   });
   html += '</select>';
   html += '</div>';
@@ -10629,6 +10629,31 @@ window.addExamEntry = function() {
     closeModal();
     alert('Jadual peperiksaan berjaya ditambah.');
   });
+  
+  // Filter subjects by semester
+  setTimeout(function() {
+    const semesterSelect = document.getElementById('examSemester');
+    const subjectSelect = document.getElementById('examSubject');
+    if (semesterSelect && subjectSelect) {
+      semesterSelect.addEventListener('change', function() {
+        const selectedSemester = this.value;
+        const options = subjectSelect.querySelectorAll('option[data-semester]');
+        options.forEach(opt => {
+          if (!selectedSemester || opt.dataset.semester === selectedSemester) {
+            opt.style.display = '';
+          } else {
+            opt.style.display = 'none';
+          }
+        });
+        subjectSelect.value = '';
+        // Update default text
+        const defaultOpt = subjectSelect.querySelector('option[value=""]');
+        if (defaultOpt) {
+          defaultOpt.textContent = selectedSemester ? '-- Pilih Subjek --' : '-- Pilih Semester Dahulu --';
+        }
+      });
+    }
+  }, 100);
 };
 
 // Edit Exam Entry
@@ -10654,10 +10679,11 @@ window.editExamEntry = function(examId) {
   html += '<div class="form-group">';
   html += '<label>Mata Pelajaran</label>';
   html += '<select id="examSubject" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
-  html += '<option value="">-- Pilih Subjek --</option>';
+  html += '<option value="">-- Pilih Semester Dahulu --</option>';
   subjects.forEach(s => {
     const selected = s.id === exam.subjectId ? ' selected' : '';
-    html += '<option value="' + s.id + '" data-code="' + (s.code || '') + '"' + selected + '>' + s.name + ' (' + (s.code || '') + ')</option>';
+    const showBySemester = !exam.semesterId || s.semester === exam.semesterId;
+    html += '<option value="' + s.id + '" data-semester="' + (s.semester || '') + '" data-code="' + (s.code || '') + '"' + selected + (showBySemester ? '' : ' style="display:none;"') + '>' + s.name + ' (' + (s.code || '') + ')</option>';
   });
   html += '</select>';
   html += '</div>';
@@ -10728,6 +10754,36 @@ window.editExamEntry = function(examId) {
     closeModal();
     alert('Jadual peperiksaan berjaya dikemaskini.');
   });
+  
+  // Filter subjects by semester
+  setTimeout(function() {
+    const semesterSelect = document.getElementById('examSemester');
+    const subjectSelect = document.getElementById('examSubject');
+    if (semesterSelect && subjectSelect) {
+      semesterSelect.addEventListener('change', function() {
+        const selectedSemester = this.value;
+        const options = subjectSelect.querySelectorAll('option[data-semester]');
+        options.forEach(opt => {
+          if (!selectedSemester || opt.dataset.semester === selectedSemester) {
+            opt.style.display = '';
+          } else {
+            opt.style.display = 'none';
+          }
+        });
+        // Only reset if current selection is not in the new semester
+        const currentVal = subjectSelect.value;
+        const currentOpt = subjectSelect.querySelector('option[value="' + currentVal + '"]');
+        if (currentOpt && currentOpt.style.display === 'none') {
+          subjectSelect.value = '';
+        }
+        // Update default text
+        const defaultOpt = subjectSelect.querySelector('option[value=""]');
+        if (defaultOpt) {
+          defaultOpt.textContent = selectedSemester ? '-- Pilih Subjek --' : '-- Pilih Semester Dahulu --';
+        }
+      });
+    }
+  }, 100);
 };
 
 // Delete Exam Entry
