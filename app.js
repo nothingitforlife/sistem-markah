@@ -8106,7 +8106,7 @@ if (!data.fyp) {
 
 // FYP Assessment Criteria (based on standard FYP form)
 const FYP_CRITERIA = {
-  'SEM005': {
+  'SEM004': {
     title: 'Final Year Project 1',
     sections: [
       {
@@ -8157,7 +8157,7 @@ const FYP_CRITERIA = {
       }
     ]
   },
-  'SEM006': {
+  'SEM005': {
     title: 'Final Year Project 2',
     sections: [
       {
