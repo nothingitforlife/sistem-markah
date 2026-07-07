@@ -965,6 +965,18 @@ function optimizeData(data) {
       publishTo: m.publishTo || 'all',
       createdAt: m.createdAt || ''
     })),
+    examSchedule: (data.examSchedule || []).map(e => ({
+      id: e.id,
+      semesterId: e.semesterId || '',
+      semesterName: e.semesterName || '',
+      subjectId: e.subjectId || '',
+      subjectName: e.subjectName || '',
+      subjectCode: e.subjectCode || '',
+      date: e.date || '',
+      time: e.time || '',
+      hall: e.hall || '',
+      createdAt: e.createdAt || ''
+    })),
     fyp: {
       assessments: (data.fyp && data.fyp.assessments) ? data.fyp.assessments : [],
       auditLog: (data.fyp && data.fyp.auditLog) ? data.fyp.auditLog : []
@@ -1034,6 +1046,7 @@ async function loadFromFirebase() {
       data.marks = remote.marks || [];
       data.timetable = remote.timetable || [];
       data.memos = remote.memos || [];
+      data.examSchedule = remote.examSchedule || [];
       data.fyp = remote.fyp || { assessments: [], auditLog: [] };
       data.carrymark = remote.carrymark || { templates: [], marks: [], gradeConfig: [], auditLog: [] };
       
@@ -10452,32 +10465,60 @@ function renderExamSchedule() {
   const container = document.getElementById('examScheduleContent');
   if (!container) return;
   
+  // Initialize exam data if not exists
+  if (!data.examSchedule) {
+    data.examSchedule = [];
+  }
+  
   const semesters = data.semesters || [];
-  const subjects = data.subjects || [];
   
-  let html = '<div style="margin-bottom:1rem;">';
-  html += '<h3 style="color:#0f3460;margin-bottom:1rem;">Jadual Peperiksaan</h3>';
+  let html = '';
   
-  // Generate sample exam schedule based on subjects
+  // Add button (admin only)
+  if (currentRole === 'admin') {
+    html += '<div class="toolbar" style="margin-bottom:1rem;">';
+    html += '<button class="btn btn-primary" onclick="addExamEntry()">+ Tambah Jadual Peperiksaan</button>';
+    html += '<button class="btn btn-sm btn-outline" onclick="printExamSchedule()" style="color:#059669;border-color:#059669;">🖨️ Cetak</button>';
+    html += '</div>';
+  }
+  
+  if (data.examSchedule.length === 0) {
+    html += '<div style="text-align:center;padding:2rem;background:#f9fafb;border-radius:8px;">';
+    html += '<p style="color:#6b7280;">Tiada jadual peperiksaan lagi.</p>';
+    if (currentRole === 'admin') {
+      html += '<p style="color:#9ca3af;font-size:0.9rem;">Klik "+ Tambah Jadual Peperiksaan" untuk mula.</p>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+    return;
+  }
+  
+  // Group by semester
   semesters.forEach(sem => {
-    const semSubjects = subjects.filter(s => s.semester === sem.id);
-    if (semSubjects.length === 0) return;
+    const semExams = data.examSchedule.filter(e => e.semesterId === sem.id);
+    if (semExams.length === 0) return;
     
     html += '<div style="margin-bottom:1.5rem;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;">';
     html += '<h4 style="color:#0f3460;margin-bottom:0.5rem;">' + esc(sem.name) + '</h4>';
     html += '<table><thead><tr>';
     html += '<th>Bil</th><th>Mata Pelajaran</th><th>Kod</th><th>Tarikh</th><th>Masa</th><th>Dewan</th>';
+    if (currentRole === 'admin') html += '<th>Tindakan</th>';
     html += '</tr></thead><tbody>';
     
-    semSubjects.forEach((subj, i) => {
-      const examDate = getExamDate(sem.name, i);
+    semExams.forEach((exam, i) => {
       html += '<tr>';
       html += '<td>' + (i + 1) + '</td>';
-      html += '<td>' + esc(subj.name) + '</td>';
-      html += '<td>' + esc(subj.code || '-') + '</td>';
-      html += '<td>' + examDate.date + '</td>';
-      html += '<td>' + examDate.time + '</td>';
-      html += '<td>' + examDate.hall + '</td>';
+      html += '<td>' + esc(exam.subjectName || '-') + '</td>';
+      html += '<td>' + esc(exam.subjectCode || '-') + '</td>';
+      html += '<td>' + esc(exam.date || '-') + '</td>';
+      html += '<td>' + esc(exam.time || '-') + '</td>';
+      html += '<td>' + esc(exam.hall || '-') + '</td>';
+      if (currentRole === 'admin') {
+        html += '<td>';
+        html += '<button class="btn btn-sm btn-warning" onclick="editExamEntry(\'' + exam.id + '\')">Edit</button> ';
+        html += '<button class="btn btn-sm btn-danger" onclick="deleteExamEntry(\'' + exam.id + '\')">Padam</button>';
+        html += '</td>';
+      }
       html += '</tr>';
     });
     
@@ -10485,24 +10526,222 @@ function renderExamSchedule() {
     html += '</div>';
   });
   
-  html += '</div>';
   container.innerHTML = html;
 }
 
-function getExamDate(semesterName, index) {
-  // Generate sample exam dates
-  const dates = [
-    { date: '15 Jul 2026', time: '09:00 - 11:00', hall: 'Dewan A' },
-    { date: '16 Jul 2026', time: '09:00 - 11:00', hall: 'Dewan B' },
-    { date: '17 Jul 2026', time: '14:00 - 16:00', hall: 'Dewan A' },
-    { date: '18 Jul 2026', time: '09:00 - 11:00', hall: 'Dewan C' },
-    { date: '19 Jul 2026', time: '14:00 - 16:00', hall: 'Dewan B' },
-    { date: '20 Jul 2026', time: '09:00 - 11:00', hall: 'Dewan A' },
-    { date: '21 Jul 2026', time: '14:00 - 16:00', hall: 'Dewan C' },
-    { date: '22 Jul 2026', time: '09:00 - 11:00', hall: 'Dewan B' }
-  ];
-  return dates[index % dates.length];
-}
+// Add Exam Entry
+window.addExamEntry = function() {
+  const semesters = data.semesters || [];
+  const subjects = data.subjects || [];
+  
+  let html = '<div class="form-group">';
+  html += '<label>Semester</label>';
+  html += '<select id="examSemester" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<option value="">-- Pilih Semester --</option>';
+  semesters.forEach(s => {
+    html += '<option value="' + s.id + '">' + s.name + '</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Mata Pelajaran</label>';
+  html += '<select id="examSubject" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<option value="">-- Pilih Subjek --</option>';
+  subjects.forEach(s => {
+    html += '<option value="' + s.id + '" data-code="' + (s.code || '') + '">' + s.name + ' (' + (s.code || '') + ')</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Tarikh</label>';
+  html += '<input type="date" id="examDate" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">';
+  html += '<div class="form-group">';
+  html += '<label>Masa Mula</label>';
+  html += '<input type="time" id="examTimeStart" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  html += '<div class="form-group">';
+  html += '<label>Masa Tamat</label>';
+  html += '<input type="time" id="examTimeEnd" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Dewan</label>';
+  html += '<input type="text" id="examHall" placeholder="Contoh: Dewan A" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  openModal('Tambah Jadual Peperiksaan', html, function() {
+    const semesterId = document.getElementById('examSemester').value;
+    const subjectId = document.getElementById('examSubject').value;
+    const date = document.getElementById('examDate').value;
+    const timeStart = document.getElementById('examTimeStart').value;
+    const timeEnd = document.getElementById('examTimeEnd').value;
+    const hall = document.getElementById('examHall').value.trim();
+    
+    if (!semesterId || !subjectId || !date) {
+      alert('Sila isi semester, subjek, dan tarikh.');
+      return false;
+    }
+    
+    const subject = subjects.find(s => s.id === subjectId);
+    const semester = semesters.find(s => s.id === semesterId);
+    
+    const entry = {
+      id: generateId('EXAM'),
+      semesterId: semesterId,
+      semesterName: semester ? semester.name : '',
+      subjectId: subjectId,
+      subjectName: subject ? subject.name : '',
+      subjectCode: subject ? (subject.code || '') : '',
+      date: date,
+      time: (timeStart && timeEnd) ? timeStart + ' - ' + timeEnd : '',
+      hall: hall,
+      createdAt: new Date().toISOString()
+    };
+    
+    if (!data.examSchedule) data.examSchedule = [];
+    data.examSchedule.push(entry);
+    saveData();
+    renderExamSchedule();
+    closeModal();
+    alert('Jadual peperiksaan berjaya ditambah.');
+  });
+};
+
+// Edit Exam Entry
+window.editExamEntry = function(examId) {
+  const exam = (data.examSchedule || []).find(e => e.id === examId);
+  if (!exam) return;
+  
+  const semesters = data.semesters || [];
+  const subjects = data.subjects || [];
+  const timeParts = exam.time ? exam.time.split(' - ') : ['', ''];
+  
+  let html = '<div class="form-group">';
+  html += '<label>Semester</label>';
+  html += '<select id="examSemester" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<option value="">-- Pilih Semester --</option>';
+  semesters.forEach(s => {
+    const selected = s.id === exam.semesterId ? ' selected' : '';
+    html += '<option value="' + s.id + '"' + selected + '>' + s.name + '</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Mata Pelajaran</label>';
+  html += '<select id="examSubject" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<option value="">-- Pilih Subjek --</option>';
+  subjects.forEach(s => {
+    const selected = s.id === exam.subjectId ? ' selected' : '';
+    html += '<option value="' + s.id + '" data-code="' + (s.code || '') + '"' + selected + '>' + s.name + ' (' + (s.code || '') + ')</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Tarikh</label>';
+  html += '<input type="date" id="examDate" value="' + esc(exam.date || '') + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">';
+  html += '<div class="form-group">';
+  html += '<label>Masa Mula</label>';
+  html += '<input type="time" id="examTimeStart" value="' + (timeParts[0] || '') + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  html += '<div class="form-group">';
+  html += '<label>Masa Tamat</label>';
+  html += '<input type="time" id="examTimeEnd" value="' + (timeParts[1] || '').trim() + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Dewan</label>';
+  html += '<input type="text" id="examHall" value="' + esc(exam.hall || '') + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  openModal('Edit Jadual Peperiksaan', html, function() {
+    const semesterId = document.getElementById('examSemester').value;
+    const subjectId = document.getElementById('examSubject').value;
+    const date = document.getElementById('examDate').value;
+    const timeStart = document.getElementById('examTimeStart').value;
+    const timeEnd = document.getElementById('examTimeEnd').value;
+    const hall = document.getElementById('examHall').value.trim();
+    
+    if (!semesterId || !subjectId || !date) {
+      alert('Sila isi semester, subjek, dan tarikh.');
+      return false;
+    }
+    
+    const subject = subjects.find(s => s.id === subjectId);
+    const semester = semesters.find(s => s.id === semesterId);
+    
+    exam.semesterId = semesterId;
+    exam.semesterName = semester ? semester.name : '';
+    exam.subjectId = subjectId;
+    exam.subjectName = subject ? subject.name : '';
+    exam.subjectCode = subject ? (subject.code || '') : '';
+    exam.date = date;
+    exam.time = (timeStart && timeEnd) ? timeStart + ' - ' + timeEnd : '';
+    exam.hall = hall;
+    exam.updatedAt = new Date().toISOString();
+    
+    saveData();
+    renderExamSchedule();
+    closeModal();
+    alert('Jadual peperiksaan berjaya dikemaskini.');
+  });
+};
+
+// Delete Exam Entry
+window.deleteExamEntry = function(examId) {
+  if (!confirm('Padam jadual peperiksaan ini?')) return;
+  data.examSchedule = (data.examSchedule || []).filter(e => e.id !== examId);
+  saveData();
+  renderExamSchedule();
+  alert('Jadual peperiksaan berjaya dipadam.');
+};
+
+// Print Exam Schedule
+window.printExamSchedule = function() {
+  const container = document.getElementById('examScheduleContent');
+  if (!container) return;
+  
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Jadual Peperiksaan - TDMS</title>
+  <style>
+    body { font-family: 'Calibri', Arial, sans-serif; padding: 30px; color: #333; }
+    h1 { text-align: center; color: #0f3460; font-size: 18px; margin-bottom: 5px; }
+    h2 { text-align: center; color: #6b7280; font-size: 14px; font-weight: normal; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th { background: #0f3460; color: white; padding: 10px; border: 1px solid #dee2e6; font-size: 13px; }
+    td { padding: 8px 10px; border: 1px solid #dee2e6; font-size: 13px; }
+    tr:nth-child(even) { background: #f9fafb; }
+    .section-title { color: #0f3460; font-size: 16px; margin: 20px 0 10px 0; }
+    @media print { body { padding: 15px; } }
+  </style>
+</head>
+<body>
+  <h1>TVET Digital Management System (TDMS)</h1>
+  <h2>Jadual Peperiksaan</h2>
+  <p style="text-align:center;font-size:13px;color:#6b7280;">Tarikh cetak: ${new Date().toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+  ${container.innerHTML}
+  <script>window.print();</script>
+</body>
+</html>`;
+  
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+};
 
 // ============================================
 // 10. REPORT CARD GENERATOR
