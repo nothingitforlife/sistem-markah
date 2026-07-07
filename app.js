@@ -6288,24 +6288,27 @@ function renderCarrymarkAdmin(area) {
     html += '</div>';
   }
   
-  // Assessment List
+  // Assessment List - draft tidak ditunjukkan kepada admin
+  const visibleTemplates = templates.filter(t => t.status !== 'draft');
+  
   html += '<div class="individual-analysis-card">';
   html += '<h3>Senarai Assessment</h3>';
   
-  if (templates.length === 0) {
-    html += '<p class="empty-state">Tiada assessment lagi. Klik "+ Create Assessment" untuk tambah.</p>';
+  if (visibleTemplates.length === 0) {
+    html += '<p class="empty-state">Tiada assessment yang dihantar lagi.</p>';
   } else {
     html += '<table><thead><tr>';
-    html += '<th>Bil</th><th>Academic Session</th><th>Semester</th><th>Course</th><th>Course Code</th><th>Class</th><th>Components</th><th>Status</th><th>Tindakan</th>';
+    html += '<th>Bil</th><th>Pengajar</th><th>Academic Session</th><th>Semester</th><th>Course</th><th>Course Code</th><th>Class</th><th>Components</th><th>Status</th><th>Tindakan</th>';
     html += '</tr></thead><tbody>';
     
-    templates.forEach((t, i) => {
+    visibleTemplates.forEach((t, i) => {
       const componentCount = t.components ? t.components.length : 0;
       const courseworkTotal = t.components ? t.components.filter(c => c.category === 'coursework').reduce((sum, c) => sum + (c.weight || 0), 0) : 0;
       const finalTotal = t.components ? t.components.filter(c => c.category === 'final').reduce((sum, c) => sum + (c.weight || 0), 0) : 0;
       
       html += '<tr>';
       html += '<td>' + (i + 1) + '</td>';
+      html += '<td>' + (t.lecturer || '-') + '</td>';
       html += '<td>' + (t.academicSession || '-') + '</td>';
       html += '<td>' + (t.semester || '-') + '</td>';
       html += '<td>' + (t.course || '-') + '</td>';
