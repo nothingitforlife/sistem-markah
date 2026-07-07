@@ -1048,6 +1048,11 @@ async function loadFromFirebase() {
       data.fyp = remote.fyp || { assessments: [], auditLog: [] };
       data.carrymark = remote.carrymark || { templates: [], marks: [], gradeConfig: [], auditLog: [] };
       
+      // Backup to localStorage as fallback
+      try {
+        localStorage.setItem('cm_fyp_backup', JSON.stringify({ fyp: data.fyp, carrymark: data.carrymark }));
+      } catch(e) { console.warn('localStorage backup failed:', e); }
+      
       // Load teachers - merge to preserve grade
       if (remote.teachers && remote.teachers.length > 0) {
         // Check if remote teachers have grade
@@ -1159,20 +1164,48 @@ async function loadFromFirebase() {
   } catch (e) {
     console.warn('Firebase load error:', e);
   }
+  
+  // Fallback: load carrymark/FYP from localStorage if Firebase didn't have them
+  if ((!data.carrymark || !data.carrymark.templates || data.carrymark.templates.length === 0) &&
+      (!data.fyp || !data.fyp.assessments || data.fyp.assessments.length === 0)) {
+    try {
+      const backup = JSON.parse(localStorage.getItem('cm_fyp_backup'));
+      if (backup) {
+        if (backup.carrymark && backup.carrymark.templates && backup.carrymark.templates.length > 0) {
+          data.carrymark = backup.carrymark;
+          console.log('Carrymark data restored from localStorage backup');
+        }
+        if (backup.fyp && backup.fyp.assessments && backup.fyp.assessments.length > 0) {
+          data.fyp = backup.fyp;
+          console.log('FYP data restored from localStorage backup');
+        }
+      }
+    } catch(e) { console.warn('localStorage restore failed:', e); }
+  }
 }
 
 async function saveData() {
   try {
     const optimizedData = optimizeData(data);
-    await db.collection('app_data').doc('sistem-markah-1').set({
+    const payload = {
       ...optimizedData,
       deleted: false,
       updatedAt: new Date().toISOString()
-    });
-    console.log('Data saved to Firebase');
+    };
+    
+    // Check payload size
+    const payloadSize = new Blob([JSON.stringify(payload)]).size;
+    console.log('Firebase payload size:', (payloadSize / 1024).toFixed(1) + ' KB');
+    
+    if (payloadSize > 900000) {
+      console.warn('WARNING: Data hampir had 1MB Firebase! Size:', (payloadSize / 1024).toFixed(1) + ' KB');
+    }
+    
+    await db.collection('app_data').doc('sistem-markah-1').set(payload);
+    console.log('Data saved to Firebase. Carrymark templates:', (data.carrymark?.templates || []).length, '| FYP assessments:', (data.fyp?.assessments || []).length);
     updateSyncStatus('synced');
   } catch (e) {
-    console.warn('Firebase save error:', e);
+    console.error('Firebase save error:', e);
     updateSyncStatus('error');
   }
 }
@@ -1243,6 +1276,70 @@ function generateId(prefix) {
   const n = Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 5).toUpperCase();
   return prefix + n;
 }
+
+// Backup all data to JSON file
+window.backupAllData = function() {
+  const backup = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: data
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'backup-sistem-markah-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  alert('Backup berjaya dimuat turun.');
+};
+
+// Restore data from JSON file
+window.restoreAllData = function(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  if (!confirm('Import backup akan MENGGANTIKAN semua data semasa. Teruskan?')) {
+    input.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const backup = JSON.parse(e.target.result);
+      if (!backup.data) {
+        alert('Fail backup tidak sah.');
+        return;
+      }
+
+      // Restore all data sections
+      if (backup.data.students) data.students = backup.data.students;
+      if (backup.data.subjects) data.subjects = backup.data.subjects;
+      if (backup.data.semesters) data.semesters = backup.data.semesters;
+      if (backup.data.marks) data.marks = backup.data.marks;
+      if (backup.data.teachers) data.teachers = backup.data.teachers;
+      if (backup.data.timetable) data.timetable = backup.data.timetable;
+      if (backup.data.memos) data.memos = backup.data.memos;
+      if (backup.data.carrymark) data.carrymark = backup.data.carrymark;
+      if (backup.data.fyp) data.fyp = backup.data.fyp;
+
+      saveData();
+      renderDashboard();
+      renderStudents();
+      renderSubjects();
+      renderSemesters();
+      if (typeof renderTeachers === 'function') renderTeachers();
+      alert('Backup berjaya dipulihkan! (' + (backup.exportedAt || 'tarikh tidak diketahui') + ')');
+    } catch (err) {
+      alert('Ralat membaca fail: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+};
 
 function getGrade(score) {
   if (score == null || score === '') return null;
@@ -3161,6 +3258,17 @@ function renderDashboard() {
 
   let html = '';
 
+  // Backup/Restore buttons for admin
+  if (currentRole === 'admin') {
+    html += '<div style="background:white;border-radius:8px;padding:1rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.08);display:flex;gap:10px;flex-wrap:wrap;align-items:center;">';
+    html += '<span style="font-weight:600;color:#0f3460;">Data Backup:</span>';
+    html += '<button class="btn btn-sm btn-primary" onclick="backupAllData()">📥 Export Backup (JSON)</button>';
+    html += '<button class="btn btn-sm btn-outline" onclick="document.getElementById(\'restoreFileInput\').click()" style="color:#059669;border-color:#059669;">📤 Import Restore</button>';
+    html += '<input type="file" id="restoreFileInput" accept=".json" style="display:none;" onchange="restoreAllData(this)">';
+    html += '<span style="font-size:0.8rem;color:#6b7280;">Backup semua data (pelajar, markah, carrymark, FYP, dll)</span>';
+    html += '</div>';
+  }
+
   if (data.semesters.length > 0) {
     html += '<div style="background:white;border-radius:8px;padding:1rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.08);">';
     html += '<h3 style="margin-bottom:0.75rem;color:#0f3460;">Senarai Semester & Penyelia</h3>';
@@ -4324,7 +4432,7 @@ function updateSyncStatus(status) {
     el.title = 'Sedang menyimpan...';
   } else if (status === 'error') {
     el.textContent = '🔴';
-    el.title = 'Ralat sync - tekan butang Sync untuk cuba semula';
+    el.title = 'Ralat sync - data mungkin tidak tersimpan. Buka F12 > Console untuk lihat error.';
   }
 }
 
