@@ -9915,6 +9915,9 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
     // Initialize new features
     initScrollToTop();
     initLastLoginInfo();
+    initMemoBadge();
+    initDatePickers();
+    initTableSorting();
     hideLoading();
   } catch (e) {
     console.warn('Init render error:', e);
@@ -10058,4 +10061,131 @@ function initLastLoginInfo() {
     infoSpan.title = 'Kali terakhir login';
     userInfo.parentNode.insertBefore(infoSpan, userInfo);
   }
+}
+
+// ============================================
+// NOTIFICATION BADGE FOR MEMOS
+// ============================================
+function initMemoBadge() {
+  const lastReadKey = 'memoLastRead_' + (currentUser ? currentUser.name : 'guest');
+  const lastRead = localStorage.getItem(lastReadKey);
+  
+  // Count new memos
+  let newCount = 0;
+  if (data.memos && data.memos.length > 0) {
+    if (!lastRead) {
+      newCount = data.memos.length;
+    } else {
+      const lastReadDate = new Date(lastRead);
+      newCount = data.memos.filter(m => new Date(m.createdAt) > lastReadDate).length;
+    }
+  }
+  
+  // Add badge to memo tab
+  const memoTabs = document.querySelectorAll('[data-tab="memos"]');
+  memoTabs.forEach(tab => {
+    // Remove existing badge
+    const existingBadge = tab.querySelector('.memo-badge');
+    if (existingBadge) existingBadge.remove();
+    
+    if (newCount > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'memo-badge';
+      badge.textContent = newCount;
+      badge.style.cssText = 'background:#dc2626;color:white;border-radius:50%;padding:2px 6px;font-size:0.7rem;margin-left:4px;vertical-align:top;';
+      tab.appendChild(badge);
+    }
+  });
+  
+  // Mark as read when memo tab is clicked
+  document.addEventListener('click', function(e) {
+    if (e.target.dataset && e.target.dataset.tab === 'memos') {
+      localStorage.setItem(lastReadKey, new Date().toISOString());
+      setTimeout(initMemoBadge, 100);
+    }
+  });
+}
+
+// ============================================
+// DATE PICKER ENHANCEMENT
+// ============================================
+function initDatePickers() {
+  // Add type="date" to all date inputs if not already set
+  document.querySelectorAll('input[type="date"]').forEach(input => {
+    if (!input.value) {
+      input.value = new Date().toISOString().split('T')[0];
+    }
+  });
+}
+
+// ============================================
+// TABLE SORTING
+// ============================================
+function initTableSorting() {
+  document.querySelectorAll('table thead th').forEach((th, index) => {
+    // Skip checkbox and action columns
+    if (index === 0 || th.textContent.trim() === 'Tindakan') return;
+    
+    th.style.cursor = 'pointer';
+    th.title = 'Klik untuk susun';
+    
+    // Add sort indicator
+    const indicator = document.createElement('span');
+    indicator.className = 'sort-indicator';
+    indicator.textContent = ' ↕';
+    indicator.style.cssText = 'font-size:0.7rem;opacity:0.5;margin-left:4px;';
+    th.appendChild(indicator);
+    
+    th.addEventListener('click', function() {
+      sortTable(this, index);
+    });
+  });
+}
+
+function sortTable(th, columnIndex) {
+  const table = th.closest('table');
+  if (!table) return;
+  
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  if (rows.length === 0) return;
+  
+  // Determine sort direction
+  const currentDir = th.dataset.sortDir || 'asc';
+  const newDir = currentDir === 'asc' ? 'desc' : 'asc';
+  th.dataset.sortDir = newDir;
+  
+  // Update all indicators in this table
+  table.querySelectorAll('.sort-indicator').forEach(ind => ind.textContent = ' ↕');
+  const indicator = th.querySelector('.sort-indicator');
+  if (indicator) indicator.textContent = newDir === 'asc' ? ' ↑' : ' ↓';
+  
+  // Sort rows
+  rows.sort(function(a, b) {
+    const cellA = a.cells[columnIndex];
+    const cellB = b.cells[columnIndex];
+    
+    if (!cellA || !cellB) return 0;
+    
+    let valA = cellA.textContent.trim();
+    let valB = cellB.textContent.trim();
+    
+    // Try numeric comparison
+    const numA = parseFloat(valA);
+    const numB = parseFloat(valB);
+    
+    if (!isNaN(numA) && !isNaN(numB)) {
+      return newDir === 'asc' ? numA - numB : numB - numA;
+    }
+    
+    // String comparison
+    return newDir === 'asc' 
+      ? valA.localeCompare(valB, 'ms') 
+      : valB.localeCompare(valA, 'ms');
+  });
+  
+  // Re-append sorted rows
+  rows.forEach(row => tbody.appendChild(row));
 }
