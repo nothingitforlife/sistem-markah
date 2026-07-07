@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interview Display - TDMS</title>
+  <link rel="icon" type="image/png" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSq72lkexl5Eh5SqICxEFku6Cn4b1fmiK4Yk_ogQlX1eldvfQBVpUNSO_U&s=10">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f172a; color: white; min-height: 100vh; display: flex; flex-direction: column; }
+    
+    /* Header */
+    header { background: #1e293b; padding: 1.5rem 3rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #3b82f6; }
+    header h1 { font-size: 2rem; color: #60a5fa; }
+    header .clock { font-size: 1.5rem; color: #94a3b8; }
+    
+    /* Main Display */
+    .main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 2rem; }
+    
+    /* Current Call */
+    .current-call { text-align: center; margin-bottom: 3rem; }
+    .current-call .label { font-size: 2rem; color: #94a3b8; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 4px; }
+    .current-call .number { font-size: 15rem; font-weight: 900; color: #22c55e; text-shadow: 0 0 60px rgba(34, 197, 94, 0.6); line-height: 1; animation: pulse 2s infinite; }
+    .current-call .name { font-size: 5rem; font-weight: 700; color: white; margin-top: 1rem; text-shadow: 0 0 20px rgba(255, 255, 255, 0.3); }
+    .current-call .position { font-size: 2rem; color: #60a5fa; margin-top: 0.5rem; }
+    .current-call .counter { font-size: 1.5rem; color: #94a3b8; margin-top: 1.5rem; }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+    
+    /* Waiting List */
+    .waiting-section { width: 100%; max-width: 1200px; }
+    .waiting-section h2 { font-size: 1.5rem; color: #60a5fa; margin-bottom: 1rem; text-align: center; }
+    .waiting-list { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .waiting-item { background: #1e293b; border: 2px solid #334155; border-radius: 12px; padding: 1rem 2rem; text-align: center; min-width: 150px; }
+    .waiting-item .num { font-size: 2.5rem; font-weight: 700; color: #3b82f6; }
+    .waiting-item .w-name { font-size: 1.2rem; color: #e2e8f0; margin-top: 0.5rem; }
+    
+    /* Empty State */
+    .empty-state { text-align: center; padding: 3rem; }
+    .empty-state .icon { font-size: 5rem; margin-bottom: 1rem; }
+    .empty-state p { font-size: 2rem; color: #64748b; }
+    
+    /* Footer */
+    footer { background: #1e293b; padding: 1rem 3rem; text-align: center; border-top: 2px solid #334155; }
+    footer p { color: #64748b; font-size: 1rem; }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .current-call .number { font-size: 8rem; }
+      .current-call .name { font-size: 3rem; }
+      header h1 { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📋 INTERVIEW DISPLAY</h1>
+    <div class="clock" id="clock"></div>
+  </header>
+  
+  <div class="main">
+    <div class="current-call">
+      <div class="label">Sedang Dipanggil</div>
+      <div class="number" id="currentNumber">-</div>
+      <div class="name" id="currentName">Tiada dalam sesi</div>
+      <div class="position" id="currentPosition"></div>
+      <div class="counter">
+        Menunggu: <span id="waitingCount">0</span> | Selesai: <span id="doneCount">0</span>
+      </div>
+    </div>
+    
+    <div class="waiting-section">
+      <h2>⏳ Menunggu Giliran</h2>
+      <div class="waiting-list" id="waitingList">
+        <div class="empty-state">
+          <div class="icon">📋</div>
+          <p>Tiada dalam queue</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <footer>
+    <p>TVET Digital Management System (TDMS) - Interview Queue Display</p>
+  </footer>
+  
+  <script>
+    // Load data from localStorage
+    function loadData() {
+      try {
+        const saved = localStorage.getItem('interviewQueue');
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      } catch(e) {}
+      return { queue: [], history: [], currentQueueNumber: 1, currentCalled: null };
+    }
+    
+    // Update Display
+    function updateDisplay() {
+      const data = loadData();
+      const queue = data.queue || [];
+      const currentCalled = data.currentCalled;
+      
+      // Current call
+      const currentNumEl = document.getElementById('currentNumber');
+      const currentNameEl = document.getElementById('currentName');
+      const currentPositionEl = document.getElementById('currentPosition');
+      
+      if (currentCalled) {
+        currentNumEl.textContent = currentCalled.number;
+        currentNameEl.textContent = currentCalled.name;
+        currentPositionEl.textContent = currentCalled.position || '';
+      } else {
+        currentNumEl.textContent = '-';
+        currentNameEl.textContent = 'Tiada dalam sesi';
+        currentPositionEl.textContent = '';
+      }
+      
+      // Stats
+      const waiting = queue.filter(q => q.status === 'waiting').length;
+      const done = queue.filter(q => q.status === 'done').length;
+      
+      document.getElementById('waitingCount').textContent = waiting;
+      document.getElementById('doneCount').textContent = done;
+      
+      // Waiting list
+      const waitingListEl = document.getElementById('waitingList');
+      const waitingQueue = queue.filter(q => q.status === 'waiting').slice(0, 10);
+      
+      if (waitingQueue.length === 0) {
+        waitingListEl.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>Tiada dalam queue</p></div>';
+      } else {
+        waitingListEl.innerHTML = waitingQueue.map(q => `
+          <div class="waiting-item">
+            <div class="num">${q.number}</div>
+            <div class="w-name">${escapeHtml(q.name)}</div>
+          </div>
+        `).join('');
+      }
+    }
+    
+    // Escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').textContent = now.toLocaleDateString('ms-MY', { 
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+      }) + ' | ' + now.toLocaleTimeString('ms-MY');
+    }
+    
+    // Auto-refresh every 2 seconds
+    function init() {
+      updateDisplay();
+      updateClock();
+      setInterval(updateDisplay, 2000);
+      setInterval(updateClock, 1000);
+    }
+    
+    // Listen for storage changes (from other tabs)
+    window.addEventListener('storage', function(e) {
+      if (e.key === 'interviewQueue') {
+        updateDisplay();
+      }
+    });
+    
+    init();
+  </script>
+</body>
+</html>
