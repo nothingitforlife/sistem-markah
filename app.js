@@ -1166,7 +1166,31 @@ async function loadFromFirebase() {
     console.warn('Firebase load error:', e);
   }
   
-  // Fallback: load carrymark/FYP from localStorage if Firebase didn't have them
+  // Fallback: load from localStorage if Firebase didn't have data
+  try {
+    const fullBackup = JSON.parse(localStorage.getItem('sistemMarkahBackup'));
+    if (fullBackup && fullBackup.data) {
+      // Restore carrymark if empty
+      if ((!data.carrymark || !data.carrymark.templates || data.carrymark.templates.length === 0) &&
+          fullBackup.data.carrymark && fullBackup.data.carrymark.templates && fullBackup.data.carrymark.templates.length > 0) {
+        data.carrymark = fullBackup.data.carrymark;
+        console.log('✅ Carrymark restored from localStorage backup (' + fullBackup.backedUpAt + ')');
+      }
+      // Restore FYP if empty
+      if ((!data.fyp || !data.fyp.assessments || data.fyp.assessments.length === 0) &&
+          fullBackup.data.fyp && fullBackup.data.fyp.assessments && fullBackup.data.fyp.assessments.length > 0) {
+        data.fyp = fullBackup.data.fyp;
+        console.log('✅ FYP restored from localStorage backup (' + fullBackup.backedUpAt + ')');
+      }
+      // Restore memos if empty
+      if ((!data.memos || data.memos.length === 0) && fullBackup.data.memos && fullBackup.data.memos.length > 0) {
+        data.memos = fullBackup.data.memos;
+        console.log('✅ Memos restored from localStorage backup');
+      }
+    }
+  } catch(e) { console.warn('localStorage full backup restore failed:', e); }
+  
+  // Also try cm_fyp_backup
   if ((!data.carrymark || !data.carrymark.templates || data.carrymark.templates.length === 0) &&
       (!data.fyp || !data.fyp.assessments || data.fyp.assessments.length === 0)) {
     try {
@@ -1174,14 +1198,14 @@ async function loadFromFirebase() {
       if (backup) {
         if (backup.carrymark && backup.carrymark.templates && backup.carrymark.templates.length > 0) {
           data.carrymark = backup.carrymark;
-          console.log('Carrymark data restored from localStorage backup');
+          console.log('Carrymark data restored from cm_fyp_backup');
         }
         if (backup.fyp && backup.fyp.assessments && backup.fyp.assessments.length > 0) {
           data.fyp = backup.fyp;
-          console.log('FYP data restored from localStorage backup');
+          console.log('FYP data restored from cm_fyp_backup');
         }
       }
-    } catch(e) { console.warn('localStorage restore failed:', e); }
+    } catch(e) { console.warn('localStorage cm_fyp_backup restore failed:', e); }
   }
 }
 
@@ -4540,6 +4564,7 @@ document.getElementById('printTeacherBtn').onclick = function () {
 // --- Auto Sync Firebase ---
 let autoSyncInterval = null;
 let lastDataSnapshot = '';
+let lastBackupTime = null;
 
 async function autoSyncToFirebase() {
   try {
@@ -4548,6 +4573,8 @@ async function autoSyncToFirebase() {
       return; // No changes, skip sync
     }
     
+    updateSyncStatus('syncing');
+    
     const optimizedData = optimizeData(data);
     await db.collection('app_data').doc('sistem-markah-1').set({
       ...optimizedData,
@@ -4555,10 +4582,35 @@ async function autoSyncToFirebase() {
       updatedAt: new Date().toISOString()
     });
     lastDataSnapshot = currentSnapshot;
+    lastBackupTime = new Date();
     updateSyncStatus('synced');
+    updateLastBackupDisplay();
+    
+    // Also backup to localStorage as fallback
+    try {
+      localStorage.setItem('sistemMarkahBackup', JSON.stringify({
+        data: data,
+        backedUpAt: lastBackupTime.toISOString()
+      }));
+    } catch(le) {
+      console.warn('localStorage backup failed:', le);
+    }
+    
   } catch (e) {
     console.warn('Auto-sync error:', e);
     updateSyncStatus('error');
+    
+    // Fallback: save to localStorage if Firebase fails
+    try {
+      localStorage.setItem('sistemMarkahBackup', JSON.stringify({
+        data: data,
+        backedUpAt: new Date().toISOString(),
+        firebaseError: e.message
+      }));
+      console.log('Data backed up to localStorage due to Firebase error');
+    } catch(le) {
+      console.warn('localStorage fallback also failed:', le);
+    }
   }
 }
 
@@ -4577,6 +4629,13 @@ function updateSyncStatus(status) {
   }
 }
 
+function updateLastBackupDisplay() {
+  const el = document.getElementById('lastBackupTime');
+  if (!el || !lastBackupTime) return;
+  const timeStr = lastBackupTime.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  el.textContent = 'Backup: ' + timeStr;
+}
+
 async function manualSync() {
   updateSyncStatus('syncing');
   await autoSyncToFirebase();
@@ -4584,11 +4643,11 @@ async function manualSync() {
 
 function startAutoSync() {
   if (autoSyncInterval) return;
-  // Auto-sync every 1 second
-  autoSyncInterval = setInterval(autoSyncToFirebase, 1000);
+  // Auto-sync every 3 seconds (not too frequent to avoid performance issues)
+  autoSyncInterval = setInterval(autoSyncToFirebase, 3000);
   // Also sync immediately
   autoSyncToFirebase();
-  console.log('Auto-sync started (every 1 second)');
+  console.log('Auto-sync started (every 3 seconds)');
 }
 
 function stopAutoSync() {
