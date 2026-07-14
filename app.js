@@ -7110,12 +7110,15 @@ window.carrymarkViewTemplate = function(templateId) {
   if (template.components && template.components.length > 0) {
     html += '<table><thead><tr>';
     html += '<th>Bil</th><th>Component</th><th>Category</th><th>Weight</th><th>Max Mark</th><th>Passing</th><th>Date</th>';
+    if (template.status === 'draft' || template.status === 'rejected' || currentRole === 'admin') {
+      html += '<th>Tindakan</th>';
+    }
     html += '</tr></thead><tbody>';
     
     template.components.forEach((c, i) => {
       html += '<tr>';
       html += '<td>' + (i + 1) + '</td>';
-      html += '<td>' + (c.name || '-') + '</td>';
+      html += '<td><strong>' + (c.name || '-') + '</strong></td>';
       html += '<td>' + (c.category === 'coursework' ? '<span style="color:#3b82f6;">Coursework</span>' : '<span style="color:#f59e0b;">Final</span>') + '</td>';
       html += '<td>' + (c.weight || 0) + '%</td>';
       html += '<td>' + (c.maxMark || 100) + '</td>';
@@ -7123,6 +7126,11 @@ window.carrymarkViewTemplate = function(templateId) {
       html += '<td>';
       html += '<input type="date" id="cm-date-' + c.id + '" value="' + (c.date || '') + '" style="padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:0.85rem;">';
       html += '</td>';
+      if (template.status === 'draft' || template.status === 'rejected' || currentRole === 'admin') {
+        html += '<td>';
+        html += '<button class="btn btn-sm btn-outline" onclick="renameCarrymarkComponent(\'' + templateId + '\',\'' + c.id + '\')" style="font-size:0.75rem;padding:2px 6px;">✏️ Rename</button>';
+        html += '</td>';
+      }
       html += '</tr>';
     });
     
@@ -7185,6 +7193,61 @@ window.carrymarkSaveDates = function(templateId) {
   } else {
     alert('Tiada perubahan tarikh.');
   }
+};
+
+// Rename Component
+window.renameCarrymarkComponent = function(templateId, componentId) {
+  const template = data.carrymark.templates.find(t => t.id === templateId);
+  if (!template || !template.components) return;
+  
+  const component = template.components.find(c => c.id === componentId);
+  if (!component) {
+    alert('Komponen tidak dijumpai.');
+    return;
+  }
+  
+  const currentName = component.name || '';
+  
+  let html = '<div class="form-group">';
+  html += '<label>Nama Komponen Semasa</label>';
+  html += '<p style="padding:0.5rem;background:#f3f4f6;border-radius:4px;"><strong>' + esc(currentName) + '</strong></p>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Nama Komponen Baru</label>';
+  html += '<input type="text" id="newComponentName" value="' + esc(currentName) + '" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:4px;font-size:1rem;">';
+  html += '</div>';
+  
+  html += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:0.8rem;margin-top:1rem;">';
+  html += '<p style="font-size:0.85rem;color:#1e40af;margin:0;">Contoh: Assignment 1 → Tugasan 1, Quiz 1 → Kuiz 1</p>';
+  html += '</div>';
+  
+  openModal('Rename Komponen', html, function() {
+    const newName = document.getElementById('newComponentName').value.trim();
+    
+    if (!newName) {
+      alert('Sila isi nama komponen baru.');
+      return false;
+    }
+    
+    if (newName === currentName) {
+      alert('Tiada perubahan.');
+      closeModal();
+      return;
+    }
+    
+    const oldName = component.name;
+    component.name = newName;
+    template.updatedAt = new Date().toISOString();
+    
+    logCarrymarkAction('Renamed Component', 'Komponen "' + oldName + '" ditukar kepada "' + newName + '" dalam ' + template.course, templateId);
+    saveData();
+    
+    // Refresh the view
+    carrymarkViewTemplate(templateId);
+    
+    alert('Nama komponen berjaya ditukar.');
+  });
 };
 
 // Edit Marks
