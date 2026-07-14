@@ -301,12 +301,12 @@ function applyRoleRestrictions() {
       });
     }
   } else if (currentRole === 'student') {
-    const t = ['results', 'timetable', 'memos'];
+    const t = ['results', 'timetable', 'memos', 'messages'];
     t.forEach((tab, i) => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
       btn.dataset.tab = tab;
-      const labels = { results: 'Keputusan', timetable: 'Jadual Saya', memos: 'Memo' };
+      const labels = { results: 'Keputusan', timetable: 'Jadual Saya', memos: 'Memo', messages: 'Mesej' };
       btn.textContent = labels[tab];
       nav.appendChild(btn);
     });
@@ -11471,6 +11471,7 @@ function renderMessages() {
   const subjects = data.subjects || [];
   const semesters = data.semesters || [];
   const teachers = data.teachers || [];
+  const students = data.students || [];
   
   // Get subjects based on role
   let userSubjects = [];
@@ -11478,6 +11479,12 @@ function renderMessages() {
     userSubjects = subjects;
   } else if (currentRole === 'teacher') {
     userSubjects = subjects.filter(s => s.pengajar === currentUser.name);
+  } else if (currentRole === 'student') {
+    // Find student and get their enrolled subjects
+    const student = students.find(s => s.id === currentUser.id || s.name === currentUser.name);
+    if (student && student.subjects) {
+      userSubjects = subjects.filter(s => student.subjects.includes(s.id));
+    }
   }
   
   let html = '';
