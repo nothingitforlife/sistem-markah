@@ -7109,10 +7109,7 @@ window.carrymarkViewTemplate = function(templateId) {
   
   if (template.components && template.components.length > 0) {
     html += '<table><thead><tr>';
-    html += '<th>Bil</th><th>Component</th><th>Category</th><th>Weight</th><th>Max Mark</th><th>Passing</th><th>Date</th>';
-    if (template.status === 'draft' || template.status === 'rejected' || currentRole === 'admin') {
-      html += '<th>Tindakan</th>';
-    }
+    html += '<th>Bil</th><th>Component</th><th>Category</th><th>Weight</th><th>Max Mark</th><th>Passing</th><th>Date</th><th>Tindakan</th>';
     html += '</tr></thead><tbody>';
     
     template.components.forEach((c, i) => {
@@ -7126,11 +7123,9 @@ window.carrymarkViewTemplate = function(templateId) {
       html += '<td>';
       html += '<input type="date" id="cm-date-' + c.id + '" value="' + (c.date || '') + '" style="padding:4px;border:1px solid #d1d5db;border-radius:4px;font-size:0.85rem;">';
       html += '</td>';
-      if (template.status === 'draft' || template.status === 'rejected' || currentRole === 'admin') {
-        html += '<td>';
-        html += '<button class="btn btn-sm btn-outline" onclick="renameCarrymarkComponent(\'' + templateId + '\',\'' + c.id + '\')" style="font-size:0.75rem;padding:2px 6px;">✏️ Rename</button>';
-        html += '</td>';
-      }
+      html += '<td>';
+      html += '<button class="btn btn-sm btn-outline" onclick="renameCarrymarkComponent(\'' + templateId + '\',\'' + c.id + '\')" style="font-size:0.75rem;padding:2px 6px;">✏️ Rename</button>';
+      html += '</td>';
       html += '</tr>';
     });
     
