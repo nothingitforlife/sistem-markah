@@ -6410,8 +6410,13 @@ function renderCarrymarkAdmin(area) {
   const subjects = data.subjects || [];
   const semesters = data.semesters || [];
   
-  // Get all subjects with assigned teachers
-  const subjectsWithTeachers = subjects.filter(s => s.pengajar);
+  // Get all subjects with assigned teachers (exclude Co-Curriculum and FYP)
+  const excludedSubjects = ['co-curriculum', 'co kurikulum', 'kokurikulum', 'final year project', 'fyp'];
+  const subjectsWithTeachers = subjects.filter(s => {
+    if (!s.pengajar) return false;
+    const nameLower = (s.name || '').toLowerCase();
+    return !excludedSubjects.some(ex => nameLower.includes(ex));
+  });
   
   // Find subjects without submitted assessments
   const unsubmitted = [];
