@@ -969,6 +969,7 @@ function optimizeData(data) {
     })),
     examSchedule: (data.examSchedule || []).map(e => ({
       id: e.id,
+      examType: e.examType || 'teori',
       semesterId: e.semesterId || '',
       semesterName: e.semesterName || '',
       subjectId: e.subjectId || '',
@@ -10711,9 +10712,21 @@ function renderExamSchedule() {
     data.examSchedule = [];
   }
   
+  // Set default active sub-tab
+  if (!window._examActiveTab) {
+    window._examActiveTab = 'teori';
+  }
+  
   const semesters = data.semesters || [];
   
   let html = '';
+  
+  // Sub-tabs
+  html += '<div style="display:flex;gap:0;margin-bottom:1.5rem;border-bottom:2px solid #e5e7eb;">';
+  html += '<button onclick="window._examActiveTab=\'teori\';renderExamSchedule();" style="padding:10px 20px;border:none;background:none;cursor:pointer;font-weight:600;color:' + (window._examActiveTab === 'teori' ? '#0f3460' : '#9ca3af') + ';border-bottom:' + (window._examActiveTab === 'teori' ? '3px solid #0f3460' : '3px solid transparent') + ';margin-bottom:-2px;">📝 Teori</button>';
+  html += '<button onclick="window._examActiveTab=\'amali\';renderExamSchedule();" style="padding:10px 20px;border:none;background:none;cursor:pointer;font-weight:600;color:' + (window._examActiveTab === 'amali' ? '#059669' : '#9ca3af') + ';border-bottom:' + (window._examActiveTab === 'amali' ? '3px solid #059669' : '3px solid transparent') + ';margin-bottom:-2px;">🔧 Amali</button>';
+  html += '<button onclick="window._examActiveTab=\'jpk\';renderExamSchedule();" style="padding:10px 20px;border:none;background:none;cursor:pointer;font-weight:600;color:' + (window._examActiveTab === 'jpk' ? '#f59e0b' : '#9ca3af') + ';border-bottom:' + (window._examActiveTab === 'jpk' ? '3px solid #f59e0b' : '3px solid transparent') + ';margin-bottom:-2px;">🏛️ JPK</button>';
+  html += '</div>';
   
   // Add button (admin only)
   if (currentRole === 'admin') {
@@ -10723,9 +10736,17 @@ function renderExamSchedule() {
     html += '</div>';
   }
   
-  if (data.examSchedule.length === 0) {
+  // Filter exams by type
+  const activeTab = window._examActiveTab;
+  const filteredExams = data.examSchedule.filter(e => {
+    const examType = (e.examType || 'teori').toLowerCase();
+    return examType === activeTab;
+  });
+  
+  if (filteredExams.length === 0) {
+    const typeNames = { teori: 'Teori', amali: 'Amali', jpk: 'JPK' };
     html += '<div style="text-align:center;padding:2rem;background:#f9fafb;border-radius:8px;">';
-    html += '<p style="color:#6b7280;">Tiada jadual peperiksaan lagi.</p>';
+    html += '<p style="color:#6b7280;">Tiada jadual peperiksaan ' + typeNames[activeTab] + ' lagi.</p>';
     if (currentRole === 'admin') {
       html += '<p style="color:#9ca3af;font-size:0.9rem;">Klik "+ Tambah Jadual Peperiksaan" untuk mula.</p>';
     }
@@ -10736,11 +10757,14 @@ function renderExamSchedule() {
   
   // Group by semester
   semesters.forEach(sem => {
-    const semExams = data.examSchedule.filter(e => e.semesterId === sem.id);
+    const semExams = filteredExams.filter(e => e.semesterId === sem.id);
     if (semExams.length === 0) return;
     
+    const typeColors = { teori: '#0f3460', amali: '#059669', jpk: '#f59e0b' };
+    const typeIcons = { teori: '📝', amali: '🔧', jpk: '🏛️' };
+    
     html += '<div style="margin-bottom:1.5rem;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;">';
-    html += '<h4 style="color:#0f3460;margin-bottom:0.5rem;">' + esc(sem.name) + '</h4>';
+    html += '<h4 style="color:' + typeColors[activeTab] + ';margin-bottom:0.5rem;">' + typeIcons[activeTab] + ' ' + esc(sem.name) + '</h4>';
     html += '<table><thead><tr>';
     html += '<th>Bil</th><th>Mata Pelajaran</th><th>Kod</th><th>Tarikh</th><th>Masa</th><th>Dewan</th><th>Ketua Pengawas</th><th>Pengawas</th>';
     if (currentRole === 'admin') html += '<th>Tindakan</th>';
@@ -10835,7 +10859,19 @@ window.addExamEntry = function() {
   const semesters = data.semesters || [];
   const subjects = data.subjects || [];
   
+  // Pre-select exam type from active tab
+  const preSelectType = window._examActiveTab || 'teori';
+  
   let html = '<div class="form-group">';
+  html += '<label>Jenis Peperiksaan</label>';
+  html += '<select id="examType" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<option value="teori"' + (preSelectType === 'teori' ? ' selected' : '') + '>📝 Teori</option>';
+  html += '<option value="amali"' + (preSelectType === 'amali' ? ' selected' : '') + '>🔧 Amali</option>';
+  html += '<option value="jpk"' + (preSelectType === 'jpk' ? ' selected' : '') + '>🏛️ JPK (Jabatan Pembangunan Kemahiran)</option>';
+  html += '</select>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
   html += '<label>Semester</label>';
   html += '<select id="examSemester" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
   html += '<option value="">-- Pilih Semester --</option>';
@@ -10892,6 +10928,7 @@ window.addExamEntry = function() {
   html += '</div>';
   
   openModal('Tambah Jadual Peperiksaan', html, function() {
+    const examType = document.getElementById('examType').value;
     const semesterId = document.getElementById('examSemester').value;
     const subjectId = document.getElementById('examSubject').value;
     const date = document.getElementById('examDate').value;
@@ -10911,6 +10948,7 @@ window.addExamEntry = function() {
     
     const entry = {
       id: generateId('EXAM'),
+      examType: examType,
       semesterId: semesterId,
       semesterName: semester ? semester.name : '',
       subjectId: subjectId,
@@ -10966,8 +11004,18 @@ window.editExamEntry = function(examId) {
   const semesters = data.semesters || [];
   const subjects = data.subjects || [];
   const timeParts = exam.time ? exam.time.split(' - ') : ['', ''];
+  const currentType = exam.examType || 'teori';
   
   let html = '<div class="form-group">';
+  html += '<label>Jenis Peperiksaan</label>';
+  html += '<select id="examType" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<option value="teori"' + (currentType === 'teori' ? ' selected' : '') + '>📝 Teori</option>';
+  html += '<option value="amali"' + (currentType === 'amali' ? ' selected' : '') + '>🔧 Amali</option>';
+  html += '<option value="jpk"' + (currentType === 'jpk' ? ' selected' : '') + '>🏛️ JPK (Jabatan Pembangunan Kemahiran)</option>';
+  html += '</select>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
   html += '<label>Semester</label>';
   html += '<select id="examSemester" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
   html += '<option value="">-- Pilih Semester --</option>';
@@ -11031,6 +11079,7 @@ window.editExamEntry = function(examId) {
   window._invigilators = [...existingInvigilators];
   
   openModal('Edit Jadual Peperiksaan', html, function() {
+    const examType = document.getElementById('examType').value;
     const semesterId = document.getElementById('examSemester').value;
     const subjectId = document.getElementById('examSubject').value;
     const date = document.getElementById('examDate').value;
@@ -11048,6 +11097,7 @@ window.editExamEntry = function(examId) {
     const subject = subjects.find(s => s.id === subjectId);
     const semester = semesters.find(s => s.id === semesterId);
     
+    exam.examType = examType;
     exam.semesterId = semesterId;
     exam.semesterName = semester ? semester.name : '';
     exam.subjectId = subjectId;
