@@ -988,6 +988,7 @@ function optimizeData(data) {
       senderRole: m.senderRole || '',
       recipient: m.recipient || '',
       text: m.text,
+      attachment: m.attachment || null,
       timestamp: m.timestamp,
       read: m.read || false
     })),
@@ -11557,6 +11558,20 @@ window.loadSubjectMessages = function() {
         html += '<div style="font-size:0.75rem;color:#3b82f6;font-weight:600;margin-bottom:2px;">' + esc(m.sender) + '</div>';
       }
       html += '<div style="font-size:0.9rem;">' + esc(m.text) + '</div>';
+      
+      // Show attachment if exists
+      if (m.attachment) {
+        html += '<div style="margin-top:8px;padding:8px;background:' + (isMe ? 'rgba(255,255,255,0.2)' : '#f0f9ff') + ';border-radius:8px;cursor:pointer;" onclick="downloadAttachment(\'' + m.id + '\')">';
+        html += '<div style="display:flex;align-items:center;gap:8px;">';
+        html += '<span style="font-size:1.2rem;">' + getFileIcon(m.attachment.name) + '</span>';
+        html += '<div>';
+        html += '<div style="font-size:0.85rem;font-weight:600;">' + esc(m.attachment.name) + '</div>';
+        html += '<div style="font-size:0.7rem;opacity:0.8;">' + formatFileSize(m.attachment.size) + ' - Klik untuk muat turun</div>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+      }
+      
       html += '<div style="font-size:0.7rem;color:' + (isMe ? 'rgba(255,255,255,0.7)' : '#9ca3af') + ';text-align:right;margin-top:2px;">' + time + '</div>';
       html += '</div>';
       html += '</div>';
@@ -11565,10 +11580,18 @@ window.loadSubjectMessages = function() {
   
   html += '</div>';
   
-  // Input area
-  html += '<div style="display:flex;gap:8px;padding:10px;border-top:1px solid #e5e7eb;background:white;">';
+  // Input area with file attachment
+  html += '<div style="padding:10px;border-top:1px solid #e5e7eb;background:white;">';
+  html += '<div id="attachmentPreview" style="display:none;margin-bottom:8px;padding:8px;background:#f0f9ff;border-radius:8px;font-size:0.85rem;">';
+  html += '<span id="attachmentName"></span>';
+  html += '<button onclick="removeAttachment()" style="float:right;background:none;border:none;color:#dc2626;cursor:pointer;font-size:1rem;">✕</button>';
+  html += '</div>';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<input type="file" id="fileAttachment" style="display:none;" onchange="handleFileSelect(this)">';
+  html += '<button onclick="document.getElementById(\'fileAttachment\').click()" style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:20px;padding:10px 15px;cursor:pointer;" title="Attach File">📎</button>';
   html += '<input type="text" id="messageInput" placeholder="Taip mesej..." style="flex:1;padding:10px;border:1px solid #d1d5db;border-radius:20px;font-size:0.9rem;" onkeydown="if(event.key===\'Enter\')sendMessage()">';
   html += '<button class="btn btn-primary" onclick="sendMessage()" style="border-radius:20px;padding:10px 20px;">Hantar</button>';
+  html += '</div>';
   html += '</div>';
   
   html += '</div>';
@@ -11610,6 +11633,12 @@ window.sendMessage = function() {
     recipient = subject.pengajar || 'teacher';
   }
   
+  // Get attachment if exists
+  let attachment = null;
+  if (window._pendingAttachment) {
+    attachment = window._pendingAttachment;
+  }
+  
   const message = {
     id: generateId('MSG'),
     subjectId: subjectId,
@@ -11618,6 +11647,7 @@ window.sendMessage = function() {
     senderRole: currentRole,
     recipient: recipient,
     text: text,
+    attachment: attachment,
     timestamp: new Date().toISOString(),
     read: false
   };
@@ -11627,9 +11657,98 @@ window.sendMessage = function() {
   saveData();
   
   input.value = '';
+  window._pendingAttachment = null;
   loadSubjectMessages();
   
   showToast('Mesej dihantar!', 'success');
+}
+
+// File Handling Functions
+window._pendingAttachment = null;
+
+window.handleFileSelect = function(input) {
+  const file = input.files[0];
+  if (!file) return;
+  
+  // Check file size (max 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Fail terlalu besar. Saiz maksimum ialah 5MB.');
+    input.value = '';
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    window._pendingAttachment = {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      data: e.target.result
+    };
+    
+    // Show preview
+    const preview = document.getElementById('attachmentPreview');
+    const nameEl = document.getElementById('attachmentName');
+    if (preview && nameEl) {
+      nameEl.textContent = getFileIcon(file.name) + ' ' + file.name + ' (' + formatFileSize(file.size) + ')';
+      preview.style.display = 'block';
+    }
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+window.removeAttachment = function() {
+  window._pendingAttachment = null;
+  const preview = document.getElementById('attachmentPreview');
+  if (preview) preview.style.display = 'none';
+}
+
+window.downloadAttachment = function(messageId) {
+  const message = data.messages.find(m => m.id === messageId);
+  if (!message || !message.attachment) {
+    alert('Fail tidak dijumpai.');
+    return;
+  }
+  
+  const attachment = message.attachment;
+  const link = document.createElement('a');
+  link.href = attachment.data;
+  link.download = attachment.name;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function getFileIcon(filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  const icons = {
+    'pdf': '📄',
+    'doc': '📝',
+    'docx': '📝',
+    'xls': '📊',
+    'xlsx': '📊',
+    'ppt': '📑',
+    'pptx': '📑',
+    'jpg': '🖼️',
+    'jpeg': '🖼️',
+    'png': '🖼️',
+    'gif': '🖼️',
+    'zip': '📦',
+    'rar': '📦',
+    'txt': '📃',
+    'mp4': '🎥',
+    'mp3': '🎵'
+  };
+  return icons[ext] || '📎';
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 // Optimize messages for storage
