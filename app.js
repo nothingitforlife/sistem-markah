@@ -6403,6 +6403,73 @@ function renderCarrymarkAdmin(area) {
   html += '<div class="credit-card" style="border-top:3px solid #6366f1;"><div class="credit-card-value" style="color:#6366f1;">' + publishedCount + '</div><div class="credit-card-label">Published</div></div>';
   html += '</div>';
   
+  // Dashboard: Pengajar yang belum submit assessment
+  html += '<div class="individual-analysis-card" style="margin-bottom:1.5rem;border-left:4px solid #dc2626;">';
+  html += '<h3 style="color:#dc2626;">⚠️ Pengajar Belum Submit Assessment</h3>';
+  
+  const subjects = data.subjects || [];
+  const semesters = data.semesters || [];
+  
+  // Get all subjects with assigned teachers
+  const subjectsWithTeachers = subjects.filter(s => s.pengajar);
+  
+  // Find subjects without submitted assessments
+  const unsubmitted = [];
+  subjectsWithTeachers.forEach(subj => {
+    const hasTemplate = templates.some(t => 
+      t.lecturer === subj.pengajar && 
+      t.courseCode === subj.code &&
+      t.status !== 'draft' &&
+      t.status !== 'rejected'
+    );
+    
+    if (!hasTemplate) {
+      const semester = semesters.find(s => s.id === subj.semester);
+      unsubmitted.push({
+        teacher: subj.pengajar,
+        subject: subj.name,
+        code: subj.code || '-',
+        semester: semester ? semester.name : '-'
+      });
+    }
+  });
+  
+  if (unsubmitted.length === 0) {
+    html += '<div style="text-align:center;padding:1rem;background:#f0fdf4;border-radius:8px;">';
+    html += '<p style="color:#059669;font-weight:600;">✅ Semua pengajar telah submit assessment!</p>';
+    html += '</div>';
+  } else {
+    html += '<table><thead><tr>';
+    html += '<th>Bil</th><th>Nama Pengajar</th><th>Mata Pelajaran</th><th>Kod</th><th>Semester</th>';
+    html += '</tr></thead><tbody>';
+    
+    // Group by teacher
+    const grouped = {};
+    unsubmitted.forEach(item => {
+      if (!grouped[item.teacher]) grouped[item.teacher] = [];
+      grouped[item.teacher].push(item);
+    });
+    
+    let bil = 1;
+    Object.keys(grouped).sort().forEach(teacher => {
+      const items = grouped[teacher];
+      items.forEach((item, i) => {
+        html += '<tr style="background:#fef2f2;">';
+        html += '<td>' + bil++ + '</td>';
+        html += '<td><strong>' + esc(teacher) + '</strong></td>';
+        html += '<td>' + esc(item.subject) + '</td>';
+        html += '<td>' + esc(item.code) + '</td>';
+        html += '<td>' + esc(item.semester) + '</td>';
+        html += '</tr>';
+      });
+    });
+    
+    html += '</tbody></table>';
+    html += '<p style="font-size:0.85rem;color:#dc2626;margin-top:0.5rem;">* Jumlah: ' + unsubmitted.length + ' subjek belum dihantar</p>';
+  }
+  
+  html += '</div>';
+  
   // Action Buttons
   html += '<div class="toolbar" style="margin-bottom:1.5rem;">';
   html += '<button class="btn btn-primary" onclick="carrymarkCreateTemplate()">+ Create Assessment</button>';
