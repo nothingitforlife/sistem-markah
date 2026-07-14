@@ -249,12 +249,12 @@ function applyRoleRestrictions() {
   userInfo.textContent = (roleLabels[currentRole] || currentRole) + ': ' + (currentUser ? currentUser.name : '');
 
   if (currentRole === 'admin') {
-    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'messages', 'graduation', 'fyp', 'carrymark'];
+    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'graduation', 'fyp', 'carrymark'];
     allTabs.forEach(t => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (t === 'dashboard' ? ' active' : '');
       btn.dataset.tab = t;
-      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark' };
+      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark' };
       btn.textContent = labels[t];
       nav.appendChild(btn);
     });
@@ -269,12 +269,12 @@ function applyRoleRestrictions() {
     document.getElementById('deleteAllTimetableBtn').style.display = '';
     document.getElementById('deleteAllMemosBtn').style.display = '';
   } else if (currentRole === 'teacher') {
-    const t = ['students', 'marks', 'timetable', 'memos', 'exam', 'messages', 'fyp', 'carrymark'];
+    const t = ['students', 'marks', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'fyp', 'carrymark'];
     t.forEach((tab, i) => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
       btn.dataset.tab = tab;
-      const labels = { students: 'Pelajar', marks: 'Markah', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', fyp: 'FYP', carrymark: 'Carrymark' };
+      const labels = { students: 'Pelajar', marks: 'Markah', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', fyp: 'FYP', carrymark: 'Carrymark' };
       btn.textContent = labels[tab];
       nav.appendChild(btn);
     });
@@ -301,12 +301,12 @@ function applyRoleRestrictions() {
       });
     }
   } else if (currentRole === 'student') {
-    const t = ['results', 'timetable', 'memos', 'messages'];
+    const t = ['results', 'timetable', 'memos', 'messages', 'assignments'];
     t.forEach((tab, i) => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
       btn.dataset.tab = tab;
-      const labels = { results: 'Keputusan', timetable: 'Jadual Saya', memos: 'Memo', messages: 'Mesej' };
+      const labels = { results: 'Keputusan', timetable: 'Jadual Saya', memos: 'Memo', messages: 'Mesej', assignments: 'Tugasan' };
       btn.textContent = labels[tab];
       nav.appendChild(btn);
     });
@@ -335,6 +335,7 @@ function applyRoleRestrictions() {
       if (this.dataset.tab === 'memos') renderMemos();
       if (this.dataset.tab === 'exam') renderExamSchedule();
       if (this.dataset.tab === 'messages') renderMessages();
+      if (this.dataset.tab === 'assignments') renderAssignments();
       if (this.dataset.tab === 'teachers') renderTeachers();
       if (this.dataset.tab === 'graduation') renderGraduation();
       if (this.dataset.tab === 'fyp') renderFYP();
@@ -992,6 +993,28 @@ function optimizeData(data) {
       timestamp: m.timestamp,
       read: m.read || false
     })),
+    assignments: (data.assignments || []).map(a => ({
+      id: a.id,
+      subjectId: a.subjectId || '',
+      subjectName: a.subjectName || '',
+      subjectCode: a.subjectCode || '',
+      teacher: a.teacher || '',
+      title: a.title,
+      description: a.description || '',
+      link: a.link || '',
+      linkText: a.linkText || 'Buka Tugasan',
+      dueDate: a.dueDate || null,
+      createdAt: a.createdAt || ''
+    })),
+    assignmentSubmissions: (data.assignmentSubmissions || []).map(s => ({
+      id: s.id,
+      assignmentId: s.assignmentId,
+      studentId: s.studentId,
+      studentName: s.studentName || '',
+      link: s.link,
+      notes: s.notes || '',
+      submittedAt: s.submittedAt || ''
+    })),
     fyp: {
       assessments: (data.fyp && data.fyp.assessments) ? data.fyp.assessments : [],
       auditLog: (data.fyp && data.fyp.auditLog) ? data.fyp.auditLog : []
@@ -1063,6 +1086,8 @@ async function loadFromFirebase() {
       data.memos = remote.memos || [];
       data.examSchedule = remote.examSchedule || [];
       data.messages = remote.messages || [];
+      data.assignments = remote.assignments || [];
+      data.assignmentSubmissions = remote.assignmentSubmissions || [];
       data.fyp = remote.fyp || { assessments: [], auditLog: [] };
       data.carrymark = remote.carrymark || { templates: [], marks: [], gradeConfig: [], auditLog: [] };
       
@@ -11764,4 +11789,342 @@ function optimizeMessages(messages) {
     timestamp: m.timestamp,
     read: m.read || false
   }));
+}
+
+// ============================================
+// ASSIGNMENTS SYSTEM (Link-based)
+// ============================================
+
+// Initialize assignments data
+if (!data.assignments) {
+  data.assignments = [];
+}
+
+// Render Assignments
+function renderAssignments() {
+  const container = document.getElementById('assignmentsContent');
+  if (!container) return;
+  
+  const subjects = data.subjects || [];
+  const semesters = data.semesters || [];
+  const students = data.students || [];
+  
+  let html = '';
+  
+  // Create assignment button (teacher/admin only)
+  if (currentRole === 'teacher' || currentRole === 'admin') {
+    const userSubjects = currentRole === 'admin' 
+      ? subjects 
+      : subjects.filter(s => s.pengajar === currentUser.name);
+    
+    html += '<div class="toolbar" style="margin-bottom:1rem;">';
+    html += '<button class="btn btn-primary" onclick="createAssignment()">+ Cipta Tugasan Baru</button>';
+    html += '</div>';
+    
+    // List assignments
+    const myAssignments = data.assignments.filter(a => {
+      if (currentRole === 'admin') return true;
+      return a.teacher === currentUser.name;
+    });
+    
+    if (myAssignments.length === 0) {
+      html += '<div style="text-align:center;padding:2rem;background:#f9fafb;border-radius:8px;">';
+      html += '<p style="color:#6b7280;">Tiada tugasan lagi. Klik "+ Cipta Tugasan Baru" untuk mula.</p>';
+      html += '</div>';
+    } else {
+      // Group by subject
+      const grouped = {};
+      myAssignments.forEach(a => {
+        if (!grouped[a.subjectId]) grouped[a.subjectId] = [];
+        grouped[a.subjectId].push(a);
+      });
+      
+      Object.keys(grouped).forEach(subjectId => {
+        const subject = subjects.find(s => s.id === subjectId);
+        const assignments = grouped[subjectId];
+        
+        html += '<div style="margin-bottom:1.5rem;">';
+        html += '<h3 style="color:#0f3460;margin-bottom:0.5rem;">📚 ' + esc(subject ? subject.name : 'Unknown') + ' (' + (subject ? subject.code : '') + ')</h3>';
+        
+        assignments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(a => {
+          const dueDate = a.dueDate ? new Date(a.dueDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Tiada tarikh akhir';
+          const isOverdue = a.dueDate && new Date(a.dueDate) < new Date();
+          const submissionCount = (data.assignmentSubmissions || []).filter(s => s.assignmentId === a.id).length;
+          
+          html += '<div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;margin-bottom:0.5rem;' + (isOverdue ? 'border-left:4px solid #dc2626;' : 'border-left:4px solid #3b82f6;') + '">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:start;">';
+          html += '<div>';
+          html += '<h4 style="margin:0 0 0.25rem 0;">' + esc(a.title) + '</h4>';
+          html += '<p style="font-size:0.85rem;color:#6b7280;margin:0;">📅 Tarikh Akhir: ' + dueDate + (isOverdue ? ' (TAMAT TEMPOH)' : '') + '</p>';
+          if (a.description) {
+            html += '<p style="font-size:0.9rem;margin:0.5rem 0 0 0;">' + esc(a.description) + '</p>';
+          }
+          if (a.link) {
+            html += '<a href="' + esc(a.link) + '" target="_blank" style="font-size:0.85rem;color:#3b82f6;display:inline-block;margin-top:0.5rem;">📎 ' + esc(a.linkText || 'Buka Tugasan') + '</a>';
+          }
+          html += '</div>';
+          html += '<div style="text-align:right;">';
+          html += '<span class="badge" style="background:#3b82f6;color:white;padding:4px 8px;border-radius:4px;font-size:0.75rem;">' + submissionCount + ' Hantar</span>';
+          html += '<div style="margin-top:0.5rem;">';
+          html += '<button class="btn btn-sm btn-outline" onclick="viewSubmissions(\'' + a.id + '\')" style="font-size:0.75rem;">Lihat Hantaran</button> ';
+          html += '<button class="btn btn-sm btn-danger" onclick="deleteAssignment(\'' + a.id + '\')" style="font-size:0.75rem;">Padam</button>';
+          html += '</div>';
+          html += '</div>';
+          html += '</div>';
+          html += '</div>';
+        });
+        
+        html += '</div>';
+      });
+    }
+  }
+  
+  // Student view
+  if (currentRole === 'student') {
+    const student = students.find(s => s.id === currentUser.id || s.name === currentUser.name);
+    const studentSubjects = student && student.subjects ? student.subjects : [];
+    
+    // Get assignments for student's subjects
+    const myAssignments = data.assignments.filter(a => studentSubjects.includes(a.subjectId));
+    
+    if (myAssignments.length === 0) {
+      html += '<div style="text-align:center;padding:2rem;background:#f9fafb;border-radius:8px;">';
+      html += '<p style="color:#6b7280;">Tiada tugasan lagi.</p>';
+      html += '</div>';
+    } else {
+      // Group by subject
+      const grouped = {};
+      myAssignments.forEach(a => {
+        if (!grouped[a.subjectId]) grouped[a.subjectId] = [];
+        grouped[a.subjectId].push(a);
+      });
+      
+      Object.keys(grouped).forEach(subjectId => {
+        const subject = subjects.find(s => s.id === subjectId);
+        const assignments = grouped[subjectId];
+        
+        html += '<div style="margin-bottom:1.5rem;">';
+        html += '<h3 style="color:#0f3460;margin-bottom:0.5rem;">📚 ' + esc(subject ? subject.name : 'Unknown') + ' (' + (subject ? subject.code : '') + ')</h3>';
+        
+        assignments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(a => {
+          const dueDate = a.dueDate ? new Date(a.dueDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Tiada tarikh akhir';
+          const isOverdue = a.dueDate && new Date(a.dueDate) < new Date();
+          const hasSubmitted = (data.assignmentSubmissions || []).some(s => s.assignmentId === a.id && s.studentId === currentUser.id);
+          
+          html += '<div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;margin-bottom:0.5rem;' + (hasSubmitted ? 'border-left:4px solid #059669;' : isOverdue ? 'border-left:4px solid #dc2626;' : 'border-left:4px solid #3b82f6;') + '">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:start;">';
+          html += '<div>';
+          html += '<h4 style="margin:0 0 0.25rem 0;">' + esc(a.title) + '</h4>';
+          html += '<p style="font-size:0.85rem;color:#6b7280;margin:0;">📅 Tarikh Akhir: ' + dueDate + (isOverdue && !hasSubmitted ? ' (TAMAT TEMPOH)' : '') + '</p>';
+          if (a.description) {
+            html += '<p style="font-size:0.9rem;margin:0.5rem 0 0 0;">' + esc(a.description) + '</p>';
+          }
+          if (a.link) {
+            html += '<a href="' + esc(a.link) + '" target="_blank" style="font-size:0.85rem;color:#3b82f6;display:inline-block;margin-top:0.5rem;">📎 ' + esc(a.linkText || 'Buka Tugasan') + '</a>';
+          }
+          html += '</div>';
+          html += '<div style="text-align:right;">';
+          if (hasSubmitted) {
+            html += '<span class="badge" style="background:#059669;color:white;padding:4px 8px;border-radius:4px;font-size:0.75rem;">✓ Sudah Hantar</span>';
+          } else {
+            html += '<button class="btn btn-sm btn-primary" onclick="submitAssignment(\'' + a.id + '\')">📤 Hantar Tugasan</button>';
+          }
+          html += '</div>';
+          html += '</div>';
+          html += '</div>';
+        });
+        
+        html += '</div>';
+      });
+    }
+  }
+  
+  container.innerHTML = html;
+}
+
+// Create Assignment
+window.createAssignment = function() {
+  const subjects = data.subjects || [];
+  const userSubjects = currentRole === 'admin' 
+    ? subjects 
+    : subjects.filter(s => s.pengajar === currentUser.name);
+  
+  let html = '<div class="form-group">';
+  html += '<label>Subjek</label>';
+  html += '<select id="assignSubject" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<option value="">-- Pilih Subjek --</option>';
+  userSubjects.forEach(s => {
+    html += '<option value="' + s.id + '">' + s.name + ' (' + (s.code || '') + ')</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Tajuk Tugasan</label>';
+  html += '<input type="text" id="assignTitle" placeholder="Contoh: Tugasan 1 - Laporan Projek" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Penerangan (pilihan)</label>';
+  html += '<textarea id="assignDesc" rows="3" placeholder="Penerangan tugasan..." style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;"></textarea>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Link Tugasan (Google Drive / OneDrive)</label>';
+  html += '<input type="url" id="assignLink" placeholder="https://drive.google.com/..." style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Teks Link (pilihan)</label>';
+  html += '<input type="text" id="assignLinkText" placeholder="Contoh: Buka Fail Tugasan" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Tarikh Akhir</label>';
+  html += '<input type="date" id="assignDueDate" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  openModal('Cipta Tugasan Baru', html, function() {
+    const subjectId = document.getElementById('assignSubject').value;
+    const title = document.getElementById('assignTitle').value.trim();
+    const description = document.getElementById('assignDesc').value.trim();
+    const link = document.getElementById('assignLink').value.trim();
+    const linkText = document.getElementById('assignLinkText').value.trim();
+    const dueDate = document.getElementById('assignDueDate').value;
+    
+    if (!subjectId || !title) {
+      alert('Sila pilih subjek dan isi tajuk.');
+      return false;
+    }
+    
+    const subject = subjects.find(s => s.id === subjectId);
+    
+    const assignment = {
+      id: generateId('ASGN'),
+      subjectId: subjectId,
+      subjectName: subject ? subject.name : '',
+      subjectCode: subject ? (subject.code || '') : '',
+      teacher: currentUser.name,
+      title: title,
+      description: description,
+      link: link,
+      linkText: linkText || 'Buka Tugasan',
+      dueDate: dueDate || null,
+      createdAt: new Date().toISOString()
+    };
+    
+    if (!data.assignments) data.assignments = [];
+    data.assignments.push(assignment);
+    saveData();
+    renderAssignments();
+    closeModal();
+    alert('Tugasan berjaya dicipta.');
+  });
+}
+
+// Submit Assignment (Student)
+window.submitAssignment = function(assignmentId) {
+  const assignment = data.assignments.find(a => a.id === assignmentId);
+  if (!assignment) return;
+  
+  let html = '<div class="form-group">';
+  html += '<label>Tugasan</label>';
+  html += '<p style="padding:0.5rem;background:#f3f4f6;border-radius:4px;"><strong>' + esc(assignment.title) + '</strong></p>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Link Hantaran (Google Drive / OneDrive)</label>';
+  html += '<input type="url" id="submitLink" placeholder="https://drive.google.com/..." style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '<p style="font-size:0.8rem;color:#6b7280;margin-top:0.25rem;">Upload fail anda ke Google Drive/OneDrive, kemudian paste link di sini</p>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Nota (pilihan)</label>';
+  html += '<textarea id="submitNotes" rows="2" placeholder="Nota untuk pengajar..." style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;"></textarea>';
+  html += '</div>';
+  
+  openModal('Hantar Tugasan', html, function() {
+    const link = document.getElementById('submitLink').value.trim();
+    const notes = document.getElementById('submitNotes').value.trim();
+    
+    if (!link) {
+      alert('Sila isi link hantaran.');
+      return false;
+    }
+    
+    if (!data.assignmentSubmissions) data.assignmentSubmissions = [];
+    
+    // Check if already submitted
+    const existing = data.assignmentSubmissions.find(s => s.assignmentId === assignmentId && s.studentId === currentUser.id);
+    if (existing) {
+      existing.link = link;
+      existing.notes = notes;
+      existing.updatedAt = new Date().toISOString();
+    } else {
+      data.assignmentSubmissions.push({
+        id: generateId('SUB'),
+        assignmentId: assignmentId,
+        studentId: currentUser.id,
+        studentName: currentUser.name,
+        link: link,
+        notes: notes,
+        submittedAt: new Date().toISOString()
+      });
+    }
+    
+    saveData();
+    renderAssignments();
+    closeModal();
+    alert('Tugasan berjaya dihantar.');
+  });
+}
+
+// View Submissions (Teacher)
+window.viewSubmissions = function(assignmentId) {
+  const assignment = data.assignments.find(a => a.id === assignmentId);
+  if (!assignment) return;
+  
+  const submissions = (data.assignmentSubmissions || []).filter(s => s.assignmentId === assignmentId);
+  
+  let html = '<div style="margin-bottom:1rem;">';
+  html += '<p><strong>Tugasan:</strong> ' + esc(assignment.title) + '</p>';
+  html += '<p><strong>Subjek:</strong> ' + esc(assignment.subjectName) + '</p>';
+  html += '</div>';
+  
+  if (submissions.length === 0) {
+    html += '<div style="text-align:center;padding:2rem;background:#f9fafb;border-radius:8px;">';
+    html += '<p style="color:#6b7280;">Tiada hantaran lagi.</p>';
+    html += '</div>';
+  } else {
+    html += '<table><thead><tr>';
+    html += '<th>Bil</th><th>Nama Pelajar</th><th>Link</th><th>Nota</th><th>Tarikh Hantar</th>';
+    html += '</tr></thead><tbody>';
+    
+    submissions.forEach((s, i) => {
+      const submitDate = new Date(s.submittedAt).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      
+      html += '<tr>';
+      html += '<td>' + (i + 1) + '</td>';
+      html += '<td><strong>' + esc(s.studentName) + '</strong></td>';
+      html += '<td><a href="' + esc(s.link) + '" target="_blank" style="color:#3b82f6;">📎 Buka</a></td>';
+      html += '<td>' + esc(s.notes || '-') + '</td>';
+      html += '<td>' + submitDate + '</td>';
+      html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
+  }
+  
+  openModal('Hantaran Tugasan', html, null);
+}
+
+// Delete Assignment
+window.deleteAssignment = function(assignmentId) {
+  if (!confirm('Padam tugasan ini? Semua hantaran pelajar akan dipadam juga.')) return;
+  
+  data.assignments = (data.assignments || []).filter(a => a.id !== assignmentId);
+  data.assignmentSubmissions = (data.assignmentSubmissions || []).filter(s => s.assignmentId !== assignmentId);
+  saveData();
+  renderAssignments();
+  alert('Tugasan berjaya dipadam.');
 }
