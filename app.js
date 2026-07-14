@@ -11809,134 +11809,206 @@ function renderAssignments() {
   const semesters = data.semesters || [];
   const students = data.students || [];
   
+  // Check if viewing a specific subject folder
+  const viewSubjectId = window._viewAssignmentSubject || null;
+  
   let html = '';
+  
+  // Back button if viewing a folder
+  if (viewSubjectId) {
+    html += '<div style="margin-bottom:1rem;">';
+    html += '<button class="btn btn-outline" onclick="window._viewAssignmentSubject=null;renderAssignments();" style="font-size:0.9rem;">← Kembali ke Senarai Subjek</button>';
+    html += '</div>';
+    renderAssignmentFolder(viewSubjectId, container);
+    return;
+  }
   
   // Create assignment button (teacher/admin only)
   if (currentRole === 'teacher' || currentRole === 'admin') {
-    const userSubjects = currentRole === 'admin' 
-      ? subjects 
-      : subjects.filter(s => s.pengajar === currentUser.name);
-    
-    html += '<div class="toolbar" style="margin-bottom:1rem;">';
+    html += '<div class="toolbar" style="margin-bottom:1.5rem;">';
     html += '<button class="btn btn-primary" onclick="createAssignment()">+ Cipta Tugasan Baru</button>';
     html += '</div>';
-    
-    // List assignments
-    const myAssignments = data.assignments.filter(a => {
-      if (currentRole === 'admin') return true;
-      return a.teacher === currentUser.name;
-    });
-    
-    if (myAssignments.length === 0) {
-      html += '<div style="text-align:center;padding:2rem;background:#f9fafb;border-radius:8px;">';
-      html += '<p style="color:#6b7280;">Tiada tugasan lagi. Klik "+ Cipta Tugasan Baru" untuk mula.</p>';
-      html += '</div>';
-    } else {
-      // Group by subject
-      const grouped = {};
-      myAssignments.forEach(a => {
-        if (!grouped[a.subjectId]) grouped[a.subjectId] = [];
-        grouped[a.subjectId].push(a);
-      });
-      
-      Object.keys(grouped).forEach(subjectId => {
-        const subject = subjects.find(s => s.id === subjectId);
-        const assignments = grouped[subjectId];
-        
-        html += '<div style="margin-bottom:1.5rem;">';
-        html += '<h3 style="color:#0f3460;margin-bottom:0.5rem;">📚 ' + esc(subject ? subject.name : 'Unknown') + ' (' + (subject ? subject.code : '') + ')</h3>';
-        
-        assignments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(a => {
-          const dueDate = a.dueDate ? new Date(a.dueDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Tiada tarikh akhir';
-          const isOverdue = a.dueDate && new Date(a.dueDate) < new Date();
-          const submissionCount = (data.assignmentSubmissions || []).filter(s => s.assignmentId === a.id).length;
-          
-          html += '<div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;margin-bottom:0.5rem;' + (isOverdue ? 'border-left:4px solid #dc2626;' : 'border-left:4px solid #3b82f6;') + '">';
-          html += '<div style="display:flex;justify-content:space-between;align-items:start;">';
-          html += '<div>';
-          html += '<h4 style="margin:0 0 0.25rem 0;">' + esc(a.title) + '</h4>';
-          html += '<p style="font-size:0.85rem;color:#6b7280;margin:0;">📅 Tarikh Akhir: ' + dueDate + (isOverdue ? ' (TAMAT TEMPOH)' : '') + '</p>';
-          if (a.description) {
-            html += '<p style="font-size:0.9rem;margin:0.5rem 0 0 0;">' + esc(a.description) + '</p>';
-          }
-          if (a.link) {
-            html += '<a href="' + esc(a.link) + '" target="_blank" style="font-size:0.85rem;color:#3b82f6;display:inline-block;margin-top:0.5rem;">📎 ' + esc(a.linkText || 'Buka Tugasan') + '</a>';
-          }
-          html += '</div>';
-          html += '<div style="text-align:right;">';
-          html += '<span class="badge" style="background:#3b82f6;color:white;padding:4px 8px;border-radius:4px;font-size:0.75rem;">' + submissionCount + ' Hantar</span>';
-          html += '<div style="margin-top:0.5rem;">';
-          html += '<button class="btn btn-sm btn-outline" onclick="viewSubmissions(\'' + a.id + '\')" style="font-size:0.75rem;">Lihat Hantaran</button> ';
-          html += '<button class="btn btn-sm btn-danger" onclick="deleteAssignment(\'' + a.id + '\')" style="font-size:0.75rem;">Padam</button>';
-          html += '</div>';
-          html += '</div>';
-          html += '</div>';
-          html += '</div>';
-        });
-        
-        html += '</div>';
-      });
+  }
+  
+  // Get subjects based on role
+  let userSubjects = [];
+  if (currentRole === 'admin') {
+    userSubjects = subjects;
+  } else if (currentRole === 'teacher') {
+    userSubjects = subjects.filter(s => s.pengajar === currentUser.name);
+  } else if (currentRole === 'student') {
+    const student = students.find(s => s.id === currentUser.id || s.name === currentUser.name);
+    if (student && student.subjects) {
+      userSubjects = subjects.filter(s => student.subjects.includes(s.id));
     }
   }
   
-  // Student view
-  if (currentRole === 'student') {
-    const student = students.find(s => s.id === currentUser.id || s.name === currentUser.name);
-    const studentSubjects = student && student.subjects ? student.subjects : [];
+  // Filter subjects that have assignments
+  const subjectsWithAssignments = userSubjects.filter(s => {
+    return data.assignments.some(a => a.subjectId === s.id);
+  });
+  
+  if (subjectsWithAssignments.length === 0) {
+    html += '<div style="text-align:center;padding:3rem;background:#f9fafb;border-radius:12px;">';
+    html += '<div style="font-size:4rem;margin-bottom:1rem;">📂</div>';
+    html += '<p style="color:#6b7280;font-size:1.1rem;">Tiada tugasan lagi</p>';
+    if (currentRole === 'teacher' || currentRole === 'admin') {
+      html += '<p style="color:#9ca3af;">Klik "+ Cipta Tugasan Baru" untuk mula</p>';
+    }
+    html += '</div>';
+  } else {
+    // Folder grid
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1.5rem;">';
     
-    // Get assignments for student's subjects
-    const myAssignments = data.assignments.filter(a => studentSubjects.includes(a.subjectId));
-    
-    if (myAssignments.length === 0) {
-      html += '<div style="text-align:center;padding:2rem;background:#f9fafb;border-radius:8px;">';
-      html += '<p style="color:#6b7280;">Tiada tugasan lagi.</p>';
-      html += '</div>';
-    } else {
-      // Group by subject
-      const grouped = {};
-      myAssignments.forEach(a => {
-        if (!grouped[a.subjectId]) grouped[a.subjectId] = [];
-        grouped[a.subjectId].push(a);
-      });
+    subjectsWithAssignments.forEach(subject => {
+      const subjectAssignments = data.assignments.filter(a => a.subjectId === subject.id);
+      const semester = semesters.find(s => s.id === subject.semester);
+      const assignmentCount = subjectAssignments.length;
+      const submissionCount = (data.assignmentSubmissions || []).filter(s => 
+        subjectAssignments.some(a => a.id === s.assignmentId)
+      ).length;
       
-      Object.keys(grouped).forEach(subjectId => {
-        const subject = subjects.find(s => s.id === subjectId);
-        const assignments = grouped[subjectId];
+      html += '<div onclick="window._viewAssignmentSubject=\'' + subject.id + '\';renderAssignments();" style="cursor:pointer;background:white;border:2px solid #e5e7eb;border-radius:12px;padding:1.5rem;transition:all 0.2s;position:relative;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.1)\'" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.transform=\'translateY(0)\';this.style.boxShadow=\'none\'">';
+      
+      // Folder icon
+      html += '<div style="font-size:3rem;margin-bottom:0.75rem;">📁</div>';
+      
+      // Subject info
+      html += '<h3 style="margin:0 0 0.25rem 0;color:#0f3460;font-size:1rem;">' + esc(subject.name) + '</h3>';
+      html += '<p style="margin:0 0 0.5rem 0;color:#6b7280;font-size:0.85rem;">' + esc(subject.code || '') + '</p>';
+      html += '<p style="margin:0 0 0.75rem 0;color:#9ca3af;font-size:0.8rem;">' + esc(semester ? semester.name : '-') + '</p>';
+      
+      // Stats
+      html += '<div style="display:flex;gap:1rem;font-size:0.8rem;">';
+      html += '<span style="color:#3b82f6;">📝 ' + assignmentCount + ' tugasan</span>';
+      if (currentRole === 'teacher' || currentRole === 'admin') {
+        html += '<span style="color:#059669;">✅ ' + submissionCount + ' hantaran</span>';
+      }
+      html += '</div>';
+      
+      html += '</div>';
+    });
+    
+    // Show subjects without assignments (for teacher/admin to create)
+    if (currentRole === 'teacher' || currentRole === 'admin') {
+      const subjectsWithoutAssignments = userSubjects.filter(s => !data.assignments.some(a => a.subjectId === s.id));
+      
+      subjectsWithoutAssignments.forEach(subject => {
+        const semester = semesters.find(s => s.id === subject.semester);
         
-        html += '<div style="margin-bottom:1.5rem;">';
-        html += '<h3 style="color:#0f3460;margin-bottom:0.5rem;">📚 ' + esc(subject ? subject.name : 'Unknown') + ' (' + (subject ? subject.code : '') + ')</h3>';
+        html += '<div onclick="window._pendingAssignmentSubject=\'' + subject.id + '\';createAssignment();" style="cursor:pointer;background:#f9fafb;border:2px dashed #d1d5db;border-radius:12px;padding:1.5rem;transition:all 0.2s;" onmouseover="this.style.borderColor=\'#3b82f6\';this.style.background=\'#eff6ff\'" onmouseout="this.style.borderColor=\'#d1d5db\';this.style.background=\'#f9fafb\'">';
         
-        assignments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(a => {
-          const dueDate = a.dueDate ? new Date(a.dueDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Tiada tarikh akhir';
-          const isOverdue = a.dueDate && new Date(a.dueDate) < new Date();
-          const hasSubmitted = (data.assignmentSubmissions || []).some(s => s.assignmentId === a.id && s.studentId === currentUser.id);
-          
-          html += '<div style="background:white;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;margin-bottom:0.5rem;' + (hasSubmitted ? 'border-left:4px solid #059669;' : isOverdue ? 'border-left:4px solid #dc2626;' : 'border-left:4px solid #3b82f6;') + '">';
-          html += '<div style="display:flex;justify-content:space-between;align-items:start;">';
-          html += '<div>';
-          html += '<h4 style="margin:0 0 0.25rem 0;">' + esc(a.title) + '</h4>';
-          html += '<p style="font-size:0.85rem;color:#6b7280;margin:0;">📅 Tarikh Akhir: ' + dueDate + (isOverdue && !hasSubmitted ? ' (TAMAT TEMPOH)' : '') + '</p>';
-          if (a.description) {
-            html += '<p style="font-size:0.9rem;margin:0.5rem 0 0 0;">' + esc(a.description) + '</p>';
-          }
-          if (a.link) {
-            html += '<a href="' + esc(a.link) + '" target="_blank" style="font-size:0.85rem;color:#3b82f6;display:inline-block;margin-top:0.5rem;">📎 ' + esc(a.linkText || 'Buka Tugasan') + '</a>';
-          }
-          html += '</div>';
-          html += '<div style="text-align:right;">';
-          if (hasSubmitted) {
-            html += '<span class="badge" style="background:#059669;color:white;padding:4px 8px;border-radius:4px;font-size:0.75rem;">✓ Sudah Hantar</span>';
-          } else {
-            html += '<button class="btn btn-sm btn-primary" onclick="submitAssignment(\'' + a.id + '\')">📤 Hantar Tugasan</button>';
-          }
-          html += '</div>';
-          html += '</div>';
-          html += '</div>';
-        });
+        // Folder icon (empty)
+        html += '<div style="font-size:3rem;margin-bottom:0.75rem;opacity:0.5;">📁</div>';
+        
+        // Subject info
+        html += '<h3 style="margin:0 0 0.25rem 0;color:#6b7280;font-size:1rem;">' + esc(subject.name) + '</h3>';
+        html += '<p style="margin:0 0 0.5rem 0;color:#9ca3af;font-size:0.85rem;">' + esc(subject.code || '') + '</p>';
+        html += '<p style="margin:0 0 0.75rem 0;color:#d1d5db;font-size:0.8rem;">' + esc(semester ? semester.name : '-') + '</p>';
+        
+        // Add prompt
+        html += '<p style="color:#3b82f6;font-size:0.85rem;">+ Cipta Tugasan</p>';
         
         html += '</div>';
       });
     }
+    
+    html += '</div>';
+  }
+  
+  container.innerHTML = html;
+}
+
+// Render Assignment Folder (when clicking a subject)
+function renderAssignmentFolder(subjectId, container) {
+  const subject = data.subjects.find(s => s.id === subjectId);
+  if (!subject) return;
+  
+  const semesters = data.semesters || [];
+  const semester = semesters.find(s => s.id === subject.semester);
+  const assignments = (data.assignments || []).filter(a => a.subjectId === subjectId);
+  
+  let html = '';
+  
+  // Folder header
+  html += '<div style="background:linear-gradient(135deg,#0f3460,#1e3a8a);color:white;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;">';
+  html += '<div style="display:flex;align-items:center;gap:1rem;">';
+  html += '<div style="font-size:3rem;">📁</div>';
+  html += '<div>';
+  html += '<h2 style="margin:0;font-size:1.5rem;">' + esc(subject.name) + '</h2>';
+  html += '<p style="margin:0.25rem 0 0 0;opacity:0.8;">' + esc(subject.code || '') + ' • ' + esc(semester ? semester.name : '-') + '</p>';
+  html += '</div>';
+  html += '</div>';
+  html += '</div>';
+  
+  // Create assignment button
+  if (currentRole === 'teacher' || currentRole === 'admin') {
+    html += '<div style="margin-bottom:1rem;">';
+    html += '<button class="btn btn-primary" onclick="window._pendingAssignmentSubject=\'' + subjectId + '\';createAssignment();">+ Cipta Tugasan Baru</button>';
+    html += '</div>';
+  }
+  
+  // Assignments list
+  if (assignments.length === 0) {
+    html += '<div style="text-align:center;padding:2rem;background:#f9fafb;border-radius:8px;">';
+    html += '<p style="color:#6b7280;">Tiada tugasan dalam folder ini.</p>';
+    html += '</div>';
+  } else {
+    html += '<div style="display:flex;flex-direction:column;gap:1rem;">';
+    
+    assignments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).forEach(a => {
+      const dueDate = a.dueDate ? new Date(a.dueDate).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Tiada tarikh akhir';
+      const isOverdue = a.dueDate && new Date(a.dueDate) < new Date();
+      const submissionCount = (data.assignmentSubmissions || []).filter(s => s.assignmentId === a.id).length;
+      const hasSubmitted = currentRole === 'student' && (data.assignmentSubmissions || []).some(s => s.assignmentId === a.id && s.studentId === currentUser.id);
+      
+      html += '<div style="background:white;border:1px solid #e5e7eb;border-radius:10px;padding:1.25rem;' + (isOverdue && !hasSubmitted ? 'border-left:4px solid #dc2626;' : hasSubmitted ? 'border-left:4px solid #059669;' : 'border-left:4px solid #3b82f6;') + '">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:start;">';
+      
+      html += '<div style="flex:1;">';
+      html += '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">';
+      html += '<span style="font-size:1.5rem;">' + (hasSubmitted ? '✅' : isOverdue ? '⏰' : '📝') + '</span>';
+      html += '<h3 style="margin:0;">' + esc(a.title) + '</h3>';
+      html += '</div>';
+      
+      if (a.description) {
+        html += '<p style="margin:0 0 0.5rem 0;color:#4b5563;font-size:0.9rem;">' + esc(a.description) + '</p>';
+      }
+      
+      html += '<div style="display:flex;gap:1.5rem;font-size:0.85rem;color:#6b7280;">';
+      html += '<span>📅 ' + dueDate + '</span>';
+      if (isOverdue && !hasSubmitted) {
+        html += '<span style="color:#dc2626;font-weight:600;">TAMAT TEMPOH</span>';
+      }
+      if (currentRole === 'teacher' || currentRole === 'admin') {
+        html += '<span>👥 ' + submissionCount + ' hantaran</span>';
+      }
+      html += '</div>';
+      
+      if (a.link) {
+        html += '<a href="' + esc(a.link) + '" target="_blank" style="display:inline-flex;align-items:center;gap:0.5rem;margin-top:0.75rem;padding:0.5rem 1rem;background:#eff6ff;border-radius:8px;color:#3b82f6;text-decoration:none;font-size:0.9rem;" onmouseover="this.style.background=\'#dbeafe\'" onmouseout="this.style.background=\'#eff6ff\'">📎 ' + esc(a.linkText || 'Buka Tugasan') + '</a>';
+      }
+      html += '</div>';
+      
+      // Action buttons
+      html += '<div style="display:flex;flex-direction:column;gap:0.5rem;margin-left:1rem;">';
+      if (currentRole === 'student' && !hasSubmitted && !isOverdue) {
+        html += '<button class="btn btn-primary" onclick="submitAssignment(\'' + a.id + '\')" style="white-space:nowrap;">📤 Hantar</button>';
+      }
+      if (currentRole === 'student' && hasSubmitted) {
+        html += '<button class="btn btn-outline" onclick="submitAssignment(\'' + a.id + '\')" style="white-space:nowrap;font-size:0.85rem;">✏️ Kemaskini</button>';
+      }
+      if (currentRole === 'teacher' || currentRole === 'admin') {
+        html += '<button class="btn btn-sm btn-outline" onclick="viewSubmissions(\'' + a.id + '\')" style="white-space:nowrap;">👁️ Lihat</button>';
+        html += '<button class="btn btn-sm btn-danger" onclick="deleteAssignment(\'' + a.id + '\')" style="white-space:nowrap;">🗑️ Padam</button>';
+      }
+      html += '</div>';
+      
+      html += '</div>';
+      html += '</div>';
+    });
+    
+    html += '</div>';
   }
   
   container.innerHTML = html;
@@ -11949,12 +12021,16 @@ window.createAssignment = function() {
     ? subjects 
     : subjects.filter(s => s.pengajar === currentUser.name);
   
+  // Pre-select subject if coming from folder view
+  const preSelectSubject = window._pendingAssignmentSubject || window._viewAssignmentSubject || '';
+  
   let html = '<div class="form-group">';
   html += '<label>Subjek</label>';
   html += '<select id="assignSubject" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
   html += '<option value="">-- Pilih Subjek --</option>';
   userSubjects.forEach(s => {
-    html += '<option value="' + s.id + '">' + s.name + ' (' + (s.code || '') + ')</option>';
+    const selected = s.id === preSelectSubject ? ' selected' : '';
+    html += '<option value="' + s.id + '"' + selected + '>' + s.name + ' (' + (s.code || '') + ')</option>';
   });
   html += '</select>';
   html += '</div>';
@@ -12015,6 +12091,7 @@ window.createAssignment = function() {
     
     if (!data.assignments) data.assignments = [];
     data.assignments.push(assignment);
+    window._pendingAssignmentSubject = null;
     saveData();
     renderAssignments();
     closeModal();
