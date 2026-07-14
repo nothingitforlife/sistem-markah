@@ -6572,6 +6572,7 @@ function renderCarrymarkAdmin(area) {
         html += '<button class="btn btn-sm btn-danger" onclick="carrymarkDeleteApproved(\'' + t.id + '\')">Padam</button> ';
         html += '<button class="btn btn-sm btn-warning" onclick="carrymarkTransferTeacher(\'' + t.id + '\')">Tukar Pengajar</button> ';
         html += '<button class="btn btn-sm btn-outline" onclick="carrymarkCopyAssessment(\'' + t.id + '\')" style="color:#6366f1;border-color:#6366f1;">Salin</button> ';
+        html += '<button class="btn btn-sm btn-outline" onclick="carrymarkRenameAssessment(\'' + t.id + '\')" style="color:#0f3460;border-color:#0f3460;">Rename</button> ';
       }
       
       // Butang Padam & Duplicate - hanya untuk draft
@@ -6664,6 +6665,7 @@ function renderCarrymarkTeacher(area) {
       // Butang Salin - untuk semua status kecuali draft/pending
       if (t.status === 'approved' || t.status === 'marks_entry' || t.status === 'submitted' || t.status === 'published') {
         html += '<button class="btn btn-sm btn-outline" onclick="carrymarkCopyAssessment(\'' + t.id + '\')" style="color:#6366f1;border-color:#6366f1;">Salin</button> ';
+        html += '<button class="btn btn-sm btn-outline" onclick="carrymarkRenameAssessment(\'' + t.id + '\')" style="color:#0f3460;border-color:#0f3460;">Rename</button> ';
       }
       
       // Butang Padam - hanya untuk draft atau rejected
@@ -7883,6 +7885,74 @@ window.carrymarkPublish = function(templateId) {
   saveData();
   renderCarrymark();
   alert('Assessment berjaya dipublish.');
+};
+
+// Rename Assessment
+window.carrymarkRenameAssessment = function(templateId) {
+  const template = data.carrymark.templates.find(t => t.id === templateId);
+  if (!template) {
+    alert('Assessment tidak dijumpai.');
+    return;
+  }
+  
+  const currentName = template.course || '';
+  const currentCode = template.courseCode || '';
+  const currentClass = template.class || '';
+  const currentSection = template.section || '';
+  
+  let html = '<div class="form-group">';
+  html += '<label>Nama Course Semasa</label>';
+  html += '<p style="padding:0.5rem;background:#f3f4f6;border-radius:4px;"><strong>' + esc(currentName) + '</strong> (' + esc(currentCode) + ')</p>';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Nama Course Baru</label>';
+  html += '<input type="text" id="renameCourse" value="' + esc(currentName) + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Course Code Baru</label>';
+  html += '<input type="text" id="renameCourseCode" value="' + esc(currentCode) + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Class Baru</label>';
+  html += '<input type="text" id="renameClass" value="' + esc(currentClass) + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  html += '<div class="form-group">';
+  html += '<label>Section Baru</label>';
+  html += '<input type="text" id="renameSection" value="' + esc(currentSection) + '" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">';
+  html += '</div>';
+  
+  html += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:0.8rem;margin-top:1rem;">';
+  html += '<p style="font-size:0.85rem;color:#1e40af;margin:0;">⚠️ Menukar nama assessment tidak akan mengubah data markah yang sedia ada.</p>';
+  html += '</div>';
+  
+  openModal('Rename Assessment', html, function() {
+    const newCourse = document.getElementById('renameCourse').value.trim();
+    const newCourseCode = document.getElementById('renameCourseCode').value.trim();
+    const newClass = document.getElementById('renameClass').value.trim();
+    const newSection = document.getElementById('renameSection').value.trim();
+    
+    if (!newCourse) {
+      alert('Sila isi nama course.');
+      return false;
+    }
+    
+    const oldName = template.course;
+    template.course = newCourse;
+    template.courseCode = newCourseCode;
+    template.class = newClass;
+    template.section = newSection;
+    template.updatedAt = new Date().toISOString();
+    
+    logCarrymarkAction('Renamed', 'Assessment renamed from "' + oldName + '" to "' + newCourse + '"', templateId);
+    saveData();
+    renderCarrymark();
+    closeModal();
+    alert('Assessment berjaya dinamakan semula.');
+  });
 };
 
 // Delete Template
