@@ -249,12 +249,12 @@ function applyRoleRestrictions() {
   userInfo.textContent = (roleLabels[currentRole] || currentRole) + ': ' + (currentUser ? currentUser.name : '');
 
   if (currentRole === 'admin') {
-    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'graduation', 'fyp', 'carrymark'];
+    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'messages', 'graduation', 'fyp', 'carrymark'];
     allTabs.forEach(t => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (t === 'dashboard' ? ' active' : '');
       btn.dataset.tab = t;
-      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark' };
+      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark' };
       btn.textContent = labels[t];
       nav.appendChild(btn);
     });
@@ -269,12 +269,12 @@ function applyRoleRestrictions() {
     document.getElementById('deleteAllTimetableBtn').style.display = '';
     document.getElementById('deleteAllMemosBtn').style.display = '';
   } else if (currentRole === 'teacher') {
-    const t = ['students', 'marks', 'timetable', 'memos', 'exam', 'fyp', 'carrymark'];
+    const t = ['students', 'marks', 'timetable', 'memos', 'exam', 'messages', 'fyp', 'carrymark'];
     t.forEach((tab, i) => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
       btn.dataset.tab = tab;
-      const labels = { students: 'Pelajar', marks: 'Markah', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', fyp: 'FYP', carrymark: 'Carrymark' };
+      const labels = { students: 'Pelajar', marks: 'Markah', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', fyp: 'FYP', carrymark: 'Carrymark' };
       btn.textContent = labels[tab];
       nav.appendChild(btn);
     });
@@ -334,6 +334,7 @@ function applyRoleRestrictions() {
       if (this.dataset.tab === 'timetable') renderTimetable();
       if (this.dataset.tab === 'memos') renderMemos();
       if (this.dataset.tab === 'exam') renderExamSchedule();
+      if (this.dataset.tab === 'messages') renderMessages();
       if (this.dataset.tab === 'teachers') renderTeachers();
       if (this.dataset.tab === 'graduation') renderGraduation();
       if (this.dataset.tab === 'fyp') renderFYP();
@@ -979,6 +980,17 @@ function optimizeData(data) {
       invigilators: e.invigilators || '',
       createdAt: e.createdAt || ''
     })),
+    messages: (data.messages || []).map(m => ({
+      id: m.id,
+      subjectId: m.subjectId || '',
+      subjectName: m.subjectName || '',
+      sender: m.sender,
+      senderRole: m.senderRole || '',
+      recipient: m.recipient || '',
+      text: m.text,
+      timestamp: m.timestamp,
+      read: m.read || false
+    })),
     fyp: {
       assessments: (data.fyp && data.fyp.assessments) ? data.fyp.assessments : [],
       auditLog: (data.fyp && data.fyp.auditLog) ? data.fyp.auditLog : []
@@ -1049,6 +1061,7 @@ async function loadFromFirebase() {
       data.timetable = remote.timetable || [];
       data.memos = remote.memos || [];
       data.examSchedule = remote.examSchedule || [];
+      data.messages = remote.messages || [];
       data.fyp = remote.fyp || { assessments: [], auditLog: [] };
       data.carrymark = remote.carrymark || { templates: [], marks: [], gradeConfig: [], auditLog: [] };
       
@@ -11439,4 +11452,190 @@ function exportFYPToWord(supervisorName, exportAll) {
   w.document.close();
   
   showToast('Fail Word dijana!', 'success');
+}
+
+// ============================================
+// MESSAGES SYSTEM
+// ============================================
+
+// Initialize messages data
+if (!data.messages) {
+  data.messages = [];
+}
+
+// Render Messages
+function renderMessages() {
+  const container = document.getElementById('messagesContent');
+  if (!container) return;
+  
+  const subjects = data.subjects || [];
+  const semesters = data.semesters || [];
+  const teachers = data.teachers || [];
+  
+  // Get subjects based on role
+  let userSubjects = [];
+  if (currentRole === 'admin') {
+    userSubjects = subjects;
+  } else if (currentRole === 'teacher') {
+    userSubjects = subjects.filter(s => s.pengajar === currentUser.name);
+  }
+  
+  let html = '';
+  
+  // Subject selector
+  html += '<div style="margin-bottom:1rem;">';
+  html += '<label style="font-weight:600;margin-bottom:0.5rem;display:block;">Pilih Subjek:</label>';
+  html += '<select id="messageSubjectSelect" onchange="loadSubjectMessages()" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:1rem;">';
+  html += '<option value="">-- Pilih Subjek --</option>';
+  userSubjects.forEach(s => {
+    const semester = semesters.find(sem => sem.id === s.semester);
+    html += '<option value="' + s.id + '">' + s.name + ' (' + (s.code || '') + ') - ' + (semester ? semester.name : '-') + '</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+  
+  // Messages area
+  html += '<div id="messagesArea" style="min-height:300px;">';
+  html += '<div style="text-align:center;padding:2rem;color:#9ca3af;">';
+  html += '<p>Pilih subjek untuk lihat mesej</p>';
+  html += '</div>';
+  html += '</div>';
+  
+  container.innerHTML = html;
+}
+
+// Load Subject Messages
+window.loadSubjectMessages = function() {
+  const subjectId = document.getElementById('messageSubjectSelect').value;
+  const messagesArea = document.getElementById('messagesArea');
+  if (!messagesArea) return;
+  
+  if (!subjectId) {
+    messagesArea.innerHTML = '<div style="text-align:center;padding:2rem;color:#9ca3af;"><p>Pilih subjek untuk lihat mesej</p></div>';
+    return;
+  }
+  
+  const subject = data.subjects.find(s => s.id === subjectId);
+  if (!subject) return;
+  
+  // Get messages for this subject
+  const subjectMessages = (data.messages || []).filter(m => m.subjectId === subjectId);
+  
+  let html = '';
+  
+  // Chat container
+  html += '<div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">';
+  
+  // Header
+  html += '<div style="background:#0f3460;color:white;padding:10px 15px;font-weight:600;">';
+  html += '💬 ' + esc(subject.name) + ' (' + (subject.code || '') + ')';
+  html += '</div>';
+  
+  // Messages list
+  html += '<div id="messagesList" style="height:350px;overflow-y:auto;padding:10px;background:#f9fafb;">';
+  
+  if (subjectMessages.length === 0) {
+    html += '<div style="text-align:center;padding:2rem;color:#9ca3af;">';
+    html += '<p>Tiada mesej lagi. Mulakan perbualan!</p>';
+    html += '</div>';
+  } else {
+    subjectMessages.forEach(m => {
+      const isMe = m.sender === currentUser.name;
+      const time = new Date(m.timestamp).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' });
+      const date = new Date(m.timestamp).toLocaleDateString('ms-MY', { day: 'numeric', month: 'short' });
+      
+      html += '<div style="margin-bottom:8px;display:flex;justify-content:' + (isMe ? 'flex-end' : 'flex-start') + ';">';
+      html += '<div style="max-width:75%;' + (isMe ? 'background:#3b82f6;color:white;' : 'background:white;border:1px solid #e5e7eb;') + 'border-radius:12px;padding:8px 12px;">';
+      if (!isMe) {
+        html += '<div style="font-size:0.75rem;color:#3b82f6;font-weight:600;margin-bottom:2px;">' + esc(m.sender) + '</div>';
+      }
+      html += '<div style="font-size:0.9rem;">' + esc(m.text) + '</div>';
+      html += '<div style="font-size:0.7rem;color:' + (isMe ? 'rgba(255,255,255,0.7)' : '#9ca3af') + ';text-align:right;margin-top:2px;">' + time + '</div>';
+      html += '</div>';
+      html += '</div>';
+    });
+  }
+  
+  html += '</div>';
+  
+  // Input area
+  html += '<div style="display:flex;gap:8px;padding:10px;border-top:1px solid #e5e7eb;background:white;">';
+  html += '<input type="text" id="messageInput" placeholder="Taip mesej..." style="flex:1;padding:10px;border:1px solid #d1d5db;border-radius:20px;font-size:0.9rem;" onkeydown="if(event.key===\'Enter\')sendMessage()">';
+  html += '<button class="btn btn-primary" onclick="sendMessage()" style="border-radius:20px;padding:10px 20px;">Hantar</button>';
+  html += '</div>';
+  
+  html += '</div>';
+  
+  messagesArea.innerHTML = html;
+  
+  // Scroll to bottom
+  const messagesList = document.getElementById('messagesList');
+  if (messagesList) {
+    messagesList.scrollTop = messagesList.scrollHeight;
+  }
+  
+  // Focus on input
+  const messageInput = document.getElementById('messageInput');
+  if (messageInput) messageInput.focus();
+}
+
+// Send Message
+window.sendMessage = function() {
+  const subjectId = document.getElementById('messageSubjectSelect').value;
+  const input = document.getElementById('messageInput');
+  
+  if (!subjectId || !input) return;
+  
+  const text = input.value.trim();
+  if (!text) return;
+  
+  const subject = data.subjects.find(s => s.id === subjectId);
+  if (!subject) return;
+  
+  // Determine recipient
+  let recipient = '';
+  if (currentRole === 'teacher') {
+    // Teacher sends to all students in this subject
+    recipient = 'students';
+  } else if (currentRole === 'admin') {
+    recipient = subject.pengajar || 'all';
+  } else {
+    recipient = subject.pengajar || 'teacher';
+  }
+  
+  const message = {
+    id: generateId('MSG'),
+    subjectId: subjectId,
+    subjectName: subject.name,
+    sender: currentUser.name,
+    senderRole: currentRole,
+    recipient: recipient,
+    text: text,
+    timestamp: new Date().toISOString(),
+    read: false
+  };
+  
+  if (!data.messages) data.messages = [];
+  data.messages.push(message);
+  saveData();
+  
+  input.value = '';
+  loadSubjectMessages();
+  
+  showToast('Mesej dihantar!', 'success');
+}
+
+// Optimize messages for storage
+function optimizeMessages(messages) {
+  return messages.map(m => ({
+    id: m.id,
+    subjectId: m.subjectId,
+    subjectName: m.subjectName || '',
+    sender: m.sender,
+    senderRole: m.senderRole || '',
+    recipient: m.recipient || '',
+    text: m.text,
+    timestamp: m.timestamp,
+    read: m.read || false
+  }));
 }
