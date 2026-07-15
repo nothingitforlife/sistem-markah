@@ -6764,6 +6764,20 @@ function getCarrymarkStatusBadge(status) {
 }
 
 // Create Assessment Template (editTemplate = existing template for edit mode)
+// Toggle Co-curriculum mode when course changes
+window.onCourseChange = function(select) {
+  const option = select.options[select.selectedIndex];
+  const isCocu = option && option.dataset.iscocu === 'true';
+  
+  const normalSection = document.getElementById('cmNormalComponents');
+  const cocuSection = document.getElementById('cmCocuSection');
+  const progressBars = document.getElementById('cmProgressBars');
+  
+  if (normalSection) normalSection.style.display = isCocu ? 'none' : '';
+  if (cocuSection) cocuSection.style.display = isCocu ? '' : 'none';
+  if (progressBars) progressBars.style.display = isCocu ? 'none' : '';
+};
+
 window.carrymarkCreateTemplate = function(editTemplate, editId) {
   const semesters = data.semesters || [];
   const allSubjects = data.subjects || [];
@@ -6801,14 +6815,15 @@ window.carrymarkCreateTemplate = function(editTemplate, editId) {
   
   html += '<div class="form-group">';
   html += '<label>Course (Subjek Diajar)</label>';
-  html += '<select id="cmCourse" required>';
+  html += '<select id="cmCourse" required onchange="onCourseChange(this)">';
   html += '<option value="">-- Pilih Course --</option>';
   if (subjects.length === 0) {
     html += '<option value="" disabled>Tiada subjek yang ditugaskan</option>';
   } else {
     subjects.forEach(s => {
       const selected = (isEdit && editTemplate.course === s.name) ? ' selected' : '';
-      html += '<option value="' + s.name + '" data-code="' + s.code + '" data-semester="' + s.semester + '"' + selected + '>' + s.name + ' (' + s.code + ')</option>';
+      const isCocu = isCoCurriculumSubject(s);
+      html += '<option value="' + s.name + '" data-code="' + s.code + '" data-semester="' + s.semester + '" data-iscocu="' + isCocu + '"' + selected + '>' + s.name + ' (' + s.code + ')' + (isCocu ? ' 🏷️' : '') + '</option>';
     });
   }
   html += '</select>';
@@ -6829,15 +6844,23 @@ window.carrymarkCreateTemplate = function(editTemplate, editId) {
   html += '<input type="text" id="cmSection" placeholder="Contoh: A" value="' + (isEdit ? esc(editTemplate.section || '') : '') + '">';
   html += '</div>';
   
-  // Components
-  html += '<div style="margin-top:1.5rem;">';
+  // Components - normal section (hidden for Co-curriculum)
+  html += '<div id="cmNormalComponents" style="margin-top:1.5rem;">';
   html += '<h4 style="color:#0f3460;margin-bottom:1rem;">Assessment Components</h4>';
   html += '<div id="cmComponentsList"></div>';
   html += '<button type="button" class="btn btn-sm btn-outline" onclick="carrymarkAddComponent()" style="color:#059669;border-color:#059669;">+ Add Component</button>';
   html += '</div>';
   
-  // Progress Bars
-  html += '<div style="margin-top:1.5rem;">';
+  // Co-curriculum section (hidden by default)
+  html += '<div id="cmCocuSection" style="margin-top:1.5rem;display:none;">';
+  html += '<div style="background:#f0fdf4;border:2px solid #059669;border-radius:8px;padding:1rem;">';
+  html += '<h4 style="color:#059669;margin-bottom:0.5rem;">🏷️ Subjek Co-curriculum</h4>';
+  html += '<p style="font-size:0.9rem;color:#4b5563;margin:0;">Penilaian menggunakan sistem Lulus (L) / Gagal (G) sahaja. Tiada markah atau gred.</p>';
+  html += '</div>';
+  html += '</div>';
+  
+  // Progress Bars (hidden for Co-curriculum)
+  html += '<div id="cmProgressBars" style="margin-top:1.5rem;">';
   html += '<div style="margin-bottom:1rem;">';
   html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
   html += '<span>Coursework (max 60%)</span>';
@@ -6875,62 +6898,81 @@ window.carrymarkCreateTemplate = function(editTemplate, editId) {
       return false;
     }
     
-    // Collect components
-    const componentElements = document.querySelectorAll('.cm-component-item');
-    const components = [];
-    let courseworkTotal = 0;
-    let finalTotal = 0;
-    let hasError = false;
+    // Check if Co-curriculum subject
+    const subjectData = data.subjects.find(s => s.name === course || s.code === courseCode);
+    const isCocu = isCoCurriculumSubject(subjectData);
     
-    componentElements.forEach(el => {
-      if (hasError) return;
-      const name = el.querySelector('.cm-comp-name').value.trim();
-      const category = el.querySelector('.cm-comp-category').value;
-      const weight = parseInt(el.querySelector('.cm-comp-weight').value) || 0;
-      const maxMark = parseInt(el.querySelector('.cm-comp-max').value) || 100;
-      const passingMark = parseInt(el.querySelector('.cm-comp-passing').value) || 0;
-      const date = el.querySelector('.cm-comp-date').value;
-      const desc = el.querySelector('.cm-comp-desc').value.trim();
+    let components = [];
+    
+    if (isCocu) {
+      // Co-curriculum: auto-create single L/G component
+      components = [{
+        id: generateId('COMP'),
+        name: 'Penilaian Lulus/Gagal',
+        category: 'coursework',
+        weight: 100,
+        maxMark: 100,
+        passingMark: 50,
+        date: '',
+        description: 'Penilaian Lulus (L) atau Gagal (G)'
+      }];
+    } else {
+      // Normal: collect components and validate 60/40
+      const componentElements = document.querySelectorAll('.cm-component-item');
+      let courseworkTotal = 0;
+      let finalTotal = 0;
+      let hasError = false;
       
-      if (!name || !category || weight <= 0) {
-        alert('Sila isi semua maklumat komponen (nama, kategori, berat).');
-        hasError = true;
-        return;
+      componentElements.forEach(el => {
+        if (hasError) return;
+        const name = el.querySelector('.cm-comp-name').value.trim();
+        const category = el.querySelector('.cm-comp-category').value;
+        const weight = parseInt(el.querySelector('.cm-comp-weight').value) || 0;
+        const maxMark = parseInt(el.querySelector('.cm-comp-max').value) || 100;
+        const passingMark = parseInt(el.querySelector('.cm-comp-passing').value) || 0;
+        const date = el.querySelector('.cm-comp-date').value;
+        const desc = el.querySelector('.cm-comp-desc').value.trim();
+        
+        if (!name || !category || weight <= 0) {
+          alert('Sila isi semua maklumat komponen (nama, kategori, berat).');
+          hasError = true;
+          return;
+        }
+        
+        if (category === 'coursework') courseworkTotal += weight;
+        if (category === 'final') finalTotal += weight;
+        
+        // Preserve existing component ID in edit mode
+        const existingId = el.dataset.componentId || generateId('COMP');
+        components.push({
+          id: existingId,
+          name: name,
+          category: category,
+          weight: weight,
+          maxMark: maxMark,
+          passingMark: passingMark,
+          date: date,
+          description: desc
+        });
+      });
+      
+      if (hasError) return false;
+      
+      if (courseworkTotal !== 60) {
+        alert('Coursework total mesti tepat 60%. Semasa: ' + courseworkTotal + '%');
+        return false;
       }
       
-      if (category === 'coursework') courseworkTotal += weight;
-      if (category === 'final') finalTotal += weight;
+      if (finalTotal !== 40) {
+        alert('Final total mesti tepat 40%. Semasa: ' + finalTotal + '%');
+        return false;
+      }
       
-      // Preserve existing component ID in edit mode
-      const existingId = el.dataset.componentId || generateId('COMP');
-      components.push({
-        id: existingId,
-        name: name,
-        category: category,
-        weight: weight,
-        maxMark: maxMark,
-        passingMark: passingMark,
-        date: date,
-        description: desc
-      });
-    });
-    
-    if (hasError) return false;
-    
-    if (courseworkTotal !== 60) {
-      alert('Coursework total mesti tepat 60%. Semasa: ' + courseworkTotal + '%');
-      return false;
-    }
-    
-    if (finalTotal !== 40) {
-      alert('Final total mesti tepat 40%. Semasa: ' + finalTotal + '%');
-      return false;
-    }
-    
-    if (components.length === 0) {
-      alert('Sila tambah sekurang-kurangnya 1 komponen.');
-      return false;
-    }
+      if (components.length === 0) {
+        alert('Sila tambah sekurang-kurangnya 1 komponen.');
+        return false;
+      }
+    } // End of else block for non-Co-curriculum
     
     if (isEdit && editId) {
       // Update existing template
