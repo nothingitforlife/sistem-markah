@@ -463,6 +463,63 @@ function renderStudentSlip(student, semester, markRecord) {
         </div>
         ` : ''}
       </div>
+      ${(() => {
+        // Auto-detect pass/fail status
+        const failedSubjects = subjectRows.filter(r => r.status === 'G' && !r.isCocu);
+        const failedCocu = subjectRows.filter(r => r.status === 'G' && r.isCocu);
+        const allFailed = subjectRows.filter(r => r.status === 'G');
+        const effectiveGPA = cgpaData.semesterGPA.length > 0 ? cgpaData.cgpa : gpa;
+        
+        let statusHTML = '<div style="margin-top:1.5rem;padding:1rem;border-radius:8px;';
+        
+        if (effectiveGPA >= 2.10 && allFailed.length === 0) {
+          // Lulus - GPA 2.10 ke atas dan tiada subjek gagal
+          statusHTML += 'background:#f0fdf4;border:2px solid #059669;">';
+          statusHTML += '<div style="display:flex;align-items:center;gap:10px;">';
+          statusHTML += '<span style="font-size:2rem;">✅</span>';
+          statusHTML += '<div>';
+          statusHTML += '<p style="font-weight:700;color:#059669;font-size:1.1rem;margin:0;">LULUS</p>';
+          statusHTML += '<p style="color:#065f46;margin:0.25rem 0 0 0;">Layak untuk teruskan semester seterusnya.</p>';
+          statusHTML += '</div></div>';
+        } else if (effectiveGPA >= 2.10 && allFailed.length > 0) {
+          // Lulus dengan syarat - ada subjek gagal
+          statusHTML += 'background:#fffbeb;border:2px solid #f59e0b;">';
+          statusHTML += '<div style="display:flex;align-items:center;gap:10px;">';
+          statusHTML += '<span style="font-size:2rem;">⚠️</span>';
+          statusHTML += '<div>';
+          statusHTML += '<p style="font-weight:700;color:#d97706;font-size:1.1rem;margin:0;">LULUS DENGAN SYARAT</p>';
+          statusHTML += '<p style="color:#92400e;margin:0.25rem 0 0 0;">Layak untuk teruskan semester seterusnya, tetapi perlu repeat subjek berikut:</p>';
+          statusHTML += '</div></div>';
+          statusHTML += '<div style="margin-top:0.75rem;padding:0.75rem;background:#fef3c7;border-radius:6px;">';
+          statusHTML += '<p style="font-weight:600;color:#92400e;margin:0 0 0.5rem 0;">Subjek yang perlu diulang (Repeat):</p>';
+          statusHTML += '<ol style="margin:0;padding-left:1.5rem;color:#92400e;">';
+          allFailed.forEach(r => {
+            statusHTML += '<li style="margin-bottom:0.25rem;"><strong>' + esc(r.name) + '</strong> - ' + (r.isCocu ? 'Gagal' : 'Gred: ' + r.grade) + '</li>';
+          });
+          statusHTML += '</ol></div>';
+        } else {
+          // Tidak layak - GPA bawah 2.00
+          statusHTML += 'background:#fef2f2;border:2px solid #dc2626;">';
+          statusHTML += '<div style="display:flex;align-items:center;gap:10px;">';
+          statusHTML += '<span style="font-size:2rem;">❌</span>';
+          statusHTML += '<div>';
+          statusHTML += '<p style="font-weight:700;color:#dc2626;font-size:1.1rem;margin:0;">TIDAK LAYAK</p>';
+          statusHTML += '<p style="color:#991b1b;margin:0.25rem 0 0 0;">Tidak layak untuk teruskan semester seterusnya.</p>';
+          statusHTML += '</div></div>';
+          if (allFailed.length > 0) {
+            statusHTML += '<div style="margin-top:0.75rem;padding:0.75rem;background:#fee2e2;border-radius:6px;">';
+            statusHTML += '<p style="font-weight:600;color:#991b1b;margin:0 0 0.5rem 0;">Subjek yang gagal:</p>';
+            statusHTML += '<ol style="margin:0;padding-left:1.5rem;color:#991b1b;">';
+            allFailed.forEach(r => {
+              statusHTML += '<li style="margin-bottom:0.25rem;"><strong>' + esc(r.name) + '</strong> - ' + (r.isCocu ? 'Gagal' : 'Gred: ' + r.grade) + '</li>';
+            });
+            statusHTML += '</ol></div>';
+          }
+        }
+        
+        statusHTML += '</div>';
+        return statusHTML;
+      })()}
       <div class="slip-footer">
         <p style="font-size:0.78rem;color:#9ca3af;font-style:italic;">Ini adalah janaan komputer. Tandatangan tidak diperlukan.</p>
         <button class="btn btn-primary" onclick="printStudentSlip(this)">🖨️ Cetak Slip</button>
