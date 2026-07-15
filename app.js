@@ -7102,11 +7102,11 @@ window.carrymarkAddComponent = function(comp) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
       <div class="form-group" style="margin:0;">
         <label style="font-size:0.8rem;">Component Name</label>
-        <input type="text" class="cm-comp-name" placeholder="Contoh: Assignment 1" value="${compName}" required>
+        <input type="text" class="cm-comp-name" placeholder="Contoh: Assignment 1" value="${compName}">
       </div>
       <div class="form-group" style="margin:0;">
         <label style="font-size:0.8rem;">Category</label>
-        <select class="cm-comp-category" required>
+        <select class="cm-comp-category">
           <option value="">-- Pilih --</option>
           <option value="coursework"${cwSelected}>Coursework</option>
           <option value="final"${finalSelected}>Final Assessment</option>
@@ -7114,7 +7114,7 @@ window.carrymarkAddComponent = function(comp) {
       </div>
       <div class="form-group" style="margin:0;">
         <label style="font-size:0.8rem;">Weight (%)</label>
-        <input type="number" class="cm-comp-weight" min="1" max="100" value="${compWeight}" required>
+        <input type="number" class="cm-comp-weight" min="1" max="100" value="${compWeight}">
       </div>
       <div class="form-group" style="margin:0;">
         <label style="font-size:0.8rem;">Maximum Mark</label>
