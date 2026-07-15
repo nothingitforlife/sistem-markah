@@ -369,160 +369,162 @@ function applyRoleRestrictions() {
 }
 
 function renderStudentSlip(student, semester, markRecord) {
-  const subjectRows = data.subjects
-    .filter(subj => subj.semester === semester.id)
-    .filter(subj => markRecord.scores[subj.id] != null && markRecord.scores[subj.id] !== '')
-    .map(subj => {
-      const score = markRecord.scores[subj.id];
-      const isCocu = isCoCurriculumSubject(subj);
-      const credit = subj.credit || 3;
-      
-      if (isCocu) {
-        // Co-curriculum: L/G display
-        const status = score === 'L' ? 'L' : score === 'G' ? 'G' : '-';
-        return { name: subj.name, credit, score: score, point: 0, grade: status, gradePoints: 0, badgeClass: status === 'L' ? 'badge-aplus' : 'badge-f', status: status, isCocu: true };
-      } else {
-        // Normal: calculate grade
-        const grade = getGrade(score);
-        const badgeClass = grade ? 'badge-' + grade.cssClass : '';
-        const point = grade ? (credit * grade.points) : 0;
-        const status = grade && grade.points >= 2.00 ? 'L' : 'G';
-        return { name: subj.name, credit, score, point, grade: grade ? grade.letter : '-', gradePoints: grade ? grade.points : 0, badgeClass, status, isCocu: false };
-      }
-    })
-    .sort((a, b) => {
-      // Co-curriculum di bawah sekali
-      if (a.isCocu && !b.isCocu) return 1;
-      if (!a.isCocu && b.isCocu) return -1;
-      return 0;
-    });
-
-  const totalCredit = subjectRows.filter(r => !r.isCocu).reduce((sum, r) => sum + r.credit, 0);
-  const totalPoint = subjectRows.filter(r => !r.isCocu).reduce((sum, r) => sum + r.point, 0);
-  const gpa = totalCredit > 0 ? totalPoint / totalCredit : 0;
-
-  const validScores = subjectRows.filter(r => !r.isCocu).map(r => r.score).filter(v => v != null && v !== '');
-  const total = validScores.reduce((sum, v) => sum + Number(v), 0);
-  const avg = validScores.length > 0 ? total / validScores.length : 0;
-  const overallGrade = getGrade(avg);
-  const overallBadge = overallGrade ? 'badge-' + overallGrade.cssClass : '';
-  const remarks = markRecord.remarks || '';
-
+  // Use standardized GPA calculation
+  const semResult = calculateSemesterGPA(student.id, semester.id);
   const cgpaData = calculateStudentCGPA(student.id);
+  
+  // Build subject rows from standardized calculation
+  const subjectRows = semResult.subjects.map((subj, i) => {
+    const isCocu = isCoCurriculumSubject(data.subjects.find(s => s.id === subj.id));
+    const grade = getGrade(subj.score);
+    
+    return {
+      name: subj.name,
+      code: subj.code,
+      credit: subj.credit,
+      score: subj.score,
+      grade: subj.grade,
+      gradePoint: subj.gradePoint,
+      totalGradePoint: subj.totalGradePoint,
+      badgeClass: grade ? 'badge-' + grade.cssClass : '',
+      status: subj.status,
+      isCocu: isCocu
+    };
+  });
+  
+  // Add Co-curriculum subjects
+  const cocuSubjects = data.subjects
+    .filter(subj => subj.semester === semester.id)
+    .filter(subj => isCoCurriculumSubject(subj))
+    .filter(subj => markRecord.scores[subj.id] != null && markRecord.scores[subj.id] !== '');
+  
+  cocuSubjects.forEach(subj => {
+    const score = markRecord.scores[subj.id];
+    subjectRows.push({
+      name: subj.name,
+      code: subj.code || '',
+      credit: 0,
+      score: score,
+      grade: score === 'L' ? 'L' : score === 'G' ? 'G' : '-',
+      gradePoint: 0,
+      totalGradePoint: 0,
+      badgeClass: score === 'L' ? 'badge-aplus' : 'badge-f',
+      status: score === 'L' ? 'L' : 'G',
+      isCocu: true
+    });
+  });
+
+  const remarks = markRecord.remarks || '';
 
   return `
     <div class="result-slip" style="margin-bottom:1.5rem;">
       <div class="slip-header">
         <div class="slip-header-left">
-          <img src="https://www.jtm.gov.my/2015v3/images/stories/logo_JTM2014.png" alt="JTM" class="slip-logo">
+          <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSq72lkexl5Eh5SqICxEFku6Cn4b1fmiK4Yk_ogQlX1eldvfQBVpUNSO_U&s=10" alt="Logo" class="slip-logo">
         </div>
         <div class="slip-header-center">
           <h2>SLIP KEPUTUSAN PEPERIKSAAN</h2>
-          <p class="slip-school">ADTEC-JTM KAMPUS KUALA LANGAT</p>
-          <p class="slip-dept">BENGKEL TEKNOLOGI KOMPUTER RANGKAIAN</p>
+          <p class="slip-school">TVET Digital Management System (TDMS)</p>
+          <p class="slip-dept">PROGRAM TEKNOLOGI KOMPUTER RANGKAIAN</p>
+          <p class="slip-dept">ADTEC JTM KAMPUS KUALA LANGAT</p>
         </div>
         <div class="slip-header-right"></div>
       </div>
       <div class="slip-info">
         <table class="info-table">
           <tr><td class="info-label">Nama Pelajar</td><td>: ${esc(student.name)}</td></tr>
-          <tr><td class="info-label">Kod Pelajar</td><td>: ${esc(student.kod || '-')}</td></tr>
+          <tr><td class="info-label">No. Pelajar</td><td>: ${esc(student.kod || '-')}</td></tr>
+          <tr><td class="info-label">Programme</td><td>: Teknologi Komputer Rangkaian</td></tr>
           <tr><td class="info-label">Semester</td><td>: ${esc(semester.name)}</td></tr>
-          <tr><td class="info-label">Penyelia</td><td>: ${esc(semester.penyelia || '-')}</td></tr>
         </table>
       </div>
       <table class="slip-table">
-        <thead><tr><th>Bil</th><th>Mata Pelajaran</th><th>K</th><th>Gred</th><th>Gred Pointer</th><th>Keputusan</th></tr></thead>
+        <thead><tr><th>Bil</th><th>Kod</th><th>Mata Pelajaran</th><th>K</th><th>Gred</th><th>Gred Ptr</th><th>Jumlah GP</th><th>Keputusan</th></tr></thead>
         <tbody>
           ${subjectRows.map((r, i) => `
             <tr>
               <td>${i + 1}</td>
+              <td>${r.code || '-'}</td>
               <td>${r.name}</td>
               <td>${r.isCocu ? '-' : r.credit}</td>
               <td>${r.isCocu ? '<span style="font-weight:700;">' + r.grade + '</span>' : '<span class="slip-grade ' + r.badgeClass + '">' + r.grade + '</span>'}</td>
-              <td>${r.isCocu ? '-' : r.gradePoints.toFixed(2)}</td>
+              <td>${r.isCocu ? '-' : r.gradePoint.toFixed(2)}</td>
+              <td>${r.isCocu ? '-' : r.totalGradePoint.toFixed(2)}</td>
               <td style="font-weight:700;color:#000">${r.status}</td>
             </tr>
           `).join('')}
         </tbody>
       </table>
-      ${remarks ? `<div class="slip-remarks"><strong style="color:#0f3460;">Ulasan Penyelia:</strong><br>${esc(remarks)}</div>` : ''}
+      
       <div class="slip-summary">
         <div class="summary-item">
-          <span class="summary-label">Jumlah Kredit</span>
-          <span class="summary-value">${totalCredit}</span>
+          <span class="summary-label">Jumlah Kredit Semester</span>
+          <span class="summary-value">${semResult.totalCredits}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Jumlah GP Semester</span>
+          <span class="summary-value">${semResult.totalPoints.toFixed(2)}</span>
         </div>
         <div class="summary-item summary-highlight">
-          <span class="summary-label">GPA Semester</span>
-          <span class="summary-value">${gpa.toFixed(2)}</span>
+          <span class="summary-label">GPA</span>
+          <span class="summary-value">${semResult.gpa.toFixed(2)}</span>
         </div>
-        ${cgpaData.semesterGPA.length > 0 ? `
+        ${cgpaData.semesterGPA.length > 1 ? `
         <div class="summary-item" style="background:#1e40af;border-color:#1e40af;">
           <span class="summary-label" style="color:rgba(255,255,255,0.8);">CGPA</span>
           <span class="summary-value" style="color:white;">${cgpaData.cgpa.toFixed(2)}</span>
         </div>
+        <div class="summary-item" style="background:#374151;border-color:#374151;">
+          <span class="summary-label" style="color:rgba(255,255,255,0.8);">Status Akademik</span>
+          <span class="summary-value" style="color:white;font-size:14px;">${cgpaData.academicStatus}</span>
+        </div>
         ` : ''}
       </div>
+      
       ${(() => {
-        // Auto-detect pass/fail status
+        // Academic status determination
         const failedSubjects = subjectRows.filter(r => r.status === 'G' && !r.isCocu);
         const failedCocu = subjectRows.filter(r => r.status === 'G' && r.isCocu);
         const allFailed = subjectRows.filter(r => r.status === 'G');
-        const effectiveGPA = cgpaData.semesterGPA.length > 0 ? cgpaData.cgpa : gpa;
+        const effectiveGPA = cgpaData.semesterGPA.length > 1 ? cgpaData.cgpa : semResult.gpa;
         
-        let statusHTML = '<div style="margin-top:1.5rem;padding:1rem;border-radius:8px;';
+        let statusHTML = '<div style="margin-top:1.5rem;padding:1rem;border:1px solid #000;';
         
-        if (effectiveGPA >= 2.10 && allFailed.length === 0) {
-          // Lulus - GPA 2.10 ke atas dan tiada subjek gagal
-          statusHTML += 'background:#f0fdf4;border:2px solid #059669;">';
-          statusHTML += '<div style="display:flex;align-items:center;gap:10px;">';
-          statusHTML += '<span style="font-size:2rem;">✅</span>';
-          statusHTML += '<div>';
-          statusHTML += '<p style="font-weight:700;color:#059669;font-size:1.1rem;margin:0;">LULUS</p>';
-          statusHTML += '<p style="color:#065f46;margin:0.25rem 0 0 0;">Layak untuk teruskan semester seterusnya.</p>';
-          statusHTML += '</div></div>';
-        } else if (effectiveGPA >= 2.10 && allFailed.length > 0) {
-          // Lulus dengan syarat - ada subjek gagal
-          statusHTML += 'background:#fffbeb;border:2px solid #f59e0b;">';
-          statusHTML += '<div style="display:flex;align-items:center;gap:10px;">';
-          statusHTML += '<span style="font-size:2rem;">⚠️</span>';
-          statusHTML += '<div>';
-          statusHTML += '<p style="font-weight:700;color:#d97706;font-size:1.1rem;margin:0;">LULUS DENGAN SYARAT</p>';
-          statusHTML += '<p style="color:#92400e;margin:0.25rem 0 0 0;">Layak untuk teruskan semester seterusnya, tetapi perlu ulang penilaian subjek pada semester akan datang:</p>';
-          statusHTML += '</div></div>';
-          statusHTML += '<div style="margin-top:0.75rem;padding:0.75rem;background:#fef3c7;border-radius:6px;">';
-          statusHTML += '<p style="font-weight:600;color:#92400e;margin:0 0 0.5rem 0;">Subjek yang perlu ulang penilaian:</p>';
-          statusHTML += '<ol style="margin:0;padding-left:1.5rem;color:#92400e;">';
+        if (effectiveGPA >= 2.00 && allFailed.length === 0) {
+          statusHTML += '">';
+          statusHTML += '<p style="font-weight:700;font-size:12px;margin:0;">STATUS AKADEMIK: GOOD STANDING</p>';
+          statusHTML += '<p style="font-size:11px;margin:4px 0 0 0;">Lulus dan layak untuk meneruskan pengajian pada semester seterusnya.</p>';
+        } else if (effectiveGPA >= 2.00 && allFailed.length > 0) {
+          statusHTML += '">';
+          statusHTML += '<p style="font-weight:700;font-size:12px;margin:0;">STATUS AKADEMIK: LULUS DENGAN SYARAT</p>';
+          statusHTML += '<p style="font-size:11px;margin:4px 0 0 0;">Layak untuk meneruskan pengajian. Sila ulang penilaian subjek berikut pada semester akan datang:</p>';
+          statusHTML += '<table style="width:100%;margin-top:8px;font-size:11px;border-collapse:collapse;">';
           allFailed.forEach(r => {
-            statusHTML += '<li style="margin-bottom:0.25rem;"><strong>' + esc(r.name) + '</strong> - ' + (r.isCocu ? 'Gagal' : 'Gred: ' + r.grade) + '</li>';
+            statusHTML += '<tr><td style="padding:4px 8px;border-bottom:1px solid #ddd;">• ' + esc(r.name) + '</td><td style="padding:4px 8px;border-bottom:1px solid #ddd;">' + (r.isCocu ? 'Gagal' : 'Gred: ' + r.grade) + '</td></tr>';
           });
-          statusHTML += '</ol></div>';
+          statusHTML += '</table>';
         } else {
-          // Tidak layak - GPA bawah 2.00
-          statusHTML += 'background:#fef2f2;border:2px solid #dc2626;">';
-          statusHTML += '<div style="display:flex;align-items:center;gap:10px;">';
-          statusHTML += '<span style="font-size:2rem;">❌</span>';
-          statusHTML += '<div>';
-          statusHTML += '<p style="font-weight:700;color:#dc2626;font-size:1.1rem;margin:0;">TIDAK LAYAK</p>';
-          statusHTML += '<p style="color:#991b1b;margin:0.25rem 0 0 0;">Tidak layak untuk teruskan semester seterusnya.</p>';
-          statusHTML += '</div></div>';
+          statusHTML += 'border-color:#000;">';
+          statusHTML += '<p style="font-weight:700;font-size:12px;margin:0;">STATUS AKADEMIK: TIDAK LAYAK</p>';
+          statusHTML += '<p style="font-size:11px;margin:4px 0 0 0;">Tidak layak untuk meneruskan pengajian pada semester seterusnya.</p>';
           if (allFailed.length > 0) {
-            statusHTML += '<div style="margin-top:0.75rem;padding:0.75rem;background:#fee2e2;border-radius:6px;">';
-            statusHTML += '<p style="font-weight:600;color:#991b1b;margin:0 0 0.5rem 0;">Subjek yang gagal:</p>';
-            statusHTML += '<ol style="margin:0;padding-left:1.5rem;color:#991b1b;">';
+            statusHTML += '<table style="width:100%;margin-top:8px;font-size:11px;border-collapse:collapse;">';
+            statusHTML += '<tr><td style="padding:4px 8px;border-bottom:1px solid #ddd;font-weight:600;">Subjek gagal:</td><td style="padding:4px 8px;border-bottom:1px solid #ddd;font-weight:600;">Gred</td></tr>';
             allFailed.forEach(r => {
-              statusHTML += '<li style="margin-bottom:0.25rem;"><strong>' + esc(r.name) + '</strong> - ' + (r.isCocu ? 'Gagal' : 'Gred: ' + r.grade) + '</li>';
+              statusHTML += '<tr><td style="padding:4px 8px;border-bottom:1px solid #ddd;">' + esc(r.name) + '</td><td style="padding:4px 8px;border-bottom:1px solid #ddd;">' + (r.isCocu ? 'Gagal' : r.grade) + '</td></tr>';
             });
-            statusHTML += '</ol></div>';
+            statusHTML += '</table>';
           }
         }
         
         statusHTML += '</div>';
         return statusHTML;
       })()}
+      
+      ${remarks ? `<div class="slip-remarks"><strong>Ulasan Penyelia:</strong><br>${esc(remarks)}</div>` : ''}
+      
       <div class="slip-footer">
-        <p style="font-size:0.78rem;color:#9ca3af;font-style:italic;">Ini adalah janaan komputer. Tandatangan tidak diperlukan.</p>
-        <button class="btn btn-primary" onclick="printStudentSlip(this)">🖨️ Cetak Slip</button>
+        <p style="font-size:0.78rem;color:#9ca3af;font-style:italic;">Dokumen ini dijana secara automatik oleh TVET Digital Management System (TDMS)</p>
       </div>
     </div>
   `;
@@ -1271,7 +1273,24 @@ function optimizeData(data) {
       marks: (data.carrymark && data.carrymark.marks) ? data.carrymark.marks : [],
       gradeConfig: (data.carrymark && data.carrymark.gradeConfig) ? data.carrymark.gradeConfig : [],
       auditLog: (data.carrymark && data.carrymark.auditLog) ? data.carrymark.auditLog : []
-    }
+    },
+    calculatedResults: (data.calculatedResults || []).map(r => ({
+      studentId: r.studentId,
+      cgpa: r.cgpa || 0,
+      totalCredits: r.totalCredits || 0,
+      totalPoints: r.totalPoints || 0,
+      academicStatus: r.academicStatus || '',
+      semesterGPA: r.semesterGPA || [],
+      lastCalculated: r.lastCalculated || ''
+    })),
+    resultAuditLog: (data.resultAuditLog || []).slice(-200).map(l => ({
+      id: l.id,
+      action: l.action || '',
+      details: l.details || '',
+      studentId: l.studentId || '',
+      user: l.user || '',
+      timestamp: l.timestamp || ''
+    }))
   };
   return optimized;
 }
@@ -1337,6 +1356,8 @@ async function loadFromFirebase() {
       data.assignmentSubmissions = remote.assignmentSubmissions || [];
       data.fyp = remote.fyp || { assessments: [], auditLog: [] };
       data.carrymark = remote.carrymark || { templates: [], marks: [], gradeConfig: [], auditLog: [] };
+      data.calculatedResults = remote.calculatedResults || [];
+      data.resultAuditLog = remote.resultAuditLog || [];
       
       // Backup to localStorage as fallback
       try {
@@ -1680,22 +1701,242 @@ window.restoreAllData = function(input) {
   input.value = '';
 };
 
+// ============================================
+// STANDARDIZED GRADE SYSTEM
+// ============================================
+
+// Standard Grade Table (Institution Standard)
+const GRADE_TABLE = [
+  { min: 90, max: 100, letter: 'A+', points: 4.00, status: 'Lulus' },
+  { min: 80, max: 89, letter: 'A', points: 4.00, status: 'Lulus' },
+  { min: 75, max: 79, letter: 'A-', points: 3.70, status: 'Lulus' },
+  { min: 70, max: 74, letter: 'B+', points: 3.30, status: 'Lulus' },
+  { min: 65, max: 69, letter: 'B', points: 3.00, status: 'Lulus' },
+  { min: 60, max: 64, letter: 'B-', points: 2.70, status: 'Lulus' },
+  { min: 55, max: 59, letter: 'C+', points: 2.30, status: 'Lulus' },
+  { min: 50, max: 54, letter: 'C', points: 2.00, status: 'Lulus' },
+  { min: 45, max: 49, letter: 'C-', points: 1.70, status: 'Gagal' },
+  { min: 40, max: 44, letter: 'D+', points: 1.50, status: 'Gagal' },
+  { min: 35, max: 39, letter: 'D', points: 1.00, status: 'Gagal' },
+  { min: 30, max: 34, letter: 'E', points: 0.50, status: 'Gagal' },
+  { min: 0, max: 29, letter: 'F', points: 0.00, status: 'Gagal' }
+];
+
+// Get Grade from Score (Standardized)
 function getGrade(score) {
   if (score == null || score === '') return null;
-  const s = Number(score);
-  if (s >= 90) return { letter: 'A+', points: 4.00, cssClass: 'aplus' };
-  if (s >= 80) return { letter: 'A', points: 4.00, cssClass: 'a' };
-  if (s >= 75) return { letter: 'A-', points: 3.70, cssClass: 'aminus' };
-  if (s >= 70) return { letter: 'B+', points: 3.30, cssClass: 'bplus' };
-  if (s >= 65) return { letter: 'B', points: 3.00, cssClass: 'b' };
-  if (s >= 60) return { letter: 'B-', points: 2.70, cssClass: 'bminus' };
-  if (s >= 55) return { letter: 'C+', points: 2.30, cssClass: 'cplus' };
-  if (s >= 50) return { letter: 'C', points: 2.00, cssClass: 'c' };
-  if (s >= 45) return { letter: 'C-', points: 1.70, cssClass: 'cminus' };
-  if (s >= 40) return { letter: 'D+', points: 1.50, cssClass: 'dplus' };
-  if (s >= 35) return { letter: 'D', points: 1.00, cssClass: 'd' };
-  if (s >= 30) return { letter: 'E', points: 0.50, cssClass: 'e' };
-  return { letter: 'F', points: 0.00, cssClass: 'f' };
+  const s = Math.round(Number(score));
+  
+  for (const g of GRADE_TABLE) {
+    if (s >= g.min && s <= g.max) {
+      return { 
+        letter: g.letter, 
+        points: g.points, 
+        cssClass: g.letter.toLowerCase().replace('+', 'plus').replace('-', 'minus'),
+        status: g.status
+      };
+    }
+  }
+  
+  // Fallback
+  if (s > 100) return { letter: 'A+', points: 4.00, cssClass: 'aplus', status: 'Lulus' };
+  return { letter: 'F', points: 0.00, cssClass: 'f', status: 'Gagal' };
+}
+
+// Get Grade CSS Class
+function getGradeCssClass(letter) {
+  return letter.toLowerCase().replace('+', 'plus').replace('-', 'minus');
+}
+
+// ============================================
+// STANDARDIZED GPA CALCULATION
+// ============================================
+
+// Calculate GPA for a specific semester
+function calculateSemesterGPA(studentId, semesterId) {
+  const rec = data.marks.find(m => m.studentId === studentId && m.semesterId === semesterId);
+  if (!rec || Object.keys(rec.scores).length === 0) {
+    return { gpa: 0, totalCredits: 0, totalPoints: 0, subjects: [] };
+  }
+
+  const subjects = data.subjects
+    .filter(subj => subj.semester === semesterId)
+    .filter(subj => rec.scores[subj.id] != null && rec.scores[subj.id] !== '')
+    .filter(subj => !isCoCurriculumSubject(subj));
+
+  let totalCredits = 0;
+  let totalPoints = 0;
+  const subjectDetails = [];
+
+  subjects.forEach(subj => {
+    const score = rec.scores[subj.id];
+    const grade = getGrade(score);
+    const credit = subj.credit || 0;
+    
+    if (grade && credit > 0) {
+      const gradePoint = credit * grade.points;
+      totalCredits += credit;
+      totalPoints += gradePoint;
+      
+      subjectDetails.push({
+        id: subj.id,
+        code: subj.code || '',
+        name: subj.name,
+        credit: credit,
+        score: score,
+        grade: grade.letter,
+        gradePoint: grade.points,
+        totalGradePoint: gradePoint,
+        status: grade.status
+      });
+    }
+  });
+
+  const gpa = totalCredits > 0 ? totalPoints / totalCredits : 0;
+
+  return {
+    gpa: Math.round(gpa * 100) / 100,
+    totalCredits: totalCredits,
+    totalPoints: Math.round(totalPoints * 100) / 100,
+    subjects: subjectDetails
+  };
+}
+
+// ============================================
+// STANDARDIZED CGPA CALCULATION
+// ============================================
+
+// Calculate CGPA across all semesters
+function calculateStudentCGPA(studentId) {
+  const student = data.students.find(s => s.id === studentId);
+  if (!student) return { 
+    cgpa: 0, 
+    totalCredits: 0, 
+    totalPoints: 0, 
+    semesterGPA: [],
+    academicStatus: 'Tiada Data'
+  };
+
+  const sortedSemesters = [...data.semesters].sort((a, b) => {
+    const numA = parseInt(a.name.replace(/\D/g, '')) || 0;
+    const numB = parseInt(b.name.replace(/\D/g, '')) || 0;
+    return numA - numB;
+  });
+
+  let cumulativeCredits = 0;
+  let cumulativePoints = 0;
+  const semesterGPA = [];
+
+  sortedSemesters.forEach(sem => {
+    const semResult = calculateSemesterGPA(studentId, sem.id);
+    
+    if (semResult.totalCredits > 0) {
+      cumulativeCredits += semResult.totalCredits;
+      cumulativePoints += semResult.totalPoints;
+      
+      semesterGPA.push({
+        semesterId: sem.id,
+        semester: sem.name,
+        gpa: semResult.gpa,
+        credits: semResult.totalCredits,
+        points: semResult.totalPoints,
+        cumulativeCredits: cumulativeCredits,
+        cumulativePoints: cumulativePoints,
+        cumulativeCGPA: cumulativeCredits > 0 ? Math.round((cumulativePoints / cumulativeCredits) * 100) / 100 : 0
+      });
+    }
+  });
+
+  const cgpa = cumulativeCredits > 0 ? Math.round((cumulativePoints / cumulativeCredits) * 100) / 100 : 0;
+
+  // Determine academic status
+  let academicStatus = 'Tiada Data';
+  if (semesterGPA.length > 0) {
+    const lastSemester = semesterGPA[semesterGPA.length - 1];
+    if (cgpa >= 2.00) {
+      academicStatus = 'Good Standing';
+    } else if (cgpa >= 1.50) {
+      academicStatus = 'Probation';
+    } else {
+      academicStatus = 'Fail';
+    }
+  }
+
+  return {
+    cgpa: cgpa,
+    totalCredits: cumulativeCredits,
+    totalPoints: Math.round(cumulativePoints * 100) / 100,
+    semesterGPA: semesterGPA,
+    academicStatus: academicStatus
+  };
+}
+
+// ============================================
+// RESULT RECALCULATION
+// ============================================
+
+// Recalculate and store results
+function recalculateStudentResults(studentId) {
+  const cgpaData = calculateStudentCGPA(studentId);
+  
+  // Store calculated results
+  if (!data.calculatedResults) data.calculatedResults = [];
+  
+  const existingIndex = data.calculatedResults.findIndex(r => r.studentId === studentId);
+  const resultData = {
+    studentId: studentId,
+    cgpa: cgpaData.cgpa,
+    totalCredits: cgpaData.totalCredits,
+    totalPoints: cgpaData.totalPoints,
+    academicStatus: cgpaData.academicStatus,
+    semesterGPA: cgpaData.semesterGPA,
+    lastCalculated: new Date().toISOString()
+  };
+  
+  if (existingIndex >= 0) {
+    data.calculatedResults[existingIndex] = resultData;
+  } else {
+    data.calculatedResults.push(resultData);
+  }
+  
+  return cgpaData;
+}
+
+// Recalculate all students
+function recalculateAllResults() {
+  const students = data.students || [];
+  let count = 0;
+  
+  students.forEach(student => {
+    recalculateStudentResults(student.id);
+    count++;
+  });
+  
+  saveData();
+  return count;
+}
+
+// ============================================
+// AUDIT TRAIL
+// ============================================
+
+// Log result modification
+function logResultAction(action, details, studentId) {
+  if (!data.resultAuditLog) data.resultAuditLog = [];
+  
+  data.resultAuditLog.push({
+    id: generateId('LOG'),
+    action: action,
+    details: details,
+    studentId: studentId,
+    user: currentUser ? currentUser.name : 'System',
+    timestamp: new Date().toISOString()
+  });
+  
+  // Keep only last 500 entries
+  if (data.resultAuditLog.length > 500) {
+    data.resultAuditLog = data.resultAuditLog.slice(-500);
+  }
 }
 
 let modalCallback = null;
