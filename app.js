@@ -432,9 +432,9 @@ function renderStudentSlip(student, semester, markRecord) {
             <tr>
               <td>${i + 1}</td>
               <td>${r.name}</td>
-              <td>${r.credit}</td>
-              <td><span class="slip-grade ${r.badgeClass}">${r.grade}</span></td>
-              <td>${r.gradePoints.toFixed(2)}</td>
+              <td>${r.isCocu ? '-' : r.credit}</td>
+              <td>${r.isCocu ? '<span style="font-weight:700;">' + r.grade + '</span>' : '<span class="slip-grade ' + r.badgeClass + '">' + r.grade + '</span>'}</td>
+              <td>${r.isCocu ? '-' : r.gradePoints.toFixed(2)}</td>
               <td style="font-weight:700;color:#000">${r.status}</td>
             </tr>
           `).join('')}
