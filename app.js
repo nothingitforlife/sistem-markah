@@ -389,6 +389,12 @@ function renderStudentSlip(student, semester, markRecord) {
         const status = grade && grade.points >= 2.00 ? 'L' : 'G';
         return { name: subj.name, credit, score, point, grade: grade ? grade.letter : '-', gradePoints: grade ? grade.points : 0, badgeClass, status, isCocu: false };
       }
+    })
+    .sort((a, b) => {
+      // Co-curriculum di bawah sekali
+      if (a.isCocu && !b.isCocu) return 1;
+      if (!a.isCocu && b.isCocu) return -1;
+      return 0;
     });
 
   const totalCredit = subjectRows.filter(r => !r.isCocu).reduce((sum, r) => sum + r.credit, 0);
