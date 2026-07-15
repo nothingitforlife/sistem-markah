@@ -531,57 +531,185 @@ function renderStudentSlip(student, semester, markRecord) {
 window.printStudentSlip = function(btn) {
   const slip = btn.closest('.result-slip');
   if (!slip) return;
-  const printContents = slip.cloneNode(true);
-  const printBtn = printContents.querySelector('.slip-footer .btn');
-  if (printBtn) printBtn.remove();
+  
+  // Extract data from slip
+  const studentName = slip.querySelector('.info-table tr:nth-child(1) td:nth-child(2)')?.textContent?.replace(': ', '') || '-';
+  const studentKod = slip.querySelector('.info-table tr:nth-child(2) td:nth-child(2)')?.textContent?.replace(': ', '') || '-';
+  const semesterName = slip.querySelector('.info-table tr:nth-child(3) td:nth-child(2)')?.textContent?.replace(': ', '') || '-';
+  
+  // Extract table rows
+  const tableRows = slip.querySelectorAll('.slip-table tbody tr');
+  let rowsHTML = '';
+  tableRows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    if (cells.length >= 6) {
+      rowsHTML += '<tr>';
+      rowsHTML += '<td style="text-align:center;padding:8px 6px;border-bottom:1px solid #e5e7eb;">' + cells[0].textContent + '</td>';
+      rowsHTML += '<td style="padding:8px 6px;border-bottom:1px solid #e5e7eb;">' + cells[1].textContent + '</td>';
+      rowsHTML += '<td style="text-align:center;padding:8px 6px;border-bottom:1px solid #e5e7eb;">' + cells[2].textContent + '</td>';
+      rowsHTML += '<td style="text-align:center;padding:8px 6px;border-bottom:1px solid #e5e7eb;font-weight:600;">' + cells[3].textContent + '</td>';
+      rowsHTML += '<td style="text-align:center;padding:8px 6px;border-bottom:1px solid #e5e7eb;">' + cells[4].textContent + '</td>';
+      rowsHTML += '<td style="text-align:center;padding:8px 6px;border-bottom:1px solid #e5e7eb;font-weight:700;">' + cells[5].textContent + '</td>';
+      rowsHTML += '</tr>';
+    }
+  });
+  
+  // Extract summary
+  const summaryItems = slip.querySelectorAll('.summary-item');
+  let summaryHTML = '';
+  summaryItems.forEach(item => {
+    const label = item.querySelector('.summary-label')?.textContent || '';
+    const value = item.querySelector('.summary-value')?.textContent || '';
+    summaryHTML += '<div style="text-align:center;"><div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">' + label + '</div><div style="font-size:20px;font-weight:700;color:#0f3460;">' + value + '</div></div>';
+  });
+  
+  // Extract status section
+  const statusDiv = slip.querySelector('[style*="margin-top:1.5rem"][style*="padding:1rem"]');
+  let statusHTML = '';
+  if (statusDiv) {
+    statusHTML = statusDiv.innerHTML;
+  }
+  
+  // Extract remarks
+  const remarksDiv = slip.querySelector('.slip-remarks');
+  let remarksHTML = '';
+  if (remarksDiv) {
+    remarksHTML = '<div style="margin-top:20px;font-size:12px;line-height:1.8;">' + remarksDiv.innerHTML + '</div>';
+  }
+
   const win = window.open('', '_blank');
-  win.document.write(`
-    <html><head><title>Slip Keputusan</title>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; color: #1a1a2e; max-width: 210mm; margin: 0 auto; }
-      .result-slip { border: 2px solid #1a1a2e; padding: 25px; }
-      .slip-header { display: flex; align-items: center; border-bottom: 3px double #1a1a2e; padding-bottom: 15px; margin-bottom: 20px; }
-      .slip-header-left { flex: 0 0 80px; }
-      .slip-logo { height: 60px; }
-      .slip-header-center { flex: 1; text-align: center; }
-      .slip-header-center h2 { font-size: 18px; font-weight: 800; letter-spacing: 2px; color: #1a1a2e; margin: 0; }
-      .slip-school { font-size: 12px; color: #6b7280; margin: 4px 0 0; }
-      .slip-dept { font-size: 11px; color: #0f3460; font-weight: 600; margin: 2px 0 0; }
-      .slip-header-right { flex: 0 0 80px; }
-      .slip-info { margin-bottom: 20px; }
-      .info-table { border: none; width: auto; }
-      .info-table td { border: none; padding: 4px 12px 4px 0; font-size: 13px; }
-      .info-label { font-weight: 700; color: #374151; white-space: nowrap; }
-      .slip-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
-      .slip-table th { background: #1a1a2e; color: white; padding: 8px 6px; font-size: 11px; font-weight: 600; text-align: center; border: 1px solid #1a1a2e; }
-      .slip-table td { padding: 6px; border: 1px solid #d1d5db; text-align: center; font-size: 12px; }
-      .slip-table td:nth-child(2) { text-align: left; }
-      .slip-grade { font-weight: 700; padding: 2px 8px; border-radius: 3px; display: inline-block; }
-      .badge-aplus, .badge-a, .badge-aminus { background: #d4edda; color: #155724; }
-      .badge-bplus, .badge-b, .badge-bminus { background: #cce5ff; color: #004085; }
-      .badge-cplus, .badge-c, .badge-cminus { background: #fff3cd; color: #856404; }
-      .badge-dplus, .badge-d { background: #ffe5cc; color: #843800; }
-      .badge-e { background: #f8d7da; color: #721c24; }
-      .badge-f { background: #f5c6cb; color: #491217; }
-      .slip-summary { display: flex; gap: 15px; justify-content: flex-end; margin-bottom: 20px; flex-wrap: wrap; }
-      .summary-item { padding: 10px 18px; background: #f0f2f5; border-radius: 6px; text-align: center; min-width: 110px; border: 1px solid #e5e7eb; }
-      .summary-highlight { background: #1a1a2e; border-color: #1a1a2e; }
-      .summary-highlight .summary-label { color: rgba(255,255,255,0.7); }
-      .summary-highlight .summary-value { color: white; }
-      .summary-label { display: block; font-size: 10px; color: #6b7280; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-      .summary-value { font-size: 18px; font-weight: 700; color: #1a1a2e; }
-      .slip-remarks { margin-bottom: 20px; padding: 12px 15px; background: #f9fafb; border-radius: 6px; border-left: 4px solid #0f3460; font-size: 12px; line-height: 1.6; }
-      .slip-footer { text-align: center; padding-top: 15px; border-top: 1px solid #e5e7eb; }
-      .slip-footer p { font-size: 11px; color: #9ca3af; }
-      @page { size: A4; margin: 15mm; }
-    </style>
-    </head><body>
-  `);
-  win.document.write(printContents.innerHTML);
-  win.document.write('</body></html>');
+  win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Slip Keputusan Peperiksaan</title>
+<style>
+  @page { size: A4; margin: 20mm 15mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Times New Roman', 'Georgia', serif; color: #1a1a2e; line-height: 1.6; }
+  
+  .page { max-width: 210mm; margin: 0 auto; padding: 10mm; }
+  
+  /* Header */
+  .header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 3px double #1a1a2e; }
+  .header-top { display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 8px; }
+  .header-top img { height: 70px; }
+  .header-title { font-size: 16px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; }
+  .header-subtitle { font-size: 13px; color: #374151; margin-top: 2px; }
+  .header-dept { font-size: 12px; color: #0f3460; font-weight: 600; margin-top: 2px; }
+  
+  /* Student Info */
+  .student-info { margin-bottom: 25px; }
+  .student-info table { width: auto; border: none; }
+  .student-info td { padding: 3px 15px 3px 0; font-size: 13px; border: none; }
+  .student-info .label { font-weight: 700; color: #374151; width: 120px; }
+  
+  /* Results Table */
+  .results-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 12px; }
+  .results-table thead th { background: #f8f9fa; color: #1a1a2e; padding: 10px 8px; font-size: 11px; font-weight: 700; text-align: center; border-top: 2px solid #1a1a2e; border-bottom: 2px solid #1a1a2e; text-transform: uppercase; letter-spacing: 0.5px; }
+  .results-table tbody td { padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; font-size: 12px; }
+  .results-table tbody td:nth-child(2) { text-align: left; }
+  .results-table tbody tr:last-child td { border-bottom: 2px solid #1a1a2e; }
+  
+  /* Summary */
+  .summary { display: flex; gap: 30px; justify-content: flex-end; margin-bottom: 25px; }
+  .summary-box { text-align: center; }
+  .summary-box .label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; }
+  .summary-box .value { font-size: 22px; font-weight: 700; color: #0f3460; }
+  
+  /* Status */
+  .status-section { margin-top: 20px; padding: 15px; border: 1px solid #e5e7eb; background: #f8f9fa; }
+  .status-section p { font-size: 12px; margin: 4px 0; }
+  
+  /* Signatures */
+  .signatures { display: flex; justify-content: space-between; margin-top: 50px; }
+  .sign-box { text-align: center; width: 45%; }
+  .sign-line { border-bottom: 1px solid #1a1a2e; height: 60px; margin-bottom: 8px; }
+  .sign-name { font-weight: 700; font-size: 12px; }
+  .sign-title { font-size: 11px; color: #6b7280; }
+  .sign-date { font-size: 11px; color: #6b7280; margin-top: 4px; }
+  
+  /* Footer */
+  .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; }
+  .footer p { font-size: 10px; color: #9ca3af; }
+  
+  @media print {
+    body { padding: 0; }
+    .page { padding: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  
+  <div class="header">
+    <div class="header-top">
+      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSq72lkexl5Eh5SqICxEFku6Cn4b1fmiK4Yk_ogQlX1eldvfQBVpUNSO_U&s=10" alt="Logo">
+      <div>
+        <div class="header-title">Slip Keputusan Peperiksaan</div>
+        <div class="header-subtitle">TVET Digital Management System (TDMS)</div>
+        <div class="header-dept">Program Teknologi Komputer Rangkaian</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="student-info">
+    <table>
+      <tr><td class="label">Nama Pelajar</td><td>: ${esc(studentName)}</td></tr>
+      <tr><td class="label">No. Pelajar</td><td>: ${esc(studentKod)}</td></tr>
+      <tr><td class="label">Semester</td><td>: ${esc(semesterName)}</td></tr>
+    </table>
+  </div>
+  
+  <table class="results-table">
+    <thead>
+      <tr>
+        <th style="width:40px;">Bil</th>
+        <th>Mata Pelajaran</th>
+        <th style="width:40px;">K</th>
+        <th style="width:60px;">Gred</th>
+        <th style="width:70px;">Gred Pointer</th>
+        <th style="width:80px;">Keputusan</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHTML}
+    </tbody>
+  </table>
+  
+  <div class="summary">
+    ${summaryHTML}
+  </div>
+  
+  ${statusHTML ? '<div class="status-section">' + statusHTML + '</div>' : ''}
+  
+  ${remarksHTML}
+  
+  <div class="signatures">
+    <div class="sign-box">
+      <div class="sign-line"></div>
+      <div class="sign-name">____________________</div>
+      <div class="sign-title">Penyelia / Ketua Program</div>
+      <div class="sign-date">Tarikh: ___/___/______</div>
+    </div>
+    <div class="sign-box">
+      <div class="sign-line"></div>
+      <div class="sign-name">Puan Maisarah Binti Mansor Sanusi</div>
+      <div class="sign-title">Ketua Bahagian</div>
+      <div class="sign-date">Tarikh: ___/___/______</div>
+    </div>
+  </div>
+  
+  <div class="footer">
+    <p>Dokumen ini dijana secara automatik oleh TVET Digital Management System (TDMS)</p>
+    <p>Tarikh cetak: ${new Date().toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+  </div>
+  
+</div>
+<script>window.print();</script>
+</body>
+</html>`);
   win.document.close();
-  win.print();
 };
 
 let data = {
