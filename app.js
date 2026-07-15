@@ -544,14 +544,16 @@ window.printStudentSlip = function(btn) {
   let rowsHTML = '';
   tableRows.forEach(row => {
     const cells = row.querySelectorAll('td');
-    if (cells.length >= 6) {
+    if (cells.length >= 8) {
       rowsHTML += '<tr>';
-      rowsHTML += '<td style="text-align:center;padding:8px 6px;border-bottom:1px solid #e5e7eb;">' + cells[0].textContent + '</td>';
-      rowsHTML += '<td style="padding:8px 6px;border-bottom:1px solid #e5e7eb;">' + cells[1].textContent + '</td>';
-      rowsHTML += '<td style="text-align:center;padding:8px 6px;border-bottom:1px solid #e5e7eb;">' + cells[2].textContent + '</td>';
-      rowsHTML += '<td style="text-align:center;padding:8px 6px;border-bottom:1px solid #e5e7eb;font-weight:600;">' + cells[3].textContent + '</td>';
-      rowsHTML += '<td style="text-align:center;padding:8px 6px;border-bottom:1px solid #e5e7eb;">' + cells[4].textContent + '</td>';
-      rowsHTML += '<td style="text-align:center;padding:8px 6px;border-bottom:1px solid #e5e7eb;font-weight:700;">' + cells[5].textContent + '</td>';
+      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;">' + cells[0].textContent + '</td>';
+      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;">' + cells[1].textContent + '</td>';
+      rowsHTML += '<td style="padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;">' + cells[2].textContent + '</td>';
+      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;">' + cells[3].textContent + '</td>';
+      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;font-weight:600;">' + cells[4].textContent + '</td>';
+      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;">' + cells[5].textContent + '</td>';
+      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;">' + cells[6].textContent + '</td>';
+      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;font-weight:700;">' + cells[7].textContent + '</td>';
       rowsHTML += '</tr>';
     }
   });
@@ -562,12 +564,11 @@ window.printStudentSlip = function(btn) {
   summaryItems.forEach(item => {
     const label = item.querySelector('.summary-label')?.textContent || '';
     const value = item.querySelector('.summary-value')?.textContent || '';
-    summaryHTML += '<div style="text-align:center;"><div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">' + label + '</div><div style="font-size:20px;font-weight:700;color:#0f3460;">' + value + '</div></div>';
+    summaryHTML += '<div style="text-align:center;"><div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;">' + label + '</div><div style="font-size:16px;font-weight:700;">' + value + '</div></div>';
   });
   
   // Extract status section
   const statusDiv = slip.querySelector('[style*="margin-top:1.5rem"][style*="padding:1rem"]');
-  let statusHTML = '';
   let statusText = '';
   let statusType = '';
   if (statusDiv) {
@@ -578,14 +579,13 @@ window.printStudentSlip = function(btn) {
       else if (statusText.includes('TIDAK LAYAK')) statusType = 'gagal';
       else statusType = 'lulus';
     }
-    statusHTML = statusDiv.innerHTML;
   }
   
   // Extract failed subjects
   const failedList = statusDiv ? statusDiv.querySelectorAll('ol li') : [];
   let failedHTML = '';
   failedList.forEach(li => {
-    failedHTML += '<tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">' + li.textContent + '</td></tr>';
+    failedHTML += '<li style="font-size:10px;margin-bottom:2px;">' + li.textContent + '</li>';
   });
   
   // Extract remarks
@@ -602,65 +602,60 @@ window.printStudentSlip = function(btn) {
 <meta charset="utf-8">
 <title>Slip Keputusan Peperiksaan</title>
 <style>
-  @page { size: A4; margin: 18mm 15mm; }
+  @page { size: A4 portrait; margin: 12mm 10mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Times New Roman', 'Georgia', serif; color: #000; line-height: 1.5; font-size: 12px; }
-  .page { max-width: 210mm; margin: 0 auto; }
+  body { font-family: 'Times New Roman', 'Georgia', serif; color: #000; font-size: 11px; line-height: 1.3; }
+  .page { width: 100%; max-width: 190mm; margin: 0 auto; }
   
-  /* Header - Professional Black & White */
-  .header { text-align: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 4px double #000; }
-  .header-top { display: flex; justify-content: center; align-items: center; gap: 25px; margin-bottom: 5px; }
-  .header-top img { height: 65px; filter: grayscale(100%); }
-  .header-title { font-size: 16px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; }
-  .header-subtitle { font-size: 12px; color: #333; margin-top: 3px; letter-spacing: 1px; }
-  .header-dept { font-size: 11px; color: #000; font-weight: 700; margin-top: 2px; text-transform: uppercase; letter-spacing: 1px; }
+  /* Header */
+  .header { text-align: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 3px double #000; }
+  .header-top { display: flex; justify-content: center; align-items: center; gap: 15px; }
+  .header-top img { height: 50px; }
+  .header-title { font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; }
+  .header-subtitle { font-size: 10px; margin-top: 2px; }
   
-  /* Student Info - Clean */
-  .student-info { margin-bottom: 20px; }
+  /* Program Info */
+  .program-info { text-align: center; margin-bottom: 10px; }
+  .program-info .prog-name { font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+  .program-info .prog-loc { font-size: 10px; }
+  
+  /* Student Info */
+  .student-info { margin-bottom: 10px; }
   .student-info table { width: auto; border-collapse: collapse; }
-  .student-info td { padding: 3px 0; font-size: 12px; border: none; }
-  .student-info .label { font-weight: 700; width: 110px; }
+  .student-info td { padding: 2px 0; font-size: 11px; border: none; }
+  .student-info .label { font-weight: 700; width: 100px; }
   
-  /* Results Table - UiTM Style */
-  .results-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
-  .results-table thead th { padding: 8px 6px; font-size: 11px; font-weight: 700; text-align: center; border-top: 2px solid #000; border-bottom: 1px solid #000; text-transform: uppercase; }
-  .results-table tbody td { padding: 7px 6px; border-bottom: 1px solid #ccc; text-align: center; }
-  .results-table tbody td:nth-child(2) { text-align: left; }
+  /* Results Table */
+  .results-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 10px; }
+  .results-table thead th { padding: 5px 4px; font-size: 9px; font-weight: 700; text-align: center; border-top: 2px solid #000; border-bottom: 1px solid #000; text-transform: uppercase; }
+  .results-table tbody td { padding: 4px; border-bottom: 1px solid #ddd; text-align: center; font-size: 10px; }
+  .results-table tbody td:nth-child(3) { text-align: left; }
   .results-table tbody tr:last-child td { border-bottom: 2px solid #000; }
   
-  /* Summary - Right aligned */
-  .summary { display: flex; gap: 40px; justify-content: flex-end; margin-bottom: 20px; }
-  .summary-box { text-align: center; }
-  .summary-box .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
-  .summary-box .value { font-size: 18px; font-weight: 700; }
+  /* Summary */
+  .summary { display: flex; gap: 20px; justify-content: flex-end; margin-bottom: 10px; }
   
-  /* Status - Clean B&W */
-  .status-section { margin-top: 15px; padding: 12px 15px; border: 1px solid #000; }
-  .status-title { font-weight: 700; font-size: 13px; text-transform: uppercase; margin-bottom: 5px; }
-  .status-text { font-size: 12px; }
-  .failed-list { margin-top: 8px; }
-  .failed-list table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  .failed-list td { padding: 5px 8px; border-bottom: 1px solid #ddd; }
+  /* Status */
+  .status-section { margin-top: 8px; padding: 8px 10px; border: 1px solid #000; font-size: 10px; }
+  .status-title { font-weight: 700; text-transform: uppercase; margin-bottom: 3px; }
+  .failed-list { margin-top: 5px; padding-left: 15px; }
   
   /* Remarks */
-  .remarks { margin-top: 15px; font-size: 12px; line-height: 1.6; }
-  .remarks strong { text-decoration: underline; }
+  .remarks { margin-top: 8px; font-size: 10px; }
   
   /* Signatures */
-  .signatures { display: flex; justify-content: space-between; margin-top: 50px; }
+  .signatures { display: flex; justify-content: space-between; margin-top: 25px; }
   .sign-box { text-align: center; width: 45%; }
-  .sign-line { border-bottom: 1px solid #000; height: 55px; margin-bottom: 6px; }
-  .sign-name { font-weight: 700; font-size: 11px; }
-  .sign-title { font-size: 10px; color: #333; }
-  .sign-date { font-size: 10px; color: #333; margin-top: 3px; }
+  .sign-line { border-bottom: 1px solid #000; height: 45px; margin-bottom: 5px; }
+  .sign-name { font-weight: 700; font-size: 10px; }
+  .sign-title { font-size: 9px; color: #333; }
   
   /* Footer */
-  .footer { text-align: center; margin-top: 25px; padding-top: 10px; border-top: 1px solid #ccc; }
-  .footer p { font-size: 9px; color: #666; }
+  .footer { text-align: center; margin-top: 15px; padding-top: 8px; border-top: 1px solid #ccc; }
+  .footer p { font-size: 8px; color: #666; }
   
   @media print {
-    body { padding: 0; }
-    .page { padding: 0; }
+    body { padding: 0; -webkit-print-color-adjust: exact; }
   }
 </style>
 </head>
@@ -677,10 +672,9 @@ window.printStudentSlip = function(btn) {
     </div>
   </div>
   
-  <div style="text-align:center;margin-bottom:20px;">
-    <div style="font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:2px;">Program Teknologi Komputer Rangkaian</div>
-    <div style="font-size:12px;margin-top:2px;">ADTEC JTM Kampus Kuala Langat</div>
-    <div style="font-size:11px;color:#333;margin-top:1px;">Bengkel Teknologi Komputer Rangkaian</div>
+  <div class="program-info">
+    <div class="prog-name">Program Teknologi Komputer Rangkaian</div>
+    <div class="prog-loc">ADTEC JTM Kampus Kuala Langat | Bengkel Teknologi Komputer Rangkaian</div>
   </div>
   
   <div class="student-info">
@@ -694,12 +688,14 @@ window.printStudentSlip = function(btn) {
   <table class="results-table">
     <thead>
       <tr>
-        <th style="width:35px;">Bil</th>
+        <th style="width:25px;">Bil</th>
+        <th style="width:55px;">Kod</th>
         <th>Mata Pelajaran</th>
-        <th style="width:35px;">K</th>
-        <th style="width:50px;">Gred</th>
-        <th style="width:55px;">Gred Ptr</th>
-        <th style="width:70px;">Keputusan</th>
+        <th style="width:25px;">K</th>
+        <th style="width:40px;">Gred</th>
+        <th style="width:45px;">Gred Ptr</th>
+        <th style="width:50px;">Jum GP</th>
+        <th style="width:55px;">Keputusan</th>
       </tr>
     </thead>
     <tbody>
@@ -713,9 +709,9 @@ window.printStudentSlip = function(btn) {
   
   ${statusText ? `
   <div class="status-section">
-    <div class="status-title">${statusType === 'lulus' ? 'MAKLUMAN KELULUSAN' : statusType === 'syarat' ? 'MAKLUMAN KELULUSAN' : 'MAKLUMAN KELULUSAN'}</div>
-    <div class="status-text">${statusType === 'lulus' ? 'Lulus dan layak untuk meneruskan pengajian pada semester seterusnya.' : statusType === 'syarat' ? 'Lulus dengan syarat. Layak untuk meneruskan pengajian pada semester seterusnya. Sila ulang penilaian subjek berikut pada semester akan datang:' : 'Tidak layak untuk meneruskan pengajian pada semester seterusnya. Sila ulang penilaian subjek berikut:'}</div>
-    ${failedHTML ? '<div class="failed-list"><table>' + failedHTML + '</table></div>' : ''}
+    <div class="status-title">Makluman Kelulusan:</div>
+    <div>${statusType === 'lulus' ? 'Lulus dan layak untuk meneruskan pengajian pada semester seterusnya.' : statusType === 'syarat' ? 'Lulus dengan syarat. Layak untuk meneruskan pengajian. Sila ulang penilaian subjek berikut:' : 'Tidak layak untuk meneruskan pengajian pada semester seterusnya.'}</div>
+    ${failedHTML ? '<ol class="failed-list">' + failedHTML + '</ol>' : ''}
   </div>
   ` : ''}
   
@@ -725,23 +721,17 @@ window.printStudentSlip = function(btn) {
     <div class="sign-box">
       <div class="sign-line"></div>
       <div class="sign-name">____________________</div>
-      <div class="sign-title">Tandatangan Penyelaras</div>
-      <div class="sign-title">Unit Peperiksaan</div>
-      <div class="sign-title">ADTEC JTM Kampus Kuala Langat</div>
-      <div class="sign-date">Tarikh: ___/___/______</div>
+      <div class="sign-title">Tandatangan Penyelaras<br>Unit Peperiksaan<br>ADTEC JTM Kampus Kuala Langat</div>
     </div>
     <div class="sign-box">
       <div class="sign-line"></div>
       <div class="sign-name">Ts. Hj. Yuslan bin Yasok</div>
-      <div class="sign-title">Pengarah</div>
-      <div class="sign-title">ADTEC JTM Kampus Kuala Langat</div>
-      <div class="sign-date">Tarikh: ___/___/______</div>
+      <div class="sign-title">Pengarah<br>ADTEC JTM Kampus Kuala Langat</div>
     </div>
   </div>
   
   <div class="footer">
-    <p>Dokumen ini dijana secara automatik oleh TVET Digital Management System (TDMS)</p>
-    <p>Tarikh cetak: ${new Date().toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+    <p>Dokumen ini dijana secara automatik oleh TVET Digital Management System (TDMS) | Tarikh cetak: ${new Date().toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
   </div>
   
 </div>
