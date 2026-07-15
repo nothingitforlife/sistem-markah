@@ -488,10 +488,10 @@ function renderStudentSlip(student, semester, markRecord) {
           statusHTML += '<span style="font-size:2rem;">⚠️</span>';
           statusHTML += '<div>';
           statusHTML += '<p style="font-weight:700;color:#d97706;font-size:1.1rem;margin:0;">LULUS DENGAN SYARAT</p>';
-          statusHTML += '<p style="color:#92400e;margin:0.25rem 0 0 0;">Layak untuk teruskan semester seterusnya, tetapi perlu repeat subjek berikut:</p>';
+          statusHTML += '<p style="color:#92400e;margin:0.25rem 0 0 0;">Layak untuk teruskan semester seterusnya, tetapi perlu ulang penilaian subjek pada semester akan datang:</p>';
           statusHTML += '</div></div>';
           statusHTML += '<div style="margin-top:0.75rem;padding:0.75rem;background:#fef3c7;border-radius:6px;">';
-          statusHTML += '<p style="font-weight:600;color:#92400e;margin:0 0 0.5rem 0;">Subjek yang perlu diulang (Repeat):</p>';
+          statusHTML += '<p style="font-weight:600;color:#92400e;margin:0 0 0.5rem 0;">Subjek yang perlu ulang penilaian:</p>';
           statusHTML += '<ol style="margin:0;padding-left:1.5rem;color:#92400e;">';
           allFailed.forEach(r => {
             statusHTML += '<li style="margin-bottom:0.25rem;"><strong>' + esc(r.name) + '</strong> - ' + (r.isCocu ? 'Gagal' : 'Gred: ' + r.grade) + '</li>';
