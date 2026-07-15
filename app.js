@@ -3,7 +3,7 @@ const ROLE_KEY = 'sistemMarkahRole';
 const USER_KEY = 'sistemMarkahUser';
 const ADMIN_USER = 'admin';
 const ADMIN_PASS = 'passwordpanjang';
-const TEACHER_PASS = 'guru';
+const TEACHER_PASS = 'passwordpanjang';
 
 let currentRole = null;
 let currentUser = null;
