@@ -2746,8 +2746,28 @@ function initMarkEntry() {
     subjects.forEach(subj => {
       const enrolled = isStudentEnrolled(student, subj.id);
       const score = markRecord ? (markRecord.scores[subj.id] ?? '') : '';
+      const isCocu = isCoCurriculumSubject(subj);
+      
       if (enrolled) {
-        html += `<td><input type="number" min="0" max="100" class="mark-input" data-student-id="${student.id}" data-subject-id="${subj.id}" value="${score}" placeholder="0-100"></td>`;
+        if (isCocu) {
+          // Co-curriculum: L/G buttons
+          const isL = score === 'L';
+          const isG = score === 'G';
+          html += '<td style="text-align:center;">';
+          html += '<div style="display:flex;gap:3px;justify-content:center;">';
+          html += '<button type="button" class="main-cocu-btn" data-student-id="' + student.id + '" data-subject-id="' + subj.id + '" ';
+          html += 'style="padding:6px 12px;font-weight:bold;border:2px solid ' + (isL ? '#059669' : '#e5e7eb') + ';background:' + (isL ? '#059669' : 'white') + ';color:' + (isL ? 'white' : '#374151') + ';border-radius:4px;cursor:pointer;font-size:0.9rem;" ';
+          html += 'onclick="setMainCocuMark(this,\'' + student.id + '\',\'' + subj.id + '\',\'L\',\'' + semesterId + '\')">L</button>';
+          html += '<button type="button" class="main-cocu-btn" data-student-id="' + student.id + '" data-subject-id="' + subj.id + '" ';
+          html += 'style="padding:6px 12px;font-weight:bold;border:2px solid ' + (isG ? '#dc2626' : '#e5e7eb') + ';background:' + (isG ? '#dc2626' : 'white') + ';color:' + (isG ? 'white' : '#374151') + ';border-radius:4px;cursor:pointer;font-size:0.9rem;" ';
+          html += 'onclick="setMainCocuMark(this,\'' + student.id + '\',\'' + subj.id + '\',\'G\',\'' + semesterId + '\')">G</button>';
+          html += '</div>';
+          html += '<input type="hidden" class="mark-input mark-cocu-input" data-student-id="' + student.id + '" data-subject-id="' + subj.id + '" value="' + score + '">';
+          html += '</td>';
+        } else {
+          // Normal: number input
+          html += `<td><input type="number" min="0" max="100" class="mark-input" data-student-id="${student.id}" data-subject-id="${subj.id}" value="${score}" placeholder="0-100"></td>`;
+        }
       } else {
         html += `<td style="text-align:center;color:#cbd5e1;font-size:0.85rem;">-</td>`;
       }
@@ -2772,7 +2792,18 @@ function initMarkEntry() {
         rec = { studentId, semesterId, scores: {}, remarks: '' };
         data.marks.push(rec);
       }
-      rec.scores[subjectId] = val !== '' ? Number(val) : null;
+      
+      // Check if Co-curriculum subject
+      const subject = data.subjects.find(s => s.id === subjectId);
+      const isCocu = isCoCurriculumSubject(subject);
+      
+      if (isCocu) {
+        // Co-curriculum: save L/G as string
+        rec.scores[subjectId] = val || null;
+      } else {
+        // Normal: save as number
+        rec.scores[subjectId] = val !== '' ? Number(val) : null;
+      }
     });
 
     saveData();
@@ -2782,6 +2813,41 @@ function initMarkEntry() {
     setTimeout(() => { this.textContent = orig; this.style.background = ''; }, 1500);
   };
 }
+
+// Set Main Mark for Co-curriculum (L/G)
+window.setMainCocuMark = function(btn, studentId, subjectId, value, semesterId) {
+  // Update hidden input
+  const hiddenInput = document.querySelector('.mark-cocu-input[data-student-id="' + studentId + '"][data-subject-id="' + subjectId + '"]');
+  if (hiddenInput) {
+    hiddenInput.value = value;
+  }
+  
+  // Update button styles
+  const cell = btn.closest('td');
+  if (cell) {
+    const buttons = cell.querySelectorAll('.main-cocu-btn');
+    buttons.forEach(b => {
+      if (b.textContent === 'L') {
+        b.style.borderColor = value === 'L' ? '#059669' : '#e5e7eb';
+        b.style.background = value === 'L' ? '#059669' : 'white';
+        b.style.color = value === 'L' ? 'white' : '#374151';
+      } else if (b.textContent === 'G') {
+        b.style.borderColor = value === 'G' ? '#dc2626' : '#e5e7eb';
+        b.style.background = value === 'G' ? '#dc2626' : 'white';
+        b.style.color = value === 'G' ? 'white' : '#374151';
+      }
+    });
+  }
+  
+  // Auto-save to data.marks
+  let rec = data.marks.find(m => m.studentId === studentId && m.semesterId === semesterId);
+  if (!rec) {
+    rec = { studentId, semesterId, scores: {}, remarks: '' };
+    data.marks.push(rec);
+  }
+  rec.scores[subjectId] = value;
+  saveData();
+};
 
 document.getElementById('deleteAllMarksBtn').onclick = function () {
   if (!confirm('Padam SEMUA rekod markah? Data ini tidak boleh dikembalikan.')) return;
@@ -7679,6 +7745,10 @@ window.carrymarkSaveMarks = function(templateId) {
   const template = data.carrymark.templates.find(t => t.id === templateId);
   if (!template) return;
   
+  // Check if Co-curriculum subject
+  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  const isCocu = isCoCurriculumSubject(subject);
+  
   const inputs = document.querySelectorAll('.cm-mark-input');
   const marksMap = {};
   
@@ -7688,7 +7758,14 @@ window.carrymarkSaveMarks = function(templateId) {
     const value = input.value;
     
     if (!marksMap[studentId]) marksMap[studentId] = {};
-    marksMap[studentId][componentId] = value !== '' ? parseFloat(value) : null;
+    
+    if (isCocu) {
+      // Co-curriculum: save L/G as string
+      marksMap[studentId][componentId] = value || null;
+    } else {
+      // Normal: parse as number
+      marksMap[studentId][componentId] = value !== '' ? parseFloat(value) : null;
+    }
   });
   
   // Update or create marks
