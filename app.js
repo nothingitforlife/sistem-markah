@@ -723,8 +723,9 @@ window.printStudentSlip = function(btn) {
     </div>
     <div class="sign-box">
       <div class="sign-line"></div>
-      <div class="sign-name">Puan Maisarah Binti Mansor Sanusi</div>
-      <div class="sign-title">Ketua Bahagian</div>
+      <div class="sign-name">Ts. Hj. Yuslan bin Yasok</div>
+      <div class="sign-title">Pengarah</div>
+      <div class="sign-title">ADTEC JTM Kampus Kuala Langat</div>
       <div class="sign-date">Tarikh: ___/___/______</div>
     </div>
   </div>
