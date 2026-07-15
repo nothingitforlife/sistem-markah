@@ -492,7 +492,7 @@ function renderStudentSlip(student, semester, markRecord) {
         
         if (effectiveGPA >= 2.00 && allFailed.length === 0) {
           statusHTML += '">';
-          statusHTML += '<p style="font-weight:700;font-size:12px;margin:0;">STATUS AKADEMIK: GOOD STANDING</p>';
+          statusHTML += '<p style="font-weight:700;font-size:12px;margin:0;">STATUS AKADEMIK: BAIK</p>';
           statusHTML += '<p style="font-size:11px;margin:4px 0 0 0;">Lulus dan layak untuk meneruskan pengajian pada semester seterusnya.</p>';
         } else if (effectiveGPA >= 2.00 && allFailed.length > 0) {
           statusHTML += '">';
@@ -525,6 +525,7 @@ function renderStudentSlip(student, semester, markRecord) {
       
       <div class="slip-footer">
         <p style="font-size:0.78rem;color:#9ca3af;font-style:italic;">Dokumen ini dijana secara automatik oleh TVET Digital Management System (TDMS)</p>
+        <button class="btn btn-primary" onclick="printStudentSlip(this)">🖨️ Cetak Slip</button>
       </div>
     </div>
   `;
@@ -1839,16 +1840,15 @@ function calculateStudentCGPA(studentId) {
 
   const cgpa = cumulativeCredits > 0 ? Math.round((cumulativePoints / cumulativeCredits) * 100) / 100 : 0;
 
-  // Determine academic status
+  // Tentukan status akademik (Bahasa Melayu)
   let academicStatus = 'Tiada Data';
   if (semesterGPA.length > 0) {
-    const lastSemester = semesterGPA[semesterGPA.length - 1];
     if (cgpa >= 2.00) {
-      academicStatus = 'Good Standing';
+      academicStatus = 'Baik';
     } else if (cgpa >= 1.50) {
-      academicStatus = 'Probation';
+      academicStatus = 'Amaran';
     } else {
-      academicStatus = 'Fail';
+      academicStatus = 'Gagal';
     }
   }
 
