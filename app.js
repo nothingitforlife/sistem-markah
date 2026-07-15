@@ -7393,8 +7393,8 @@ window.carrymarkEditMarks = function(templateId) {
     
     if (template.components) {
       // Check if this is a Co-curriculum subject
-      const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
-      const isCocu = isCoCurriculumSubject(subject);
+      const subjectData = data.subjects.find(sub => sub.code === template.courseCode || sub.name === template.course);
+      const isCocu = isCoCurriculumSubject(subjectData);
       
       template.components.forEach(c => {
         const score = studentMarks && studentMarks.scores ? (studentMarks.scores[c.id] || '') : '';
