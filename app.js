@@ -100,6 +100,15 @@ function isStudentEnrolled(student, subjectId) {
   return student.subjects.includes(subjectId);
 }
 
+// Check if subject is Co-curriculum
+function isCoCurriculumSubject(subject) {
+  if (!subject) return false;
+  const name = (subject.name || '').toLowerCase();
+  const code = (subject.code || '').toLowerCase();
+  const cocuKeywords = ['co-curriculum', 'co kurikulum', 'kokurikulum', 'cocu', 'ko-kurikulum'];
+  return cocuKeywords.some(k => name.includes(k) || code.includes(k));
+}
+
 function studentHasAnyTeacherSubject(student, teacherSubjIds) {
   if (!student.subjects) return true;
   return student.subjects.some(sid => teacherSubjIds.includes(sid));
@@ -7383,18 +7392,39 @@ window.carrymarkEditMarks = function(templateId) {
     html += '<td style="position:sticky;left:150px;background:' + bgColor + ';z-index:5;padding:8px;font-weight:500;">' + s.name + '</td>';
     
     if (template.components) {
+      // Check if this is a Co-curriculum subject
+      const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+      const isCocu = isCoCurriculumSubject(subject);
+      
       template.components.forEach(c => {
         const score = studentMarks && studentMarks.scores ? (studentMarks.scores[c.id] || '') : '';
         html += '<td style="padding:4px;">';
-        html += '<input type="number" class="cm-mark-input" ';
-        html += 'data-student-id="' + s.id + '" ';
-        html += 'data-component-id="' + c.id + '" ';
-        html += 'data-max="' + (c.maxMark || 100) + '" ';
-        html += 'value="' + score + '" ';
-        html += 'min="0" max="' + (c.maxMark || 100) + '" ';
-        html += 'style="width:100%;padding:8px;font-size:1rem;border:2px solid #e5e7eb;border-radius:6px;text-align:center;transition:border-color 0.2s;" ';
-        html += 'onfocus="this.style.borderColor=\'#3b82f6\';this.style.boxShadow=\'0 0 0 3px rgba(59,130,246,0.1)\'" ';
-        html += 'onblur="this.style.borderColor=\'#e5e7eb\';this.style.boxShadow=\'none\'">';
+        
+        if (isCocu) {
+          // Co-curriculum: L/G buttons
+          const isL = score === 'L' || score === 'l';
+          const isG = score === 'G' || score === 'g';
+          html += '<div style="display:flex;gap:4px;justify-content:center;">';
+          html += '<button type="button" class="cocu-btn cocu-btn-L" data-student-id="' + s.id + '" data-component-id="' + c.id + '" ';
+          html += 'style="padding:8px 16px;font-size:1rem;font-weight:bold;border:2px solid ' + (isL ? '#059669' : '#e5e7eb') + ';background:' + (isL ? '#059669' : 'white') + ';color:' + (isL ? 'white' : '#374151') + ';border-radius:6px;cursor:pointer;min-width:50px;" ';
+          html += 'onclick="setCocuMark(this,\'' + s.id + '\',\'' + c.id + '\',\'L\')">L</button>';
+          html += '<button type="button" class="cocu-btn cocu-btn-G" data-student-id="' + s.id + '" data-component-id="' + c.id + '" ';
+          html += 'style="padding:8px 16px;font-size:1rem;font-weight:bold;border:2px solid ' + (isG ? '#dc2626' : '#e5e7eb') + ';background:' + (isG ? '#dc2626' : 'white') + ';color:' + (isG ? 'white' : '#374151') + ';border-radius:6px;cursor:pointer;min-width:50px;" ';
+          html += 'onclick="setCocuMark(this,\'' + s.id + '\',\'' + c.id + '\',\'G\')">G</button>';
+          html += '</div>';
+          html += '<input type="hidden" class="cm-mark-input cm-cocu-input" data-student-id="' + s.id + '" data-component-id="' + c.id + '" value="' + score + '">';
+        } else {
+          // Normal: number input
+          html += '<input type="number" class="cm-mark-input" ';
+          html += 'data-student-id="' + s.id + '" ';
+          html += 'data-component-id="' + c.id + '" ';
+          html += 'data-max="' + (c.maxMark || 100) + '" ';
+          html += 'value="' + score + '" ';
+          html += 'min="0" max="' + (c.maxMark || 100) + '" ';
+          html += 'style="width:100%;padding:8px;font-size:1rem;border:2px solid #e5e7eb;border-radius:6px;text-align:center;transition:border-color 0.2s;" ';
+          html += 'onfocus="this.style.borderColor=\'#3b82f6\';this.style.boxShadow=\'0 0 0 3px rgba(59,130,246,0.1)\'" ';
+          html += 'onblur="this.style.borderColor=\'#e5e7eb\';this.style.boxShadow=\'none\'">';
+        }
         html += '</td>';
       });
     }
@@ -7452,6 +7482,41 @@ window.carrymarkEditMarks = function(templateId) {
   }, 100);
 };
 
+// Set Co-curriculum Mark (L/G)
+window.setCocuMark = function(btn, studentId, componentId, value) {
+  // Update hidden input
+  const hiddenInput = document.querySelector('.cm-cocu-input[data-student-id="' + studentId + '"][data-component-id="' + componentId + '"]');
+  if (hiddenInput) {
+    hiddenInput.value = value;
+  }
+  
+  // Update button styles
+  const row = btn.closest('div');
+  if (row) {
+    const buttons = row.querySelectorAll('.cocu-btn');
+    buttons.forEach(b => {
+      if (b.textContent === 'L') {
+        b.style.borderColor = value === 'L' ? '#059669' : '#e5e7eb';
+        b.style.background = value === 'L' ? '#059669' : 'white';
+        b.style.color = value === 'L' ? 'white' : '#374151';
+      } else if (b.textContent === 'G') {
+        b.style.borderColor = value === 'G' ? '#dc2626' : '#e5e7eb';
+        b.style.background = value === 'G' ? '#dc2626' : 'white';
+        b.style.color = value === 'G' ? 'white' : '#374151';
+      }
+    });
+  }
+  
+  // Update totals display for this student
+  const finalMarkCell = document.querySelector('.cm-final-mark[data-student-id="' + studentId + '"]');
+  const gradeCell = document.querySelector('.cm-grade[data-student-id="' + studentId + '"]');
+  const ptrCell = document.querySelector('.cm-ptr[data-student-id="' + studentId + '"]');
+  
+  if (finalMarkCell) finalMarkCell.textContent = value;
+  if (gradeCell) gradeCell.textContent = value === 'L' ? 'Lulus' : 'Gagal';
+  if (ptrCell) ptrCell.textContent = '-';
+};
+
 // Calculate Totals
 function carrymarkCalculateTotals(templateId) {
   const template = data.carrymark.templates.find(t => t.id === templateId);
@@ -7461,6 +7526,8 @@ function carrymarkCalculateTotals(templateId) {
   if (!semester) return;
   
   const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  const isCocu = isCoCurriculumSubject(subject);
+  
   const students = data.students.filter(s => {
     if (s.class !== semester.name || s.track === 'graduated') return false;
     if (subject) {
@@ -7470,6 +7537,27 @@ function carrymarkCalculateTotals(templateId) {
   });
   
   students.forEach(s => {
+    // For Co-curriculum, check L/G values
+    if (isCocu) {
+      let cocuValue = '';
+      template.components.forEach(c => {
+        const input = document.querySelector('.cm-cocu-input[data-student-id="' + s.id + '"][data-component-id="' + c.id + '"]');
+        if (input && input.value) {
+          cocuValue = input.value;
+        }
+      });
+      
+      const finalMarkEl = document.querySelector('.cm-final-mark[data-student-id="' + s.id + '"]');
+      const gradeEl = document.querySelector('.cm-grade[data-student-id="' + s.id + '"]');
+      const ptrEl = document.querySelector('.cm-ptr[data-student-id="' + s.id + '"]');
+      
+      if (finalMarkEl) finalMarkEl.textContent = cocuValue || '-';
+      if (gradeEl) gradeEl.textContent = cocuValue === 'L' ? 'Lulus' : cocuValue === 'G' ? 'Gagal' : '-';
+      if (ptrEl) ptrEl.textContent = '-';
+      return;
+    }
+    
+    // Normal calculation for non-Co-curriculum
     let cwTotal = 0;
     let finalTotal = 0;
     let cwWeightTotal = 0;
@@ -7572,33 +7660,49 @@ function syncCarrymarkToMainMarks(templateId) {
   const semester = data.semesters.find(s => s.name === template.semester);
   if (!semester) return;
   
+  const isCocu = isCoCurriculumSubject(subject);
   const carrymarkMarks = (data.carrymark.marks || []).filter(m => m.templateId === templateId);
   
   carrymarkMarks.forEach(cmMark => {
     const studentId = cmMark.studentId;
+    let finalMark;
     
-    // Calculate final mark from carrymark components
-    let cwTotal = 0;
-    let finalTotal = 0;
-    
-    if (template.components && cmMark.scores) {
-      template.components.forEach(c => {
-        const score = cmMark.scores[c.id];
-        if (score !== null && score !== undefined && score !== '') {
-          const maxMark = c.maxMark || 100;
-          const percentage = (parseFloat(score) / maxMark) * 100;
-          const weighted = (percentage * c.weight) / 100;
-          
-          if (c.category === 'coursework') {
-            cwTotal += weighted;
-          } else {
-            finalTotal += weighted;
+    if (isCocu) {
+      // Co-curriculum: use L/G value directly
+      let cocuValue = '';
+      if (template.components && cmMark.scores) {
+        template.components.forEach(c => {
+          const score = cmMark.scores[c.id];
+          if (score === 'L' || score === 'G' || score === 'l' || score === 'g') {
+            cocuValue = score.toUpperCase();
           }
-        }
-      });
+        });
+      }
+      finalMark = cocuValue; // 'L' or 'G'
+    } else {
+      // Normal: calculate percentage
+      let cwTotal = 0;
+      let finalTotal = 0;
+      
+      if (template.components && cmMark.scores) {
+        template.components.forEach(c => {
+          const score = cmMark.scores[c.id];
+          if (score !== null && score !== undefined && score !== '') {
+            const maxMark = c.maxMark || 100;
+            const percentage = (parseFloat(score) / maxMark) * 100;
+            const weighted = (percentage * c.weight) / 100;
+            
+            if (c.category === 'coursework') {
+              cwTotal += weighted;
+            } else {
+              finalTotal += weighted;
+            }
+          }
+        });
+      }
+      
+      finalMark = Math.round(cwTotal + finalTotal);
     }
-    
-    const finalMark = Math.round(cwTotal + finalTotal);
     
     // Find or create main mark entry for this student
     let mainMark = data.marks.find(m => m.studentId === studentId && m.semesterId === semester.id);
