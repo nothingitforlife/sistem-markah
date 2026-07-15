@@ -420,7 +420,7 @@ function renderStudentSlip(student, semester, markRecord) {
     <div class="result-slip" style="margin-bottom:1.5rem;">
       <div class="slip-header">
         <div class="slip-header-left">
-          <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSq72lkexl5Eh5SqICxEFku6Cn4b1fmiK4Yk_ogQlX1eldvfQBVpUNSO_U&s=10" alt="Logo" class="slip-logo">
+          <img src="https://www.jtm.gov.my/2015v3/images/stories/logo_JTM2014.png" alt="JTM" class="slip-logo">
         </div>
         <div class="slip-header-center">
           <h2>SLIP KEPUTUSAN PEPERIKSAAN</h2>
@@ -665,7 +665,7 @@ window.printStudentSlip = function(btn) {
   
   <div class="header">
     <div class="header-top">
-      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSq72lkexl5Eh5SqICxEFku6Cn4b1fmiK4Yk_ogQlX1eldvfQBVpUNSO_U&s=10" alt="Logo">
+      <img src="https://www.jtm.gov.my/2015v3/images/stories/logo_JTM2014.png" alt="JTM">
       <div>
         <div class="header-title">Slip Keputusan Peperiksaan</div>
         <div class="header-subtitle">TVET Digital Management System (TDMS)</div>
@@ -1740,14 +1740,15 @@ function getGradeCssClass(letter) {
 }
 
 // ============================================
-// STANDARDIZED GPA CALCULATION
+// ============================================
+// STANDARDIZED PNGS (Purata Nilai Gred Semester) CALCULATION
 // ============================================
 
-// Calculate GPA for a specific semester
-function calculateSemesterGPA(studentId, semesterId) {
+// Calculate PNGS for a specific semester
+function calculateSemesterPNGS(studentId, semesterId) {
   const rec = data.marks.find(m => m.studentId === studentId && m.semesterId === semesterId);
   if (!rec || Object.keys(rec.scores).length === 0) {
-    return { gpa: 0, totalCredits: 0, totalPoints: 0, subjects: [] };
+    return { pngs: 0, totalCredits: 0, totalPoints: 0, subjects: [] };
   }
 
   const subjects = data.subjects
@@ -1783,10 +1784,10 @@ function calculateSemesterGPA(studentId, semesterId) {
     }
   });
 
-  const gpa = totalCredits > 0 ? totalPoints / totalCredits : 0;
+  const pngs = totalCredits > 0 ? totalPoints / totalCredits : 0;
 
   return {
-    gpa: Math.round(gpa * 100) / 100,
+    pngs: Math.round(pngs * 100) / 100,
     totalCredits: totalCredits,
     totalPoints: Math.round(totalPoints * 100) / 100,
     subjects: subjectDetails
@@ -1794,17 +1795,17 @@ function calculateSemesterGPA(studentId, semesterId) {
 }
 
 // ============================================
-// STANDARDIZED CGPA CALCULATION
+// STANDARDIZED PNGK (Purata Nilai Gred Kumulatif) CALCULATION
 // ============================================
 
-// Calculate CGPA across all semesters
-function calculateStudentCGPA(studentId) {
+// Calculate PNGK across all semesters
+function calculateStudentPNGK(studentId) {
   const student = data.students.find(s => s.id === studentId);
   if (!student) return { 
-    cgpa: 0, 
+    pngk: 0, 
     totalCredits: 0, 
     totalPoints: 0, 
-    semesterGPA: [],
+    semesterResults: [],
     academicStatus: 'Tiada Data'
   };
 
@@ -1816,36 +1817,36 @@ function calculateStudentCGPA(studentId) {
 
   let cumulativeCredits = 0;
   let cumulativePoints = 0;
-  const semesterGPA = [];
+  const semesterResults = [];
 
   sortedSemesters.forEach(sem => {
-    const semResult = calculateSemesterGPA(studentId, sem.id);
+    const semResult = calculateSemesterPNGS(studentId, sem.id);
     
     if (semResult.totalCredits > 0) {
       cumulativeCredits += semResult.totalCredits;
       cumulativePoints += semResult.totalPoints;
       
-      semesterGPA.push({
+      semesterResults.push({
         semesterId: sem.id,
         semester: sem.name,
-        gpa: semResult.gpa,
+        pngs: semResult.pngs,
         credits: semResult.totalCredits,
         points: semResult.totalPoints,
         cumulativeCredits: cumulativeCredits,
         cumulativePoints: cumulativePoints,
-        cumulativeCGPA: cumulativeCredits > 0 ? Math.round((cumulativePoints / cumulativeCredits) * 100) / 100 : 0
+        pngk: cumulativeCredits > 0 ? Math.round((cumulativePoints / cumulativeCredits) * 100) / 100 : 0
       });
     }
   });
 
-  const cgpa = cumulativeCredits > 0 ? Math.round((cumulativePoints / cumulativeCredits) * 100) / 100 : 0;
+  const pngk = cumulativeCredits > 0 ? Math.round((cumulativePoints / cumulativeCredits) * 100) / 100 : 0;
 
   // Tentukan status akademik (Bahasa Melayu)
   let academicStatus = 'Tiada Data';
-  if (semesterGPA.length > 0) {
-    if (cgpa >= 2.00) {
+  if (semesterResults.length > 0) {
+    if (pngk >= 2.00) {
       academicStatus = 'Baik';
-    } else if (cgpa >= 1.50) {
+    } else if (pngk >= 1.50) {
       academicStatus = 'Amaran';
     } else {
       academicStatus = 'Gagal';
@@ -1853,10 +1854,10 @@ function calculateStudentCGPA(studentId) {
   }
 
   return {
-    cgpa: cgpa,
+    pngk: pngk,
     totalCredits: cumulativeCredits,
     totalPoints: Math.round(cumulativePoints * 100) / 100,
-    semesterGPA: semesterGPA,
+    semesterResults: semesterResults,
     academicStatus: academicStatus
   };
 }
