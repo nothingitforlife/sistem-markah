@@ -7552,10 +7552,78 @@ window.carrymarkSaveMarks = function(templateId) {
     template.marksEntryAt = new Date().toISOString();
   }
   
+  // Auto-sync final marks to main marks section
+  syncCarrymarkToMainMarks(templateId);
+  
   logCarrymarkAction('Saved Marks', 'Marks saved for ' + template.course, templateId);
   saveData();
   alert('Markah berjaya disimpan.');
 };
+
+// Sync Carrymark Final Marks to Main Marks
+function syncCarrymarkToMainMarks(templateId) {
+  const template = data.carrymark.templates.find(t => t.id === templateId);
+  if (!template) return;
+  
+  // Find the subject
+  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  if (!subject) return;
+  
+  const semester = data.semesters.find(s => s.name === template.semester);
+  if (!semester) return;
+  
+  const carrymarkMarks = (data.carrymark.marks || []).filter(m => m.templateId === templateId);
+  
+  carrymarkMarks.forEach(cmMark => {
+    const studentId = cmMark.studentId;
+    
+    // Calculate final mark from carrymark components
+    let cwTotal = 0;
+    let finalTotal = 0;
+    
+    if (template.components && cmMark.scores) {
+      template.components.forEach(c => {
+        const score = cmMark.scores[c.id];
+        if (score !== null && score !== undefined && score !== '') {
+          const maxMark = c.maxMark || 100;
+          const percentage = (parseFloat(score) / maxMark) * 100;
+          const weighted = (percentage * c.weight) / 100;
+          
+          if (c.category === 'coursework') {
+            cwTotal += weighted;
+          } else {
+            finalTotal += weighted;
+          }
+        }
+      });
+    }
+    
+    const finalMark = Math.round(cwTotal + finalTotal);
+    
+    // Find or create main mark entry for this student
+    let mainMark = data.marks.find(m => m.studentId === studentId && m.semesterId === semester.id);
+    
+    if (mainMark) {
+      // Update existing mark
+      if (!mainMark.scores) mainMark.scores = {};
+      mainMark.scores[subject.id] = finalMark;
+      mainMark.updatedAt = new Date().toISOString();
+    } else {
+      // Create new mark entry
+      data.marks.push({
+        id: generateId('MK'),
+        studentId: studentId,
+        semesterId: semester.id,
+        scores: { [subject.id]: finalMark },
+        remarks: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+  });
+  
+  console.log('Carrymark synced to main marks for ' + template.course);
+}
 
 // Submit Assessment
 window.carrymarkSubmit = function(templateId) {
@@ -7571,6 +7639,9 @@ window.carrymarkSubmit = function(templateId) {
   
   template.status = 'submitted';
   template.submittedAt = new Date().toISOString();
+  
+  // Auto-sync final marks to main marks before submit
+  syncCarrymarkToMainMarks(templateId);
   
   logCarrymarkAction('Submitted', 'Assessment submitted for ' + template.course, templateId);
   saveData();
