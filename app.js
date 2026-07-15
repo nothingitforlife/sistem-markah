@@ -1893,6 +1893,18 @@ document.getElementById('addStudentBtn').onclick = function () {
       <input type="text" id="fStudentKod" placeholder="Contoh: S001" required>
     </div>
     <div class="form-group">
+      <label>Agama</label>
+      <select id="fStudentReligion" required>
+        <option value="">-- Pilih Agama --</option>
+        <option value="Islam">Islam</option>
+        <option value="Buddha">Buddha</option>
+        <option value="Hindu">Hindu</option>
+        <option value="Kristian">Kristian</option>
+        <option value="Sikh">Sikh</option>
+        <option value="Lain-lain">Lain-lain</option>
+      </select>
+    </div>
+    <div class="form-group">
       <label>Semester</label>
       <select id="fStudentClass" required>
         <option value="">-- Pilih Semester --</option>
@@ -1907,9 +1919,10 @@ document.getElementById('addStudentBtn').onclick = function () {
     const name = document.getElementById('fStudentName').value.trim();
     const kod = document.getElementById('fStudentKod').value.trim();
     const cls = document.getElementById('fStudentClass').value;
-    if (!name || !kod || !cls) return;
+    const religion = document.getElementById('fStudentReligion').value;
+    if (!name || !kod || !cls || !religion) return;
     const checked = [...document.querySelectorAll('#fStudentSubjects .subject-checkbox:checked')].map(cb => cb.value);
-    data.students.push({ id: generateId('S'), name, kod, class: cls, subjects: checked });
+    data.students.push({ id: generateId('S'), name, kod, class: cls, religion: religion, subjects: checked });
     saveData();
     rebuildLoginDropdowns();
     renderStudents();
@@ -7290,12 +7303,20 @@ window.carrymarkEditMarks = function(templateId) {
   const template = data.carrymark.templates.find(t => t.id === templateId);
   if (!template) return;
   
-  // Get students for this semester
+  // Get students for this semester AND enrolled in this subject
   const semester = data.semesters.find(s => s.name === template.semester);
+  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
   let students = [];
   
   if (semester) {
-    students = data.students.filter(s => s.class === semester.name && s.track !== 'graduated');
+    students = data.students.filter(s => {
+      if (s.class !== semester.name || s.track === 'graduated') return false;
+      // Check if student is enrolled in this specific subject
+      if (subject) {
+        return isStudentEnrolled(s, subject.id);
+      }
+      return true;
+    });
   }
   
   // Get existing marks
@@ -7439,7 +7460,14 @@ function carrymarkCalculateTotals(templateId) {
   const semester = data.semesters.find(s => s.name === template.semester);
   if (!semester) return;
   
-  const students = data.students.filter(s => s.class === semester.name && s.track !== 'graduated');
+  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  const students = data.students.filter(s => {
+    if (s.class !== semester.name || s.track === 'graduated') return false;
+    if (subject) {
+      return isStudentEnrolled(s, subject.id);
+    }
+    return true;
+  });
   
   students.forEach(s => {
     let cwTotal = 0;
@@ -7574,7 +7602,14 @@ window.carrymarkReviewForApproval = function(templateId) {
   if (!template) return;
   
   const semester = data.semesters.find(s => s.name === template.semester);
-  const students = semester ? data.students.filter(s => s.class === semester.name && s.track !== 'graduated') : [];
+  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  const students = semester ? data.students.filter(s => {
+    if (s.class !== semester.name || s.track === 'graduated') return false;
+    if (subject) {
+      return isStudentEnrolled(s, subject.id);
+    }
+    return true;
+  }) : [];
   
   let html = '';
   
@@ -7738,7 +7773,14 @@ window.carrymarkDownloadApproval = function(templateId) {
   if (!template) return;
   
   const semester = data.semesters.find(s => s.name === template.semester);
-  const students = semester ? data.students.filter(s => s.class === semester.name && s.track !== 'graduated') : [];
+  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  const students = semester ? data.students.filter(s => {
+    if (s.class !== semester.name || s.track === 'graduated') return false;
+    if (subject) {
+      return isStudentEnrolled(s, subject.id);
+    }
+    return true;
+  }) : [];
   
   const coursework = template.components ? template.components.filter(c => c.category === 'coursework') : [];
   const final = template.components ? template.components.filter(c => c.category === 'final') : [];
@@ -8571,7 +8613,14 @@ window.carrymarkExportExcel = function(templateId) {
     return;
   }
   
-  const students = data.students.filter(s => s.class === semester.name && s.track !== 'graduated');
+  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  const students = data.students.filter(s => {
+    if (s.class !== semester.name || s.track === 'graduated') return false;
+    if (subject) {
+      return isStudentEnrolled(s, subject.id);
+    }
+    return true;
+  });
   const existingMarks = (data.carrymark.marks || []).filter(m => m.templateId === templateId);
   
   // Build CSV content
