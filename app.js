@@ -374,19 +374,28 @@ function renderStudentSlip(student, semester, markRecord) {
     .filter(subj => markRecord.scores[subj.id] != null && markRecord.scores[subj.id] !== '')
     .map(subj => {
       const score = markRecord.scores[subj.id];
-      const grade = getGrade(score);
-      const badgeClass = grade ? 'badge-' + grade.cssClass : '';
+      const isCocu = isCoCurriculumSubject(subj);
       const credit = subj.credit || 3;
-      const point = grade ? (credit * grade.points) : 0;
-      const status = grade && grade.points >= 2.00 ? 'L' : 'G';
-      return { name: subj.name, credit, score, point, grade: grade ? grade.letter : '-', gradePoints: grade ? grade.points : 0, badgeClass, status };
+      
+      if (isCocu) {
+        // Co-curriculum: L/G display
+        const status = score === 'L' ? 'L' : score === 'G' ? 'G' : '-';
+        return { name: subj.name, credit, score: score, point: 0, grade: status, gradePoints: 0, badgeClass: status === 'L' ? 'badge-aplus' : 'badge-f', status: status, isCocu: true };
+      } else {
+        // Normal: calculate grade
+        const grade = getGrade(score);
+        const badgeClass = grade ? 'badge-' + grade.cssClass : '';
+        const point = grade ? (credit * grade.points) : 0;
+        const status = grade && grade.points >= 2.00 ? 'L' : 'G';
+        return { name: subj.name, credit, score, point, grade: grade ? grade.letter : '-', gradePoints: grade ? grade.points : 0, badgeClass, status, isCocu: false };
+      }
     });
 
-  const totalCredit = subjectRows.reduce((sum, r) => sum + r.credit, 0);
-  const totalPoint = subjectRows.reduce((sum, r) => sum + r.point, 0);
+  const totalCredit = subjectRows.filter(r => !r.isCocu).reduce((sum, r) => sum + r.credit, 0);
+  const totalPoint = subjectRows.filter(r => !r.isCocu).reduce((sum, r) => sum + r.point, 0);
   const gpa = totalCredit > 0 ? totalPoint / totalCredit : 0;
 
-  const validScores = subjectRows.map(r => r.score).filter(v => v != null && v !== '');
+  const validScores = subjectRows.filter(r => !r.isCocu).map(r => r.score).filter(v => v != null && v !== '');
   const total = validScores.reduce((sum, v) => sum + Number(v), 0);
   const avg = validScores.length > 0 ? total / validScores.length : 0;
   const overallGrade = getGrade(avg);
@@ -3194,7 +3203,8 @@ function calculateStudentCGPA(studentId) {
 
     const subjectRows = data.subjects
       .filter(subj => subj.semester === sem.id)
-      .filter(subj => rec.scores[subj.id] != null && rec.scores[subj.id] !== '');
+      .filter(subj => rec.scores[subj.id] != null && rec.scores[subj.id] !== '')
+      .filter(subj => !isCoCurriculumSubject(subj)); // Exclude Co-curriculum
 
     let semCredits = 0;
     let semPoints = 0;
