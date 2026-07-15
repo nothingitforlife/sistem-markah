@@ -566,15 +566,31 @@ window.printStudentSlip = function(btn) {
   // Extract status section
   const statusDiv = slip.querySelector('[style*="margin-top:1.5rem"][style*="padding:1rem"]');
   let statusHTML = '';
+  let statusText = '';
+  let statusType = '';
   if (statusDiv) {
+    const statusTextEl = statusDiv.querySelector('p[style*="font-weight:700"]');
+    if (statusTextEl) {
+      statusText = statusTextEl.textContent;
+      if (statusText.includes('LULUS DENGAN SYARAT')) statusType = 'syarat';
+      else if (statusText.includes('TIDAK LAYAK')) statusType = 'gagal';
+      else statusType = 'lulus';
+    }
     statusHTML = statusDiv.innerHTML;
   }
+  
+  // Extract failed subjects
+  const failedList = statusDiv ? statusDiv.querySelectorAll('ol li') : [];
+  let failedHTML = '';
+  failedList.forEach(li => {
+    failedHTML += '<tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">' + li.textContent + '</td></tr>';
+  });
   
   // Extract remarks
   const remarksDiv = slip.querySelector('.slip-remarks');
   let remarksHTML = '';
   if (remarksDiv) {
-    remarksHTML = '<div style="margin-top:20px;font-size:12px;line-height:1.8;">' + remarksDiv.innerHTML + '</div>';
+    remarksHTML = remarksDiv.textContent;
   }
 
   const win = window.open('', '_blank');
@@ -584,54 +600,61 @@ window.printStudentSlip = function(btn) {
 <meta charset="utf-8">
 <title>Slip Keputusan Peperiksaan</title>
 <style>
-  @page { size: A4; margin: 20mm 15mm; }
+  @page { size: A4; margin: 18mm 15mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Times New Roman', 'Georgia', serif; color: #1a1a2e; line-height: 1.6; }
+  body { font-family: 'Times New Roman', 'Georgia', serif; color: #000; line-height: 1.5; font-size: 12px; }
+  .page { max-width: 210mm; margin: 0 auto; }
   
-  .page { max-width: 210mm; margin: 0 auto; padding: 10mm; }
+  /* Header - Professional Black & White */
+  .header { text-align: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 4px double #000; }
+  .header-top { display: flex; justify-content: center; align-items: center; gap: 25px; margin-bottom: 5px; }
+  .header-top img { height: 65px; filter: grayscale(100%); }
+  .header-title { font-size: 16px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; }
+  .header-subtitle { font-size: 12px; color: #333; margin-top: 3px; letter-spacing: 1px; }
+  .header-dept { font-size: 11px; color: #000; font-weight: 700; margin-top: 2px; text-transform: uppercase; letter-spacing: 1px; }
   
-  /* Header */
-  .header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 3px double #1a1a2e; }
-  .header-top { display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 8px; }
-  .header-top img { height: 70px; }
-  .header-title { font-size: 16px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; }
-  .header-subtitle { font-size: 13px; color: #374151; margin-top: 2px; }
-  .header-dept { font-size: 12px; color: #0f3460; font-weight: 600; margin-top: 2px; }
+  /* Student Info - Clean */
+  .student-info { margin-bottom: 20px; }
+  .student-info table { width: auto; border-collapse: collapse; }
+  .student-info td { padding: 3px 0; font-size: 12px; border: none; }
+  .student-info .label { font-weight: 700; width: 110px; }
   
-  /* Student Info */
-  .student-info { margin-bottom: 25px; }
-  .student-info table { width: auto; border: none; }
-  .student-info td { padding: 3px 15px 3px 0; font-size: 13px; border: none; }
-  .student-info .label { font-weight: 700; color: #374151; width: 120px; }
-  
-  /* Results Table */
-  .results-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 12px; }
-  .results-table thead th { background: #f8f9fa; color: #1a1a2e; padding: 10px 8px; font-size: 11px; font-weight: 700; text-align: center; border-top: 2px solid #1a1a2e; border-bottom: 2px solid #1a1a2e; text-transform: uppercase; letter-spacing: 0.5px; }
-  .results-table tbody td { padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; font-size: 12px; }
+  /* Results Table - UiTM Style */
+  .results-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
+  .results-table thead th { padding: 8px 6px; font-size: 11px; font-weight: 700; text-align: center; border-top: 2px solid #000; border-bottom: 1px solid #000; text-transform: uppercase; }
+  .results-table tbody td { padding: 7px 6px; border-bottom: 1px solid #ccc; text-align: center; }
   .results-table tbody td:nth-child(2) { text-align: left; }
-  .results-table tbody tr:last-child td { border-bottom: 2px solid #1a1a2e; }
+  .results-table tbody tr:last-child td { border-bottom: 2px solid #000; }
   
-  /* Summary */
-  .summary { display: flex; gap: 30px; justify-content: flex-end; margin-bottom: 25px; }
+  /* Summary - Right aligned */
+  .summary { display: flex; gap: 40px; justify-content: flex-end; margin-bottom: 20px; }
   .summary-box { text-align: center; }
-  .summary-box .label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; }
-  .summary-box .value { font-size: 22px; font-weight: 700; color: #0f3460; }
+  .summary-box .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .summary-box .value { font-size: 18px; font-weight: 700; }
   
-  /* Status */
-  .status-section { margin-top: 20px; padding: 15px; border: 1px solid #e5e7eb; background: #f8f9fa; }
-  .status-section p { font-size: 12px; margin: 4px 0; }
+  /* Status - Clean B&W */
+  .status-section { margin-top: 15px; padding: 12px 15px; border: 1px solid #000; }
+  .status-title { font-weight: 700; font-size: 13px; text-transform: uppercase; margin-bottom: 5px; }
+  .status-text { font-size: 12px; }
+  .failed-list { margin-top: 8px; }
+  .failed-list table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .failed-list td { padding: 5px 8px; border-bottom: 1px solid #ddd; }
+  
+  /* Remarks */
+  .remarks { margin-top: 15px; font-size: 12px; line-height: 1.6; }
+  .remarks strong { text-decoration: underline; }
   
   /* Signatures */
   .signatures { display: flex; justify-content: space-between; margin-top: 50px; }
   .sign-box { text-align: center; width: 45%; }
-  .sign-line { border-bottom: 1px solid #1a1a2e; height: 60px; margin-bottom: 8px; }
-  .sign-name { font-weight: 700; font-size: 12px; }
-  .sign-title { font-size: 11px; color: #6b7280; }
-  .sign-date { font-size: 11px; color: #6b7280; margin-top: 4px; }
+  .sign-line { border-bottom: 1px solid #000; height: 55px; margin-bottom: 6px; }
+  .sign-name { font-weight: 700; font-size: 11px; }
+  .sign-title { font-size: 10px; color: #333; }
+  .sign-date { font-size: 10px; color: #333; margin-top: 3px; }
   
   /* Footer */
-  .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; }
-  .footer p { font-size: 10px; color: #9ca3af; }
+  .footer { text-align: center; margin-top: 25px; padding-top: 10px; border-top: 1px solid #ccc; }
+  .footer p { font-size: 9px; color: #666; }
   
   @media print {
     body { padding: 0; }
@@ -664,12 +687,12 @@ window.printStudentSlip = function(btn) {
   <table class="results-table">
     <thead>
       <tr>
-        <th style="width:40px;">Bil</th>
+        <th style="width:35px;">Bil</th>
         <th>Mata Pelajaran</th>
-        <th style="width:40px;">K</th>
-        <th style="width:60px;">Gred</th>
-        <th style="width:70px;">Gred Pointer</th>
-        <th style="width:80px;">Keputusan</th>
+        <th style="width:35px;">K</th>
+        <th style="width:50px;">Gred</th>
+        <th style="width:55px;">Gred Ptr</th>
+        <th style="width:70px;">Keputusan</th>
       </tr>
     </thead>
     <tbody>
@@ -681,9 +704,15 @@ window.printStudentSlip = function(btn) {
     ${summaryHTML}
   </div>
   
-  ${statusHTML ? '<div class="status-section">' + statusHTML + '</div>' : ''}
+  ${statusText ? `
+  <div class="status-section">
+    <div class="status-title">${statusType === 'lulus' ? 'MAKLUMAN KELULUSAN' : statusType === 'syarat' ? 'MAKLUMAN KELULUSAN' : 'MAKLUMAN KELULUSAN'}</div>
+    <div class="status-text">${statusType === 'lulus' ? 'Lulus dan layak untuk meneruskan pengajian pada semester seterusnya.' : statusType === 'syarat' ? 'Lulus dengan syarat. Layak untuk meneruskan pengajian pada semester seterusnya. Sila ulang penilaian subjek berikut pada semester akan datang:' : 'Tidak layak untuk meneruskan pengajian pada semester seterusnya. Sila ulang penilaian subjek berikut:'}</div>
+    ${failedHTML ? '<div class="failed-list"><table>' + failedHTML + '</table></div>' : ''}
+  </div>
+  ` : ''}
   
-  ${remarksHTML}
+  ${remarksHTML ? '<div class="remarks"><strong>Ulasan Penyelia:</strong> ' + esc(remarksHTML) + '</div>' : ''}
   
   <div class="signatures">
     <div class="sign-box">
