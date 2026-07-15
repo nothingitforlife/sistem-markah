@@ -6700,7 +6700,12 @@ function renderCarrymarkTeacher(area) {
       html += '<td>' + (t.course || '-') + '</td>';
       html += '<td>' + (t.courseCode || '-') + '</td>';
       html += '<td>' + componentCount + ' (' + courseworkTotal + '% / ' + finalTotal + '%)</td>';
-      html += '<td>' + getCarrymarkStatusBadge(t.status) + '</td>';
+      html += '<td>';
+      html += getCarrymarkStatusBadge(t.status);
+      if (t.status === 'rejected' && t.rejectReason) {
+        html += '<div style="margin-top:4px;font-size:0.75rem;color:#dc2626;max-width:200px;" title="' + esc(t.rejectReason) + '">❌ ' + esc(t.rejectReason.substring(0, 30)) + (t.rejectReason.length > 30 ? '...' : '') + '</div>';
+      }
+      html += '</td>';
       html += '<td>';
       html += '<button class="btn btn-sm btn-outline" onclick="carrymarkViewTemplate(\'' + t.id + '\')">Lihat</button> ';
       
@@ -7224,6 +7229,18 @@ window.carrymarkViewTemplate = function(templateId) {
   html += '<p><strong>Section:</strong> ' + (template.section || '-') + '</p>';
   html += '<p><strong>Lecturer:</strong> ' + (template.lecturer || '-') + '</p>';
   html += '<p><strong>Status:</strong> ' + getCarrymarkStatusBadge(template.status) + '</p>';
+  
+  // Show rejection reason if rejected
+  if (template.status === 'rejected') {
+    html += '<div style="margin-top:0.75rem;padding:0.75rem;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;">';
+    html += '<p style="color:#dc2626;font-weight:600;margin:0 0 0.25rem 0;">❌ Ditolak oleh: ' + (template.rejectedBy || '-') + '</p>';
+    html += '<p style="color:#991b1b;margin:0;"><strong>Sebab:</strong> ' + (template.rejectReason || 'Tiada sebab diberikan') + '</p>';
+    if (template.rejectedAt) {
+      html += '<p style="color:#991b1b;margin:0.25rem 0 0 0;font-size:0.85rem;">Tarikh: ' + new Date(template.rejectedAt).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + '</p>';
+    }
+    html += '</div>';
+  }
+  
   html += '</div>';
   
   html += '<h4 style="color:#0f3460;margin-bottom:0.5rem;">Assessment Components</h4>';
