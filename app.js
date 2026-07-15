@@ -671,9 +671,14 @@ window.printStudentSlip = function(btn) {
       <div>
         <div class="header-title">Slip Keputusan Peperiksaan</div>
         <div class="header-subtitle">TVET Digital Management System (TDMS)</div>
-        <div class="header-dept">Program Teknologi Komputer Rangkaian</div>
       </div>
     </div>
+  </div>
+  
+  <div style="text-align:center;margin-bottom:20px;">
+    <div style="font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:2px;">Program Teknologi Komputer Rangkaian</div>
+    <div style="font-size:12px;margin-top:2px;">ADTEC JTM Kampus Kuala Langat</div>
+    <div style="font-size:11px;color:#333;margin-top:1px;">Bengkel Teknologi Komputer Rangkaian</div>
   </div>
   
   <div class="student-info">
@@ -718,7 +723,9 @@ window.printStudentSlip = function(btn) {
     <div class="sign-box">
       <div class="sign-line"></div>
       <div class="sign-name">____________________</div>
-      <div class="sign-title">Penyelia / Ketua Program</div>
+      <div class="sign-title">Tandatangan Penyelaras</div>
+      <div class="sign-title">Unit Peperiksaan</div>
+      <div class="sign-title">ADTEC JTM Kampus Kuala Langat</div>
       <div class="sign-date">Tarikh: ___/___/______</div>
     </div>
     <div class="sign-box">
