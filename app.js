@@ -7035,18 +7035,35 @@ window.carrymarkCreateTemplate = function(editTemplate, editId) {
             document.getElementById('cmSemester').value = sem.name;
           }
         }
+        
+        // Trigger Co-curriculum toggle
+        onCourseChange(this);
       });
+      
+      // Check initial state for edit mode
+      if (isEdit) {
+        const selectedOption = courseSelect.options[courseSelect.selectedIndex];
+        if (selectedOption && selectedOption.dataset.iscocu === 'true') {
+          onCourseChange(courseSelect);
+        }
+      }
     }
     
-    if (isEdit && editTemplate.components && editTemplate.components.length > 0) {
-      // Pre-fill existing components
-      editTemplate.components.forEach(comp => {
-        carrymarkAddComponent(comp);
-      });
-      carrymarkUpdateProgress();
-    } else {
-      // Add initial component
-      carrymarkAddComponent();
+    // Only add components for non-Co-curriculum subjects
+    const selectedOption = courseSelect ? courseSelect.options[courseSelect.selectedIndex] : null;
+    const isCocuInitial = selectedOption && selectedOption.dataset.iscocu === 'true';
+    
+    if (!isCocuInitial) {
+      if (isEdit && editTemplate.components && editTemplate.components.length > 0) {
+        // Pre-fill existing components
+        editTemplate.components.forEach(comp => {
+          carrymarkAddComponent(comp);
+        });
+        carrymarkUpdateProgress();
+      } else {
+        // Add initial component
+        carrymarkAddComponent();
+      }
     }
   }, 100);
 };
