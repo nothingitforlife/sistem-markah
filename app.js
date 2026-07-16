@@ -109,6 +109,22 @@ function isCoCurriculumSubject(subject) {
   return cocuKeywords.some(k => name.includes(k) || code.includes(k));
 }
 
+// Find student's semester with robust matching
+function findStudentSemester(student) {
+  if (!student || !student.class) return null;
+  const normalize = str => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const studentNorm = normalize(student.class);
+  let sem = data.semesters.find(s => s.name === student.class);
+  if (sem) return sem;
+  sem = data.semesters.find(s => normalize(s.name) === studentNorm);
+  if (sem) return sem;
+  sem = data.semesters.find(s => student.class.includes(s.name) || s.name.includes(student.class));
+  if (sem) return sem;
+  const semNum = parseInt(student.class.replace(/\D/g, ''));
+  if (semNum) sem = data.semesters.find(s => parseInt(s.name.replace(/\D/g, '')) === semNum);
+  return sem || null;
+}
+
 function studentHasAnyTeacherSubject(student, teacherSubjIds) {
   if (!student.subjects) return true;
   return student.subjects.some(sid => teacherSubjIds.includes(sid));
@@ -369,378 +385,191 @@ function applyRoleRestrictions() {
 }
 
 function renderStudentSlip(student, semester, markRecord) {
-  // Use standardized GPA calculation
-  const semResult = calculateSemesterGPA(student.id, semester.id);
+  const semResult = calculateSemesterPNGS(student.id, semester.id);
   const cgpaData = calculateStudentCGPA(student.id);
   
-  // Build subject rows from standardized calculation
-  const subjectRows = semResult.subjects.map((subj, i) => {
-    const isCocu = isCoCurriculumSubject(data.subjects.find(s => s.id === subj.id));
-    const grade = getGrade(subj.score);
-    
-    return {
-      name: subj.name,
-      code: subj.code,
-      credit: subj.credit,
-      score: subj.score,
-      grade: subj.grade,
-      gradePoint: subj.gradePoint,
-      totalGradePoint: subj.totalGradePoint,
-      badgeClass: grade ? 'badge-' + grade.cssClass : '',
-      status: subj.status,
-      isCocu: isCocu
-    };
-  });
-  
-  // Add Co-curriculum subjects
+  const academicRows = semResult.subjects.map((subj, i) => ({
+    code: subj.code,
+    name: subj.name,
+    credit: subj.credit,
+    grade: subj.grade,
+    gradePoint: subj.gradePoint,
+    totalGradePoint: subj.totalGradePoint,
+    status: subj.status === 'Lulus' ? 'L' : 'G',
+    isCocu: false
+  }));
+
   const cocuSubjects = data.subjects
     .filter(subj => subj.semester === semester.id)
     .filter(subj => isCoCurriculumSubject(subj))
     .filter(subj => markRecord.scores[subj.id] != null && markRecord.scores[subj.id] !== '');
-  
-  cocuSubjects.forEach(subj => {
-    const score = markRecord.scores[subj.id];
-    subjectRows.push({
-      name: subj.name,
-      code: subj.code || '',
-      credit: 0,
-      score: score,
-      grade: score === 'L' ? 'L' : score === 'G' ? 'G' : '-',
-      gradePoint: 0,
-      totalGradePoint: 0,
-      badgeClass: score === 'L' ? 'badge-aplus' : 'badge-f',
-      status: score === 'L' ? 'L' : 'G',
-      isCocu: true
-    });
-  });
 
-  const remarks = markRecord.remarks || '';
+  const cocuRows = cocuSubjects.map(subj => ({
+    code: subj.code || '',
+    name: subj.name,
+    credit: 0,
+    grade: '-',
+    gradePoint: 0,
+    totalGradePoint: 0,
+    status: markRecord.scores[subj.id] === 'L' ? 'L' : 'G',
+    isCocu: true
+  }));
+
+  const allRows = [...academicRows, ...cocuRows];
+  const totalCredit = semResult.totalCredits;
+  const totalPoint = semResult.totalPoints;
+  const pngs = semResult.pngs;
+  const pngk = cgpaData.cgpa;
+  const cumCredits = cgpaData.totalCredits;
+  const cumPoints = cgpaData.totalPoints;
+
+  const failedAcademic = academicRows.filter(r => r.status === 'G');
+  const failedCocu = cocuRows.filter(r => r.status === 'G');
+  let academicDecision = 'PASS';
+  let academicDecisionClass = 'pass';
+  if (pngk < 2.00 && cgpaData.semesterGPA.length > 1) {
+    academicDecision = 'PROBATION';
+    academicDecisionClass = 'probation';
+  }
+  if (failedAcademic.length > 0 || failedCocu.length > 0) {
+    if (pngk < 2.00) {
+      academicDecision = 'FAIL';
+      academicDecisionClass = 'fail';
+    } else {
+      academicDecision = 'PASS (ULANG)';
+      academicDecisionClass = 'pass';
+    }
+  }
+
+  const now = new Date();
+  const semNum = parseInt(semester.name.replace(/\D/g, '')) || 0;
+  const slipNumber = `SLP${String(semNum).padStart(2, '0')}-${student.kod ? student.kod.slice(-3) : '000'}-${Date.now().toString().slice(-6)}`;
+  const dateStr = now.toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return `
-    <div class="result-slip" style="margin-bottom:1.5rem;">
-      <div class="slip-header">
-        <div class="slip-header-left">
-          <img src="https://www.jtm.gov.my/2015v3/images/stories/logo_JTM2014.png" alt="JTM" class="slip-logo">
+    <div class="official-slip" id="resultSlip">
+      <div class="slip-border">
+        <div class="slip-header-official">
+          <div class="slip-header-left">
+            <img src="https://www.jtm.gov.my/2015v3/images/stories/logo_JTM2014.png" alt="JTM" class="slip-logo-official">
+          </div>
+          <div class="slip-header-center">
+            <div class="slip-inst-name">KEMENTERIAN KESIHATAN MALAYSIA</div>
+            <div class="slip-inst-name-bold">Jabatan Teknologi Maklumat</div>
+            <div class="slip-inst-sub">ADTEC JTM KAMPUS KUALA LANGAT</div>
+            <h2 class="slip-title">SLIP KEPUTUSAN PEPERIKSAAN</h2>
+            <div class="slip-session">${esc(semester.name)} SESYEN ${now.getFullYear()}/${now.getFullYear() + 1}</div>
+          </div>
+          <div class="slip-header-right">
+            <div class="slip-no-label">No. Slip</div>
+            <div class="slip-no-value">${slipNumber}</div>
+          </div>
         </div>
-        <div class="slip-header-center">
-          <h2>SLIP KEPUTUSAN PEPERIKSAAN</h2>
-          <p class="slip-school">TVET Digital Management System (TDMS)</p>
-          <p class="slip-dept">PROGRAM TEKNOLOGI KOMPUTER RANGKAIAN</p>
-          <p class="slip-dept">ADTEC JTM KAMPUS KUALA LANGAT</p>
+
+        <div class="slip-student-info">
+          <div class="info-col">
+            <table class="info-table-official">
+              <tr><td class="info-label-off">Nama Pelajar</td><td class="info-sep">:</td><td>${esc(student.name)}</td></tr>
+              <tr><td class="info-label-off">No. Pelajar</td><td class="info-sep">:</td><td>${esc(student.kod || '-')}</td></tr>
+              <tr><td class="info-label-off">No. IC / Passport</td><td class="info-sep">:</td><td>-</td></tr>
+            </table>
+          </div>
+          <div class="info-col">
+            <table class="info-table-official">
+              <tr><td class="info-label-off">Programme</td><td class="info-sep">:</td><td>Teknologi Komputer Rangkaian</td></tr>
+              <tr><td class="info-label-off">Semester</td><td class="info-sep">:</td><td>${esc(semester.name)}</td></tr>
+              <tr><td class="info-label-off">Sesi Akademik</td><td class="info-sep">:</td><td>${now.getFullYear()}/${now.getFullYear() + 1}</td></tr>
+            </table>
+          </div>
         </div>
-        <div class="slip-header-right"></div>
-      </div>
-      <div class="slip-info">
-        <table class="info-table">
-          <tr><td class="info-label">Nama Pelajar</td><td>: ${esc(student.name)}</td></tr>
-          <tr><td class="info-label">No. Pelajar</td><td>: ${esc(student.kod || '-')}</td></tr>
-          <tr><td class="info-label">Programme</td><td>: Teknologi Komputer Rangkaian</td></tr>
-          <tr><td class="info-label">Semester</td><td>: ${esc(semester.name)}</td></tr>
-        </table>
-      </div>
-      <table class="slip-table">
-        <thead><tr><th>Bil</th><th>Kod</th><th>Mata Pelajaran</th><th>K</th><th>Gred</th><th>Gred Ptr</th><th>Jumlah GP</th><th>Keputusan</th></tr></thead>
-        <tbody>
-          ${subjectRows.map((r, i) => `
+
+        <table class="slip-result-table">
+          <thead>
             <tr>
-              <td>${i + 1}</td>
-              <td>${r.code || '-'}</td>
-              <td>${r.name}</td>
-              <td>${r.isCocu ? '-' : r.credit}</td>
-              <td>${r.isCocu ? '<span style="font-weight:700;">' + r.grade + '</span>' : '<span class="slip-grade ' + r.badgeClass + '">' + r.grade + '</span>'}</td>
-              <td>${r.isCocu ? '-' : r.gradePoint.toFixed(2)}</td>
-              <td>${r.isCocu ? '-' : r.totalGradePoint.toFixed(2)}</td>
-              <td style="font-weight:700;color:#000">${r.status}</td>
+              <th style="width:40px;">Bil</th>
+              <th style="width:80px;">Kod</th>
+              <th>Nama Mata Pelajaran</th>
+              <th style="width:45px;">K</th>
+              <th style="width:50px;">Gred</th>
+              <th style="width:55px;">GP</th>
+              <th style="width:65px;">Status</th>
             </tr>
-          `).join('')}
-        </tbody>
-      </table>
-      
-      <div class="slip-summary">
-        <div class="summary-item">
-          <span class="summary-label">Jumlah Kredit Semester</span>
-          <span class="summary-value">${semResult.totalCredits}</span>
+          </thead>
+          <tbody>
+            ${academicRows.map((r, i) => `
+              <tr>
+                <td class="center">${i + 1}</td>
+                <td class="center">${r.code}</td>
+                <td class="left">${esc(r.name)}</td>
+                <td class="center">${r.credit}</td>
+                <td class="center grade-cell">${r.grade}</td>
+                <td class="center">${r.gradePoint.toFixed(2)}</td>
+                <td class="center status-cell ${r.status === 'L' ? 'status-pass' : 'status-fail'}">${r.status}</td>
+              </tr>
+            `).join('')}
+            ${cocuRows.length > 0 ? `
+              <tr class="cocu-row"><td colspan="7" class="cocu-divider">Ko-Kurikulum</td></tr>
+              ${cocuRows.map((r, i) => `
+                <tr>
+                  <td class="center">${academicRows.length + i + 1}</td>
+                  <td class="center">${r.code}</td>
+                  <td class="left">${esc(r.name)}</td>
+                  <td class="center">-</td>
+                  <td class="center">-</td>
+                  <td class="center">-</td>
+                  <td class="center status-cell ${r.status === 'L' ? 'status-pass' : 'status-fail'}">${r.status}</td>
+                </tr>
+              `).join('')}
+            ` : ''}
+          </tbody>
+        </table>
+
+        <div class="slip-summary-official">
+          <div class="summary-block">
+            <div class="summary-block-title">SEMESTER</div>
+            <div class="summary-row"><span>Jumlah Kredit Didaftar</span><span class="summary-val">${totalCredit}</span></div>
+            <div class="summary-row"><span>Jumlah Kredit Diluluskan</span><span class="summary-val">${totalCredit}</span></div>
+            <div class="summary-row"><span>Jumlah Mata Nilai</span><span class="summary-val">${totalPoint.toFixed(2)}</span></div>
+            <div class="summary-row pngs-row"><span>PNGS</span><span class="summary-val-bold">${pngs.toFixed(2)}</span></div>
+          </div>
+          <div class="summary-block">
+            <div class="summary-block-title">KESELURUHAN</div>
+            <div class="summary-row"><span>Jumlah Kredit Kumulatif</span><span class="summary-val">${cumCredits}</span></div>
+            <div class="summary-row"><span>Jumlah Mata Nilai Kumulatif</span><span class="summary-val">${cumPoints.toFixed(2)}</span></div>
+            <div class="summary-row pngk-row"><span>PNGK</span><span class="summary-val-bold">${pngk.toFixed(2)}</span></div>
+          </div>
         </div>
-        <div class="summary-item">
-          <span class="summary-label">Jumlah GP Semester</span>
-          <span class="summary-value">${semResult.totalPoints.toFixed(2)}</span>
+
+        <div class="slip-decision">
+          <div class="decision-label">KEPUTUSAN:</div>
+          <div class="decision-value ${academicDecisionClass}">${academicDecision}</div>
         </div>
-        <div class="summary-item summary-highlight">
-          <span class="summary-label">GPA</span>
-          <span class="summary-value">${semResult.gpa.toFixed(2)}</span>
+
+        <div class="slip-signature">
+          <div class="sig-block">
+            <div class="sig-title">Disahkan Oleh</div>
+            <div class="sig-placeholder">
+              <svg viewBox="0 0 200 40" class="sig-svg">
+                <path d="M10,30 Q30,10 50,25 T90,20 Q110,15 130,25 T170,18" stroke="#000" fill="none" stroke-width="1.5"/>
+              </svg>
+            </div>
+            <div class="sig-line"></div>
+            <div class="sig-name">Ketua Jabatan</div>
+            <div class="sig-inst">ADTEC JTM Kampus Kuala Langat</div>
+          </div>
+          <div class="sig-block">
+            <div class="sig-date">Tarikh Dihasilkan: ${dateStr}</div>
+            <div class="sig-note">Dokumen ini dijana secara automatik oleh Sistem TDMS</div>
+          </div>
         </div>
-        ${cgpaData.semesterGPA.length > 1 ? `
-        <div class="summary-item" style="background:#1e40af;border-color:#1e40af;">
-          <span class="summary-label" style="color:rgba(255,255,255,0.8);">CGPA</span>
-          <span class="summary-value" style="color:white;">${cgpaData.cgpa.toFixed(2)}</span>
+
+        <div class="slip-print-btn no-print">
+          <button class="btn btn-primary" onclick="printSlip()">Cetak Slip</button>
         </div>
-        <div class="summary-item" style="background:#374151;border-color:#374151;">
-          <span class="summary-label" style="color:rgba(255,255,255,0.8);">Status Akademik</span>
-          <span class="summary-value" style="color:white;font-size:14px;">${cgpaData.academicStatus}</span>
-        </div>
-        ` : ''}
-      </div>
-      
-      ${(() => {
-        // Academic status determination
-        const failedSubjects = subjectRows.filter(r => r.status === 'G' && !r.isCocu);
-        const failedCocu = subjectRows.filter(r => r.status === 'G' && r.isCocu);
-        const allFailed = subjectRows.filter(r => r.status === 'G');
-        const effectiveGPA = cgpaData.semesterGPA.length > 1 ? cgpaData.cgpa : semResult.gpa;
-        
-        let statusHTML = '<div style="margin-top:1.5rem;padding:1rem;border:1px solid #000;';
-        
-        if (effectiveGPA >= 2.00 && allFailed.length === 0) {
-          statusHTML += '">';
-          statusHTML += '<p style="font-weight:700;font-size:12px;margin:0;">STATUS AKADEMIK: BAIK</p>';
-          statusHTML += '<p style="font-size:11px;margin:4px 0 0 0;">Lulus dan layak untuk meneruskan pengajian pada semester seterusnya.</p>';
-        } else if (effectiveGPA >= 2.00 && allFailed.length > 0) {
-          statusHTML += '">';
-          statusHTML += '<p style="font-weight:700;font-size:12px;margin:0;">STATUS AKADEMIK: LULUS DENGAN SYARAT</p>';
-          statusHTML += '<p style="font-size:11px;margin:4px 0 0 0;">Layak untuk meneruskan pengajian. Sila ulang penilaian subjek berikut pada semester akan datang:</p>';
-          statusHTML += '<table style="width:100%;margin-top:8px;font-size:11px;border-collapse:collapse;">';
-          allFailed.forEach(r => {
-            statusHTML += '<tr><td style="padding:4px 8px;border-bottom:1px solid #ddd;">• ' + esc(r.name) + '</td><td style="padding:4px 8px;border-bottom:1px solid #ddd;">' + (r.isCocu ? 'Gagal' : 'Gred: ' + r.grade) + '</td></tr>';
-          });
-          statusHTML += '</table>';
-        } else {
-          statusHTML += 'border-color:#000;">';
-          statusHTML += '<p style="font-weight:700;font-size:12px;margin:0;">STATUS AKADEMIK: TIDAK LAYAK</p>';
-          statusHTML += '<p style="font-size:11px;margin:4px 0 0 0;">Tidak layak untuk meneruskan pengajian pada semester seterusnya.</p>';
-          if (allFailed.length > 0) {
-            statusHTML += '<table style="width:100%;margin-top:8px;font-size:11px;border-collapse:collapse;">';
-            statusHTML += '<tr><td style="padding:4px 8px;border-bottom:1px solid #ddd;font-weight:600;">Subjek gagal:</td><td style="padding:4px 8px;border-bottom:1px solid #ddd;font-weight:600;">Gred</td></tr>';
-            allFailed.forEach(r => {
-              statusHTML += '<tr><td style="padding:4px 8px;border-bottom:1px solid #ddd;">' + esc(r.name) + '</td><td style="padding:4px 8px;border-bottom:1px solid #ddd;">' + (r.isCocu ? 'Gagal' : r.grade) + '</td></tr>';
-            });
-            statusHTML += '</table>';
-          }
-        }
-        
-        statusHTML += '</div>';
-        return statusHTML;
-      })()}
-      
-      ${remarks ? `<div class="slip-remarks"><strong>Ulasan Penyelia:</strong><br>${esc(remarks)}</div>` : ''}
-      
-      <div class="slip-footer">
-        <p style="font-size:0.78rem;color:#9ca3af;font-style:italic;">Dokumen ini dijana secara automatik oleh TVET Digital Management System (TDMS)</p>
-        <button class="btn btn-primary" onclick="printStudentSlip(this)">🖨️ Cetak Slip</button>
       </div>
     </div>
   `;
 }
-
-window.printStudentSlip = function(btn) {
-  const slip = btn.closest('.result-slip');
-  if (!slip) return;
-  
-  // Extract data from slip
-  const studentName = slip.querySelector('.info-table tr:nth-child(1) td:nth-child(2)')?.textContent?.replace(': ', '') || '-';
-  const studentKod = slip.querySelector('.info-table tr:nth-child(2) td:nth-child(2)')?.textContent?.replace(': ', '') || '-';
-  const semesterName = slip.querySelector('.info-table tr:nth-child(3) td:nth-child(2)')?.textContent?.replace(': ', '') || '-';
-  
-  // Extract table rows
-  const tableRows = slip.querySelectorAll('.slip-table tbody tr');
-  let rowsHTML = '';
-  tableRows.forEach(row => {
-    const cells = row.querySelectorAll('td');
-    if (cells.length >= 8) {
-      rowsHTML += '<tr>';
-      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;">' + cells[0].textContent + '</td>';
-      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;">' + cells[1].textContent + '</td>';
-      rowsHTML += '<td style="padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;">' + cells[2].textContent + '</td>';
-      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;">' + cells[3].textContent + '</td>';
-      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;font-weight:600;">' + cells[4].textContent + '</td>';
-      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;">' + cells[5].textContent + '</td>';
-      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;">' + cells[6].textContent + '</td>';
-      rowsHTML += '<td style="text-align:center;padding:4px 5px;border-bottom:1px solid #ddd;font-size:10px;font-weight:700;">' + cells[7].textContent + '</td>';
-      rowsHTML += '</tr>';
-    }
-  });
-  
-  // Extract summary
-  const summaryItems = slip.querySelectorAll('.summary-item');
-  let summaryHTML = '';
-  summaryItems.forEach(item => {
-    const label = item.querySelector('.summary-label')?.textContent || '';
-    const value = item.querySelector('.summary-value')?.textContent || '';
-    summaryHTML += '<div style="text-align:center;"><div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;">' + label + '</div><div style="font-size:16px;font-weight:700;">' + value + '</div></div>';
-  });
-  
-  // Extract status section
-  const statusDiv = slip.querySelector('[style*="margin-top:1.5rem"][style*="padding:1rem"]');
-  let statusText = '';
-  let statusType = '';
-  if (statusDiv) {
-    const statusTextEl = statusDiv.querySelector('p[style*="font-weight:700"]');
-    if (statusTextEl) {
-      statusText = statusTextEl.textContent;
-      if (statusText.includes('LULUS DENGAN SYARAT')) statusType = 'syarat';
-      else if (statusText.includes('TIDAK LAYAK')) statusType = 'gagal';
-      else statusType = 'lulus';
-    }
-  }
-  
-  // Extract failed subjects
-  const failedList = statusDiv ? statusDiv.querySelectorAll('ol li') : [];
-  let failedHTML = '';
-  failedList.forEach(li => {
-    failedHTML += '<li style="font-size:10px;margin-bottom:2px;">' + li.textContent + '</li>';
-  });
-  
-  // Extract remarks
-  const remarksDiv = slip.querySelector('.slip-remarks');
-  let remarksHTML = '';
-  if (remarksDiv) {
-    remarksHTML = remarksDiv.textContent;
-  }
-
-  const win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>Slip Keputusan Peperiksaan</title>
-<style>
-  @page { size: A4 portrait; margin: 12mm 10mm; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Times New Roman', 'Georgia', serif; color: #000; font-size: 11px; line-height: 1.3; }
-  .page { width: 100%; max-width: 190mm; margin: 0 auto; }
-  
-  /* Header */
-  .header { text-align: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 3px double #000; }
-  .header-top { display: flex; justify-content: center; align-items: center; gap: 15px; }
-  .header-top img { height: 50px; }
-  .header-title { font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; }
-  .header-subtitle { font-size: 10px; margin-top: 2px; }
-  
-  /* Program Info */
-  .program-info { text-align: center; margin-bottom: 10px; }
-  .program-info .prog-name { font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
-  .program-info .prog-loc { font-size: 10px; }
-  
-  /* Student Info */
-  .student-info { margin-bottom: 10px; }
-  .student-info table { width: auto; border-collapse: collapse; }
-  .student-info td { padding: 2px 0; font-size: 11px; border: none; }
-  .student-info .label { font-weight: 700; width: 100px; }
-  
-  /* Results Table */
-  .results-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 10px; }
-  .results-table thead th { padding: 5px 4px; font-size: 9px; font-weight: 700; text-align: center; border-top: 2px solid #000; border-bottom: 1px solid #000; text-transform: uppercase; }
-  .results-table tbody td { padding: 4px; border-bottom: 1px solid #ddd; text-align: center; font-size: 10px; }
-  .results-table tbody td:nth-child(3) { text-align: left; }
-  .results-table tbody tr:last-child td { border-bottom: 2px solid #000; }
-  
-  /* Summary */
-  .summary { display: flex; gap: 20px; justify-content: flex-end; margin-bottom: 10px; }
-  
-  /* Status */
-  .status-section { margin-top: 8px; padding: 8px 10px; border: 1px solid #000; font-size: 10px; }
-  .status-title { font-weight: 700; text-transform: uppercase; margin-bottom: 3px; }
-  .failed-list { margin-top: 5px; padding-left: 15px; }
-  
-  /* Remarks */
-  .remarks { margin-top: 8px; font-size: 10px; }
-  
-  /* Signatures */
-  .signatures { display: flex; justify-content: space-between; margin-top: 25px; }
-  .sign-box { text-align: center; width: 45%; }
-  .sign-line { border-bottom: 1px solid #000; height: 45px; margin-bottom: 5px; }
-  .sign-name { font-weight: 700; font-size: 10px; }
-  .sign-title { font-size: 9px; color: #333; }
-  
-  /* Footer */
-  .footer { text-align: center; margin-top: 15px; padding-top: 8px; border-top: 1px solid #ccc; }
-  .footer p { font-size: 8px; color: #666; }
-  
-  @media print {
-    body { padding: 0; -webkit-print-color-adjust: exact; }
-  }
-</style>
-</head>
-<body>
-<div class="page">
-  
-  <div class="header">
-    <div class="header-top">
-      <img src="https://www.jtm.gov.my/2015v3/images/stories/logo_JTM2014.png" alt="JTM">
-      <div>
-        <div class="header-title">Slip Keputusan Peperiksaan</div>
-        <div class="header-subtitle">TVET Digital Management System (TDMS)</div>
-      </div>
-    </div>
-  </div>
-  
-  <div class="program-info">
-    <div class="prog-name">Program Teknologi Komputer Rangkaian</div>
-    <div class="prog-loc">ADTEC JTM Kampus Kuala Langat | Bengkel Teknologi Komputer Rangkaian</div>
-  </div>
-  
-  <div class="student-info">
-    <table>
-      <tr><td class="label">Nama Pelajar</td><td>: ${esc(studentName)}</td></tr>
-      <tr><td class="label">No. Pelajar</td><td>: ${esc(studentKod)}</td></tr>
-      <tr><td class="label">Semester</td><td>: ${esc(semesterName)}</td></tr>
-    </table>
-  </div>
-  
-  <table class="results-table">
-    <thead>
-      <tr>
-        <th style="width:25px;">Bil</th>
-        <th style="width:55px;">Kod</th>
-        <th>Mata Pelajaran</th>
-        <th style="width:25px;">K</th>
-        <th style="width:40px;">Gred</th>
-        <th style="width:45px;">Gred Ptr</th>
-        <th style="width:50px;">Jum GP</th>
-        <th style="width:55px;">Keputusan</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rowsHTML}
-    </tbody>
-  </table>
-  
-  <div class="summary">
-    ${summaryHTML}
-  </div>
-  
-  ${statusText ? `
-  <div class="status-section">
-    <div class="status-title">Makluman Kelulusan:</div>
-    <div>${statusType === 'lulus' ? 'Lulus dan layak untuk meneruskan pengajian pada semester seterusnya.' : statusType === 'syarat' ? 'Lulus dengan syarat. Layak untuk meneruskan pengajian. Sila ulang penilaian subjek berikut:' : 'Tidak layak untuk meneruskan pengajian pada semester seterusnya.'}</div>
-    ${failedHTML ? '<ol class="failed-list">' + failedHTML + '</ol>' : ''}
-  </div>
-  ` : ''}
-  
-  ${remarksHTML ? '<div class="remarks"><strong>Ulasan Penyelia:</strong> ' + esc(remarksHTML) + '</div>' : ''}
-  
-  <div class="signatures">
-    <div class="sign-box">
-      <div class="sign-line"></div>
-      <div class="sign-name">____________________</div>
-      <div class="sign-title">Tandatangan Penyelaras<br>Unit Peperiksaan<br>ADTEC JTM Kampus Kuala Langat</div>
-    </div>
-    <div class="sign-box">
-      <div class="sign-line"></div>
-      <div class="sign-name">Ts. Hj. Yuslan bin Yasok</div>
-      <div class="sign-title">Pengarah<br>ADTEC JTM Kampus Kuala Langat</div>
-    </div>
-  </div>
-  
-  <div class="footer">
-    <p>Dokumen ini dijana secara automatik oleh TVET Digital Management System (TDMS) | Tarikh cetak: ${new Date().toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-  </div>
-  
-</div>
-<script>window.print();</script>
-</body>
-</html>`);
-  win.document.close();
-};
 
 let data = {
   students: [],
@@ -2043,7 +1872,7 @@ function updateBulkPromoteButton() {
 }
 
 function getStudentStatusButton(student) {
-  const currentSem = data.semesters.find(s => s.name === student.class);
+  const currentSem = findStudentSemester(student);
   if (!currentSem) return '<span style="color:#9ca3af;font-size:0.8rem;">-</span>';
   
   const track = student.track || 'regular';
@@ -2128,7 +1957,7 @@ window.promoteStudent = function(studentId, track = null) {
   const student = data.students.find(s => s.id === studentId);
   if (!student) return;
   
-  const currentSem = data.semesters.find(s => s.name === student.class);
+  const currentSem = findStudentSemester(student);
   if (!currentSem) return;
   
   const semNum = parseInt(currentSem.name.replace(/\D/g, '')) || 0;
@@ -2253,7 +2082,7 @@ document.getElementById('bulkPromoteBtn').onclick = function() {
   
   let promoted = 0;
   students.forEach(student => {
-    const currentSem = data.semesters.find(s => s.name === student.class);
+    const currentSem = findStudentSemester(student);
     if (!currentSem) return;
     
     const semNum = parseInt(student.class.replace(/\D/g, '')) || 0;
@@ -2295,7 +2124,7 @@ window.repeatSemester = function(studentId) {
   const student = data.students.find(s => s.id === studentId);
   if (!student) return;
   
-  const currentSem = data.semesters.find(s => s.name === student.class);
+  const currentSem = findStudentSemester(student);
   if (!currentSem) return;
   
   if (!confirm(`${student.name} akan mengulang ${currentSem.name}. Markah akan dipadam. Teruskan?`)) return;
@@ -3157,10 +2986,19 @@ function renderMarks() {
   const semesterSelect = document.getElementById('markSemesterSelect');
   const prevSemester = semesterSelect.value;
 
-  semesterSelect.innerHTML = '<option value="">-- Pilih Semester --</option>' +
-    data.semesters.map(s => `<option value="${s.id}">${esc(s.name)}${s.penyelia ? ' - ' + esc(s.penyelia) : ''}</option>`).join('');
+  let semestersToShow = data.semesters;
+  if (currentRole === 'teacher') {
+    const teacherSubjectIds = getTeacherSubjects(currentUser.name);
+    const teacherSemIds = [...new Set(data.subjects.filter(s => teacherSubjectIds.includes(s.id)).map(s => s.semester))];
+    semestersToShow = data.semesters.filter(s => teacherSemIds.includes(s.id));
+  }
 
-  if (prevSemester) semesterSelect.value = prevSemester;
+  semesterSelect.innerHTML = '<option value="">-- Pilih Semester --</option>' +
+    semestersToShow.map(s => `<option value="${s.id}">${esc(s.name)}${s.penyelia ? ' - ' + esc(s.penyelia) : ''}</option>`).join('');
+
+  if (prevSemester && semestersToShow.find(s => s.id === prevSemester)) {
+    semesterSelect.value = prevSemester;
+  }
 
   initMarkEntry();
 }
@@ -3344,7 +3182,7 @@ function renderResults() {
     let totalPointsAll = 0, totalCreditsAll = 0;
     
     // Dapatkan semester semasa pelajar
-    const currentSemester = data.semesters.find(s => s.name === student.class);
+    const currentSemester = findStudentSemester(student);
     
     data.semesters.forEach(sem => {
       const record = data.marks.find(m => m.studentId === student.id && m.semesterId === sem.id);
@@ -3504,7 +3342,7 @@ function renderStudentCurrentResults() {
   const area = document.getElementById('studentCurrentResultsContent');
   if (!student) { area.innerHTML = ''; return; }
   
-  const currentSem = data.semesters.find(s => s.name === student.class);
+  const currentSem = findStudentSemester(student);
   if (!currentSem) {
     area.innerHTML = '<p class="empty-state">Semester semasa tidak dijumpai</p>';
     return;
@@ -3540,7 +3378,7 @@ function renderStudentPastResults() {
   const area = document.getElementById('studentPastResultsContent');
   if (!student) { area.innerHTML = ''; return; }
   
-  const currentSem = data.semesters.find(s => s.name === student.class);
+  const currentSem = findStudentSemester(student);
   const now = new Date();
   let hasPastResults = false;
   let html = '';
@@ -3613,7 +3451,7 @@ function renderStudentTeachers() {
   html += `</div></div>`;
   
   // Hanya dapatkan semester SEMASA sahaja
-  const currentSem = data.semesters.find(s => s.name === student.class);
+  const currentSem = findStudentSemester(student);
   
   if (!currentSem) {
     html += '<p class="empty-state">Semester semasa tidak dijumpai</p>';
@@ -3723,131 +3561,173 @@ function generateSlip() {
     .map(subj => {
     const score = markRecord.scores[subj.id];
     const hasScore = score != null && score !== '';
-    const displayScore = hasScore ? score : '-';
     const grade = getGrade(score);
-    const badgeClass = grade ? 'badge-' + grade.cssClass : '';
-    const credit = subj.credit || 3;
+    const isCocu = isCoCurriculumSubject(subj);
+    const credit = subj.credit || 0;
     const gradePoints = grade ? grade.points : 0;
     const point = grade ? credit * grade.points : 0;
-    const status = grade && grade.points >= 2.00 ? 'L' : 'G';
-    return { name: subj.name, credit, score: displayScore, grade: grade ? grade.letter : '-', gradePoints, point, badgeClass, hasScore, status };
+    const status = isCocu ? (score === 'L' || score === 'l' ? 'L' : 'G') : (grade && grade.points >= 2.00 ? 'L' : 'G');
+    return { name: subj.name, code: subj.code || '', credit, score, grade: isCocu ? '-' : (grade ? grade.letter : '-'), gradePoints: isCocu ? 0 : gradePoints, point: isCocu ? 0 : point, hasScore, status, isCocu };
   });
 
-  const validRows = subjectRows.filter(r => r.hasScore);
-  const totalCredit = validRows.reduce((sum, r) => sum + r.credit, 0);
-  const totalPoint = validRows.reduce((sum, r) => sum + r.point, 0);
-  const gpa = totalCredit > 0 ? totalPoint / totalCredit : 0;
-
-  const validScores = validRows.map(r => r.score);
-  const total = validScores.reduce((sum, v) => sum + Number(v), 0);
-  const avg = validScores.length > 0 ? total / validScores.length : 0;
+  const academicRows = subjectRows.filter(r => !r.isCocu);
+  const cocuRows = subjectRows.filter(r => r.isCocu);
+  const totalCredit = academicRows.reduce((sum, r) => sum + r.credit, 0);
+  const totalPoint = academicRows.reduce((sum, r) => sum + r.point, 0);
+  const pngs = totalCredit > 0 ? totalPoint / totalCredit : 0;
 
   const cgpaData = calculateStudentCGPA(studentId);
+  const pngk = cgpaData.cgpa;
+  const cumCredits = cgpaData.totalCredits;
+  const cumPoints = cgpaData.totalPoints;
+
+  const failedSubjects = academicRows.filter(r => r.status === 'G');
+  const failedCocu = cocuRows.filter(r => r.status === 'G');
+  let academicDecision = 'PASS';
+  let academicDecisionClass = 'pass';
+  if (pngk < 2.00 && cgpaData.semesterGPA.length > 1) {
+    academicDecision = 'PROBATION';
+    academicDecisionClass = 'probation';
+  }
+  if (failedSubjects.length > 0 || failedCocu.length > 0) {
+    if (pngk < 2.00) {
+      academicDecision = 'FAIL';
+      academicDecisionClass = 'fail';
+    } else {
+      academicDecision = 'PASS (ULANG)';
+      academicDecisionClass = 'pass';
+    }
+  }
+  if (academicRows.length === 0 && cocuRows.length === 0) {
+    academicDecision = 'TIADA DATA';
+    academicDecisionClass = 'pass';
+  }
+
+  const semNum = parseInt(semester.name.replace(/\D/g, '')) || 0;
+  const slipNumber = `SLP${String(semNum).padStart(2, '0')}-${studentId.slice(-3)}-${Date.now().toString().slice(-6)}`;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' });
 
   let html = `
-    <div class="result-slip" id="resultSlip">
-      <div class="slip-header">
-        <div class="slip-header-left">
-          <img src="https://www.jtm.gov.my/2015v3/images/stories/logo_JTM2014.png" alt="JTM" class="slip-logo">
+    <div class="official-slip" id="resultSlip">
+      <div class="slip-border">
+        <div class="slip-header-official">
+          <div class="slip-header-left">
+            <img src="https://www.jtm.gov.my/2015v3/images/stories/logo_JTM2014.png" alt="JTM" class="slip-logo-official">
+          </div>
+          <div class="slip-header-center">
+            <div class="slip-inst-name">KEMENTERIAN KESIHATAN MALAYSIA</div>
+            <div class="slip-inst-name-bold">Jabatan Teknologi Maklumat</div>
+            <div class="slip-inst-sub">ADTEC JTM KAMPUS KUALA LANGAT</div>
+            <h2 class="slip-title">SLIP KEPUTUSAN PEPERIKSAAN</h2>
+            <div class="slip-session">${esc(semester.name)} SESION ${now.getFullYear()}/${now.getFullYear() + 1}</div>
+          </div>
+          <div class="slip-header-right">
+            <div class="slip-no-label">No. Slip</div>
+            <div class="slip-no-value">${slipNumber}</div>
+          </div>
         </div>
-        <div class="slip-header-center">
-          <h2>SLIP KEPUTUSAN PEPERIKSAAN</h2>
-          <p class="slip-school">ADTEC-JTM KAMPUS KUALA LANGAT</p>
-          <p class="slip-dept">BENGKEL TEKNOLOGI KOMPUTER RANGKAIAN</p>
+
+        <div class="slip-student-info">
+          <div class="info-col">
+            <table class="info-table-official">
+              <tr><td class="info-label-off">Nama Pelajar</td><td class="info-sep">:</td><td>${esc(student.name)}</td></tr>
+              <tr><td class="info-label-off">No. Pelajar</td><td class="info-sep">:</td><td>${esc(student.kod || '-')}</td></tr>
+              <tr><td class="info-label-off">No. IC / Passport</td><td class="info-sep">:</td><td>-</td></tr>
+            </table>
+          </div>
+          <div class="info-col">
+            <table class="info-table-official">
+              <tr><td class="info-label-off">Programme</td><td class="info-sep">:</td><td>Teknologi Komputer Rangkaian</td></tr>
+              <tr><td class="info-label-off">Semester</td><td class="info-sep">:</td><td>${esc(semester.name)}</td></tr>
+              <tr><td class="info-label-off">Sesi Akademik</td><td class="info-sep">:</td><td>${now.getFullYear()}/${now.getFullYear() + 1}</td></tr>
+            </table>
+          </div>
         </div>
-        <div class="slip-header-right"></div>
-      </div>
-      <div class="slip-info">
-        <table class="info-table">
-          <tr><td class="info-label">Nama Pelajar</td><td>: ${esc(student.name)}</td></tr>
-          <tr><td class="info-label">Kod Pelajar</td><td>: ${esc(student.kod || '-')}</td></tr>
-          <tr><td class="info-label">Semester</td><td>: ${esc(semester.name)}</td></tr>
-          <tr><td class="info-label">Penyelia</td><td>: ${esc(semester.penyelia || '-')}</td></tr>
-        </table>
-      </div>
-      <table class="slip-table">
-        <thead>
-          <tr><th>Bil</th><th>Mata Pelajaran</th><th>K</th><th class="no-print">Markah</th><th>Gred</th><th>Gred Pointer</th><th>Keputusan</th><th>Jumlah</th></tr>
-        </thead>
-        <tbody>
-          ${subjectRows.map((r, i) => `
-            <tr>
-              <td>${i + 1}</td>
-              <td>${r.name}</td>
-              <td>${r.credit}</td>
-              <td class="slip-score no-print">${r.score}</td>
-              <td><span class="slip-grade ${r.badgeClass}">${r.grade}</span></td>
-              <td>${r.gradePoints.toFixed(2)}</td>
-              <td style="font-weight:700;color:#000">${r.status}</td>
-              <td>${r.point.toFixed(2)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-      <div class="slip-summary">
-        <div class="summary-item">
-          <span class="summary-label">Jumlah Kredit</span>
-          <span class="summary-value">${totalCredit}</span>
-        </div>
-        <div class="summary-item">
-          <span class="summary-label">Jumlah Mata Nilai</span>
-          <span class="summary-value">${totalPoint.toFixed(2)}</span>
-        </div>
-        <div class="summary-item summary-highlight">
-          <span class="summary-label">GPA</span>
-          <span class="summary-value">${gpa.toFixed(2)}</span>
-        </div>
-        <div class="summary-item no-print">
-          <span class="summary-label">Purata Markah</span>
-          <span class="summary-value">${avg.toFixed(1)}</span>
-        </div>
-      </div>
-      ${cgpaData.semesterGPA.length > 0 ? `
-      <div class="cgpa-section">
-        <h3 style="font-size:0.95rem;color:#1a1a2e;margin-bottom:0.75rem;border-bottom:1px solid #e5e7eb;padding-bottom:0.5rem;">Rekod GPA & CGPA</h3>
-        <table class="slip-table" style="font-size:0.85rem;">
+
+        <table class="slip-result-table">
           <thead>
-            <tr><th>Semester</th><th>Kredit</th><th>Mata Nilai</th><th>GPA</th><th>CGPA</th></tr>
+            <tr>
+              <th style="width:40px;">Bil</th>
+              <th style="width:80px;">Kod</th>
+              <th>Nama Mata Pelajaran</th>
+              <th style="width:45px;">K</th>
+              <th style="width:50px;">Gred</th>
+              <th style="width:55px;">GP</th>
+              <th style="width:65px;">Status</th>
+            </tr>
           </thead>
           <tbody>
-            ${(() => {
-              let rows = '';
-              let cumCredits = 0;
-              let cumPoints = 0;
-              cgpaData.semesterGPA.forEach(sg => {
-                cumCredits += sg.credits;
-                cumPoints += sg.points;
-                const cumGPA = cumCredits > 0 ? cumPoints / cumCredits : 0;
-                const isCurrent = sg.semester === semester.name;
-                rows += `<tr style="${isCurrent ? 'background:#dbeafe;font-weight:600;' : ''}">
-                  <td>${esc(sg.semester)}${isCurrent ? ' (Semasa)' : ''}</td>
-                  <td>${sg.credits}</td>
-                  <td>${sg.points.toFixed(2)}</td>
-                  <td>${sg.gpa.toFixed(2)}</td>
-                  <td style="font-weight:700;color:#0f3460;">${cumGPA.toFixed(2)}</td>
-                </tr>`;
-              });
-              return rows;
-            })()}
+            ${academicRows.map((r, i) => `
+              <tr>
+                <td class="center">${i + 1}</td>
+                <td class="center">${r.code}</td>
+                <td class="left">${esc(r.name)}</td>
+                <td class="center">${r.credit}</td>
+                <td class="center grade-cell">${r.grade}</td>
+                <td class="center">${r.gradePoints.toFixed(2)}</td>
+                <td class="center status-cell ${r.status === 'L' ? 'status-pass' : 'status-fail'}">${r.status}</td>
+              </tr>
+            `).join('')}
+            ${cocuRows.length > 0 ? `
+              <tr class="cocu-row"><td colspan="7" class="cocu-divider">Ko-Kurikulum</td></tr>
+              ${cocuRows.map((r, i) => `
+                <tr>
+                  <td class="center">${academicRows.length + i + 1}</td>
+                  <td class="center">${r.code}</td>
+                  <td class="left">${esc(r.name)}</td>
+                  <td class="center">-</td>
+                  <td class="center">-</td>
+                  <td class="center">-</td>
+                  <td class="center status-cell ${r.status === 'L' ? 'status-pass' : 'status-fail'}">${r.status}</td>
+                </tr>
+              `).join('')}
+            ` : ''}
           </tbody>
         </table>
-        <div class="slip-summary" style="margin-top:1rem;">
-          <div class="summary-item" style="background:#f0f2f5;">
-            <span class="summary-label">Jumlah Kredit Kumulatif</span>
-            <span class="summary-value">${cgpaData.totalCredits}</span>
+
+        <div class="slip-summary-official">
+          <div class="summary-block">
+            <div class="summary-block-title">SEMESTER</div>
+            <div class="summary-row"><span>Jumlah Kredit Didaftar</span><span class="summary-val">${totalCredit}</span></div>
+            <div class="summary-row"><span>Jumlah Kredit Diluluskan</span><span class="summary-val">${totalCredit}</span></div>
+            <div class="summary-row"><span>Jumlah Mata Nilai</span><span class="summary-val">${totalPoint.toFixed(2)}</span></div>
+            <div class="summary-row pngs-row"><span>PNGS</span><span class="summary-val-bold">${pngs.toFixed(2)}</span></div>
           </div>
-          <div class="summary-item summary-highlight">
-            <span class="summary-label">CGPA</span>
-            <span class="summary-value">${cgpaData.cgpa.toFixed(2)}</span>
+          <div class="summary-block">
+            <div class="summary-block-title">KESELURUHAN</div>
+            <div class="summary-row"><span>Jumlah Kredit Kumulatif</span><span class="summary-val">${cumCredits}</span></div>
+            <div class="summary-row"><span>Jumlah Mata Nilai Kumulatif</span><span class="summary-val">${cumPoints.toFixed(2)}</span></div>
+            <div class="summary-row pngk-row"><span>PNGK</span><span class="summary-val-bold">${pngk.toFixed(2)}</span></div>
           </div>
         </div>
-      </div>
-      ` : ''}
-      ${markRecord.remarks ? `<div class="slip-remarks"><strong style="color:#0f3460;">Ulasan Penyelia:</strong><br>${esc(markRecord.remarks)}</div>` : ''}
-      <div class="slip-footer">
-        <p>Tarikh Cetak: ${new Date().toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-        <p style="font-size:0.78rem;color:#9ca3af;font-style:italic;margin-top:0.35rem;">Ini adalah janaan komputer. Tandatangan tidak diperlukan.</p>
-        <button class="btn btn-primary" onclick="printSlip()">🖨️ Cetak Slip</button>
+
+        <div class="slip-decision">
+          <div class="decision-label">KEPUTUSAN:</div>
+          <div class="decision-value ${academicDecisionClass}">${academicDecision}</div>
+        </div>
+
+        <div class="slip-signature">
+          <div class="sig-block">
+            <div class="sig-title">Disahkan Oleh</div>
+            <div class="sig-placeholder">
+              <svg viewBox="0 0 200 40" class="sig-svg">
+                <path d="M10,30 Q30,10 50,25 T90,20 Q110,15 130,25 T170,18" stroke="#000" fill="none" stroke-width="1.5"/>
+              </svg>
+            </div>
+            <div class="sig-line"></div>
+            <div class="sig-name">Ketua Jabatan</div>
+            <div class="sig-inst">ADTEC JTM Kampus Kuala Langat</div>
+          </div>
+          <div class="sig-block">
+            <div class="sig-date">Tarikh Dihasilkan: ${dateStr}</div>
+            <div class="sig-note">Dokumen ini dijana secara automatik oleh Sistem TDMS</div>
+          </div>
+        </div>
+
+        <div class="slip-print-btn no-print">
+          <button class="btn btn-primary" onclick="printSlip()">Cetak Slip</button>
+        </div>
       </div>
     </div>
   `;
@@ -3856,59 +3736,77 @@ function generateSlip() {
 
 window.printSlip = function () {
   const printContents = document.getElementById('resultSlip').cloneNode(true);
-  const printBtn = printContents.querySelector('.slip-footer .btn');
+  const printBtn = printContents.querySelector('.slip-print-btn');
   if (printBtn) printBtn.remove();
   const win = window.open('', '_blank');
   win.document.write(`
-    <html><head><title>Slip Keputusan</title>
+    <html><head><title>Slip Keputusan Peperiksaan</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Segoe UI', Arial, sans-serif; padding: 30px; color: #1a1a2e; max-width: 210mm; margin: 0 auto; }
+      body { font-family: 'Segoe UI', Arial, sans-serif; color: #000; max-width: 210mm; margin: 0 auto; background: white; }
       .no-print { display: none !important; }
-      .result-slip { border: 2px solid #1a1a2e; padding: 25px; }
-      .slip-header { display: flex; align-items: center; border-bottom: 3px double #1a1a2e; padding-bottom: 15px; margin-bottom: 20px; }
-      .slip-header-left { flex: 0 0 80px; }
-      .slip-logo { height: 60px; }
+      .slip-border { border: 2px solid #000; padding: 20px; }
+      .slip-header-official { display: flex; align-items: flex-start; gap: 15px; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 15px; }
+      .slip-header-left { flex: 0 0 70px; }
+      .slip-logo-official { height: 55px; }
       .slip-header-center { flex: 1; text-align: center; }
-      .slip-header-center h2 { font-size: 18px; font-weight: 800; letter-spacing: 2px; color: #1a1a2e; margin: 0; }
-      .slip-school { font-size: 12px; color: #6b7280; margin: 4px 0 0; }
-      .slip-dept { font-size: 11px; color: #0f3460; font-weight: 600; margin: 2px 0 0; }
-      .slip-header-right { flex: 0 0 80px; }
-      .slip-info { margin-bottom: 20px; }
-      .info-table { border: none; width: auto; }
-      .info-table td { border: none; padding: 4px 12px 4px 0; font-size: 13px; }
-      .info-label { font-weight: 700; color: #374151; white-space: nowrap; }
-      .slip-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
-      .slip-table th { background: #1a1a2e; color: white; padding: 8px 6px; font-size: 11px; font-weight: 600; text-align: center; border: 1px solid #1a1a2e; }
-      .slip-table td { padding: 6px; border: 1px solid #d1d5db; text-align: center; font-size: 12px; }
-      .slip-table td:nth-child(2) { text-align: left; }
-      .slip-grade { font-weight: 700; padding: 2px 8px; border-radius: 3px; display: inline-block; }
-      .badge-aplus, .badge-a, .badge-aminus { background: #d4edda; color: #155724; }
-      .badge-bplus, .badge-b, .badge-bminus { background: #cce5ff; color: #004085; }
-      .badge-cplus, .badge-c, .badge-cminus { background: #fff3cd; color: #856404; }
-      .badge-dplus, .badge-d { background: #ffe5cc; color: #843800; }
-      .badge-e { background: #f8d7da; color: #721c24; }
-      .badge-f { background: #f5c6cb; color: #491217; }
-      .slip-summary { display: flex; gap: 15px; justify-content: flex-end; margin-bottom: 20px; flex-wrap: wrap; }
-      .summary-item { padding: 10px 18px; background: #f0f2f5; border-radius: 6px; text-align: center; min-width: 110px; border: 1px solid #e5e7eb; }
-      .summary-highlight { background: #1a1a2e; border-color: #1a1a2e; }
-      .summary-highlight .summary-label { color: rgba(255,255,255,0.7); }
-      .summary-highlight .summary-value { color: white; }
-      .summary-label { display: block; font-size: 10px; color: #6b7280; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-      .summary-value { font-size: 18px; font-weight: 700; color: #1a1a2e; }
-      .cgpa-section { margin-bottom: 20px; padding: 15px; background: #f9fafb; border-radius: 6px; }
-      .cgpa-section h3 { font-size: 14px; color: #1a1a2e; margin-bottom: 10px; }
-      .slip-remarks { margin-bottom: 20px; padding: 12px 15px; background: #f9fafb; border-radius: 6px; border-left: 4px solid #0f3460; font-size: 12px; line-height: 1.6; }
-      .slip-footer { text-align: center; padding-top: 15px; border-top: 1px solid #e5e7eb; }
-      .slip-footer p { font-size: 11px; color: #9ca3af; }
-      @page { size: A4; margin: 15mm; }
+      .slip-inst-name { font-size: 10px; color: #333; letter-spacing: 1px; margin-bottom: 1px; }
+      .slip-inst-name-bold { font-size: 12px; font-weight: 700; color: #000; letter-spacing: 0.5px; }
+      .slip-inst-sub { font-size: 10px; color: #555; margin-bottom: 6px; }
+      .slip-title { font-size: 16px; font-weight: 800; letter-spacing: 3px; color: #000; margin: 4px 0; text-transform: uppercase; }
+      .slip-session { font-size: 11px; font-weight: 600; color: #333; }
+      .slip-header-right { flex: 0 0 90px; text-align: right; }
+      .slip-no-label { font-size: 9px; color: #666; }
+      .slip-no-value { font-size: 10px; font-weight: 700; color: #000; }
+      .slip-student-info { display: flex; gap: 20px; margin-bottom: 15px; }
+      .info-col { flex: 1; }
+      .info-table-official { width: 100%; border-collapse: collapse; }
+      .info-table-official td { padding: 2px 4px; font-size: 11px; border: none; vertical-align: top; }
+      .info-label-off { font-weight: 700; color: #000; white-space: nowrap; width: 120px; }
+      .info-sep { width: 10px; text-align: center; }
+      .slip-result-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; border: 1px solid #000; font-size: 11px; }
+      .slip-result-table th { background: #000; color: white; padding: 5px 4px; font-size: 10px; font-weight: 600; text-align: center; border: 1px solid #000; }
+      .slip-result-table td { padding: 4px; border: 1px solid #ccc; font-size: 11px; }
+      .slip-result-table td.center { text-align: center; }
+      .slip-result-table td.left { text-align: left; }
+      .slip-result-table .grade-cell { font-weight: 700; }
+      .slip-result-table .status-cell { font-weight: 700; }
+      .slip-result-table .status-pass { color: #000; }
+      .slip-result-table .status-fail { color: #c00; text-decoration: underline; }
+      .slip-result-table .cocu-divider { background: #f0f0f0; font-weight: 700; font-size: 10px; text-align: left; padding: 3px 6px; border: 1px solid #ccc; }
+      .slip-summary-official { display: flex; gap: 20px; margin-bottom: 15px; }
+      .summary-block { flex: 1; border: 1px solid #000; padding: 10px; }
+      .summary-block-title { font-size: 11px; font-weight: 800; text-align: center; margin-bottom: 8px; letter-spacing: 1px; border-bottom: 1px solid #000; padding-bottom: 4px; }
+      .summary-row { display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; }
+      .summary-row span:first-child { color: #333; }
+      .summary-val { font-weight: 600; }
+      .summary-val-bold { font-weight: 800; font-size: 13px; border-top: 1px solid #000; padding-top: 3px; margin-top: 3px; }
+      .pngs-row, .pngk-row { margin-top: 5px; padding-top: 5px; border-top: 1px solid #999; }
+      .slip-decision { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 8px 12px; border: 2px solid #000; }
+      .decision-label { font-size: 12px; font-weight: 800; letter-spacing: 1px; }
+      .decision-value { font-size: 14px; font-weight: 800; letter-spacing: 1px; }
+      .decision-value.pass { color: #000; }
+      .decision-value.probation { color: #b45309; }
+      .decision-value.fail { color: #c00; }
+      .slip-signature { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; padding-top: 15px; border-top: 1px solid #ccc; }
+      .sig-block { text-align: center; }
+      .sig-title { font-size: 10px; font-weight: 600; margin-bottom: 5px; }
+      .sig-placeholder { height: 35px; margin-bottom: 2px; }
+      .sig-svg { height: 35px; width: 120px; }
+      .sig-line { width: 150px; border-bottom: 1px solid #000; margin: 0 auto 4px; }
+      .sig-name { font-size: 10px; font-weight: 700; }
+      .sig-inst { font-size: 9px; color: #555; }
+      .sig-date { font-size: 10px; margin-bottom: 4px; }
+      .sig-note { font-size: 9px; color: #666; font-style: italic; }
+      @page { size: A4; margin: 12mm; }
+      @media print { body { padding: 0; } }
     </style>
     </head><body>
   `);
   win.document.write(printContents.innerHTML);
   win.document.write('</body></html>');
   win.document.close();
-  win.print();
+  setTimeout(() => { win.print(); }, 300);
 };
 
 document.getElementById('resultStudentSelect').addEventListener('change', generateSlip);
@@ -4156,9 +4054,14 @@ function renderTimetable() {
 
   if (currentRole === 'student') {
     const student = data.students.find(s => s.id === currentUser.id);
-    if (!student) { grid.innerHTML = ''; return; }
-    const sem = data.semesters.find(s => s.name === student.class);
-    renderTimetableView(grid, sem ? sem.id : null, true);
+    if (!student) { grid.innerHTML = '<p class="empty-state">Pelajar tidak dijumpai</p>'; toolbar.style.display = 'none'; return; }
+    const sem = findStudentSemester(student);
+    if (!sem) {
+      grid.innerHTML = '<p class="empty-state">Tiada jadual waktu untuk semester pelajar ini. Sila pastikan kelas pelajar sepadan dengan nama semester.</p>';
+      toolbar.style.display = 'none';
+      return;
+    }
+    renderTimetableView(grid, sem.id, true);
     toolbar.style.display = 'none';
     return;
   }
@@ -6753,7 +6656,7 @@ function renderStudentResultsDashboard() {
     
     if (filter === 'current') {
       // Show current semester only
-      const currentSem = data.semesters.find(s => s.name === student.class);
+      const currentSem = findStudentSemester(student);
       if (currentSem) semestersToShow.push(currentSem);
     } else if (filter === 'all') {
       // Show all semesters
@@ -12403,10 +12306,14 @@ function renderMessages() {
   } else if (currentRole === 'teacher') {
     userSubjects = subjects.filter(s => s.pengajar === currentUser.name);
   } else if (currentRole === 'student') {
-    // Find student and get their enrolled subjects
     const student = students.find(s => s.id === currentUser.id || s.name === currentUser.name);
-    if (student && student.subjects) {
-      userSubjects = subjects.filter(s => student.subjects.includes(s.id));
+    if (student) {
+      const sem = findStudentSemester(student);
+      if (sem) {
+        userSubjects = subjects.filter(s => s.semester === sem.id);
+      } else if (student.subjects && student.subjects.length > 0) {
+        userSubjects = subjects.filter(s => student.subjects.includes(s.id));
+      }
     }
   }
   
@@ -12735,8 +12642,13 @@ function renderAssignments() {
     userSubjects = subjects.filter(s => s.pengajar === currentUser.name);
   } else if (currentRole === 'student') {
     const student = students.find(s => s.id === currentUser.id || s.name === currentUser.name);
-    if (student && student.subjects) {
-      userSubjects = subjects.filter(s => student.subjects.includes(s.id));
+    if (student) {
+      const sem = findStudentSemester(student);
+      if (sem) {
+        userSubjects = subjects.filter(s => s.semester === sem.id);
+      } else if (student.subjects && student.subjects.length > 0) {
+        userSubjects = subjects.filter(s => student.subjects.includes(s.id));
+      }
     }
   }
   

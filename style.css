@@ -821,16 +821,333 @@ tr:hover td {
   border: 1px solid #e5e7eb;
 }
 
+.official-slip {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.slip-border {
+  border: 2px solid #000;
+  padding: 20px;
+  background: white;
+}
+
+.slip-header-official {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  border-bottom: 2px solid #000;
+  padding-bottom: 12px;
+  margin-bottom: 15px;
+}
+
+.slip-header-left {
+  flex: 0 0 70px;
+}
+
+.slip-logo-official {
+  height: 55px;
+}
+
+.slip-header-center {
+  flex: 1;
+  text-align: center;
+}
+
+.slip-inst-name {
+  font-size: 10px;
+  color: #333;
+  letter-spacing: 1px;
+  margin-bottom: 1px;
+}
+
+.slip-inst-name-bold {
+  font-size: 12px;
+  font-weight: 700;
+  color: #000;
+  letter-spacing: 0.5px;
+}
+
+.slip-inst-sub {
+  font-size: 10px;
+  color: #555;
+  margin-bottom: 6px;
+}
+
+.slip-title {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: #000;
+  margin: 4px 0;
+  text-transform: uppercase;
+}
+
+.slip-session {
+  font-size: 11px;
+  font-weight: 600;
+  color: #333;
+}
+
+.slip-header-right {
+  flex: 0 0 90px;
+  text-align: right;
+}
+
+.slip-no-label {
+  font-size: 9px;
+  color: #666;
+}
+
+.slip-no-value {
+  font-size: 10px;
+  font-weight: 700;
+  color: #000;
+}
+
+.slip-student-info {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 15px;
+}
+
+.info-col {
+  flex: 1;
+}
+
+.info-table-official {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.info-table-official td {
+  padding: 2px 4px;
+  font-size: 11px;
+  border: none;
+  vertical-align: top;
+}
+
+.info-label-off {
+  font-weight: 700;
+  color: #000;
+  white-space: nowrap;
+  width: 120px;
+}
+
+.info-sep {
+  width: 10px;
+  text-align: center;
+}
+
+.slip-result-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 15px;
+  border: 1px solid #000;
+  font-size: 11px;
+}
+
+.slip-result-table th {
+  background: #000;
+  color: white;
+  padding: 5px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid #000;
+}
+
+.slip-result-table td {
+  padding: 4px;
+  border: 1px solid #ccc;
+  font-size: 11px;
+}
+
+.slip-result-table td.center {
+  text-align: center;
+}
+
+.slip-result-table td.left {
+  text-align: left;
+}
+
+.slip-result-table .grade-cell {
+  font-weight: 700;
+}
+
+.slip-result-table .status-cell {
+  font-weight: 700;
+}
+
+.slip-result-table .status-pass {
+  color: #000;
+}
+
+.slip-result-table .status-fail {
+  color: #c00;
+  text-decoration: underline;
+}
+
+.slip-result-table .cocu-divider {
+  background: #f0f0f0;
+  font-weight: 700;
+  font-size: 10px;
+  text-align: left;
+  padding: 3px 6px;
+  border: 1px solid #ccc;
+}
+
+.slip-summary-official {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 15px;
+}
+
+.summary-block {
+  flex: 1;
+  border: 1px solid #000;
+  padding: 10px;
+}
+
+.summary-block-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+  border-bottom: 1px solid #000;
+  padding-bottom: 4px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  padding: 2px 0;
+}
+
+.summary-row span:first-child {
+  color: #333;
+}
+
+.summary-val {
+  font-weight: 600;
+}
+
+.summary-val-bold {
+  font-weight: 800;
+  font-size: 13px;
+  border-top: 1px solid #000;
+  padding-top: 3px;
+  margin-top: 3px;
+}
+
+.pngs-row, .pngk-row {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid #999;
+}
+
+.slip-decision {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 8px 12px;
+  border: 2px solid #000;
+}
+
+.decision-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.decision-value {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.decision-value.pass {
+  color: #000;
+}
+
+.decision-value.probation {
+  color: #b45309;
+}
+
+.decision-value.fail {
+  color: #c00;
+}
+
+.slip-signature {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #ccc;
+}
+
+.sig-block {
+  text-align: center;
+}
+
+.sig-title {
+  font-size: 10px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.sig-placeholder {
+  height: 35px;
+  margin-bottom: 2px;
+}
+
+.sig-svg {
+  height: 35px;
+  width: 120px;
+}
+
+.sig-line {
+  width: 150px;
+  border-bottom: 1px solid #000;
+  margin: 0 auto 4px;
+}
+
+.sig-name {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.sig-inst {
+  font-size: 9px;
+  color: #555;
+}
+
+.sig-date {
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.sig-note {
+  font-size: 9px;
+  color: #666;
+  font-style: italic;
+}
+
+.slip-print-btn {
+  text-align: center;
+  margin-top: 15px;
+}
+
 .slip-header {
   display: flex;
   align-items: center;
   margin-bottom: 1.5rem;
   border-bottom: 3px double #1a1a2e;
   padding-bottom: 1rem;
-}
-
-.slip-header-left {
-  flex: 0 0 80px;
 }
 
 .slip-logo {
