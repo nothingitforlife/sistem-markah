@@ -1134,48 +1134,12 @@ async function loadFromFirebase() {
         return;
       }
       
-      // Load students - merge to preserve all students
+      // Load directly from Firebase - NO merging with defaults
       if (remote.students && remote.students.length > 0) {
-        const mergedStudents = [...remote.students];
-        const defaultStudents = [...data.students];
-        
-        // Update track from default students (for graduated status)
-        mergedStudents.forEach(remoteStudent => {
-          const defaultMatch = defaultStudents.find(d => d.kod === remoteStudent.kod);
-          if (defaultMatch && defaultMatch.track === 'graduated') {
-            remoteStudent.track = 'graduated';
-          }
-        });
-        
-        // Add default students not in remote (by kod)
-        defaultStudents.forEach(defaultStudent => {
-          const exists = mergedStudents.find(m => m.kod === defaultStudent.kod);
-          if (!exists) {
-            mergedStudents.push(defaultStudent);
-          }
-        });
-        
-        // Fix semester names in student class field
-        const semesterNameMap = {
-          'Semester 3 Latihan Industri': 'Semester 3 (Latihan Industri)',
-          'Semester 3 Latihan Industri': 'Semester 3 (Latihan Industri)'
-        };
-        
-        mergedStudents.forEach(student => {
-          // Fix class name
-          if (semesterNameMap[student.class]) {
-            student.class = semesterNameMap[student.class];
-          }
-          // Also check for partial match
-          if (student.class && student.class.includes('Latihan Industri') && !student.class.includes('(')) {
-            student.class = 'Semester 3 (Latihan Industri)';
-          }
-        });
-        
-        data.students = mergedStudents;
+        data.students = remote.students;
       }
       
-      // Load marks, timetable, memos
+      // Load marks, timetable, memos and all other data
       data.marks = remote.marks || [];
       data.timetable = remote.timetable || [];
       data.memos = remote.memos || [];
@@ -1194,108 +1158,19 @@ async function loadFromFirebase() {
         localStorage.setItem('cm_fyp_backup', JSON.stringify({ fyp: data.fyp, carrymark: data.carrymark }));
       } catch(e) { console.warn('localStorage backup failed:', e); }
       
-      // Load teachers - merge to preserve grade
+      // Load teachers directly from Firebase
       if (remote.teachers && remote.teachers.length > 0) {
-        // Check if remote teachers have grade
-        const hasGrade = remote.teachers.some(t => t.grade);
-        
-        if (hasGrade) {
-          // Remote has grade, use remote
-          data.teachers = remote.teachers;
-        } else {
-          // Remote doesn't have grade, merge with default
-          const mergedTeachers = [];
-          const defaultTeachers = [...data.teachers];
-          
-          remote.teachers.forEach(remoteTeacher => {
-            const defaultMatch = defaultTeachers.find(d => d.name === remoteTeacher.name);
-            
-            if (defaultMatch) {
-              // Use default (has grade) but update other fields from remote
-              mergedTeachers.push({
-                ...defaultMatch,
-                phone: remoteTeacher.phone || defaultMatch.phone || '',
-                email: remoteTeacher.email || defaultMatch.email || '',
-                position: remoteTeacher.position || defaultMatch.position || ''
-              });
-            } else {
-              // New teacher from remote, keep as is
-              mergedTeachers.push(remoteTeacher);
-            }
-          });
-          
-          // Add any default teachers not in remote
-          defaultTeachers.forEach(defaultTeacher => {
-            const exists = mergedTeachers.find(m => m.name === defaultTeacher.name);
-            if (!exists) {
-              mergedTeachers.push(defaultTeacher);
-            }
-          });
-          
-          data.teachers = mergedTeachers;
-        }
+        data.teachers = remote.teachers;
       }
       
-      // Load semesters - use remote if exists, otherwise keep default
+      // Load semesters directly from Firebase
       if (remote.semesters && remote.semesters.length > 0) {
         data.semesters = remote.semesters;
-        
-        // Fix semester names
-        const semesterNameMap = {
-          'Semester 3 Latihan Industri': 'Semester 3 (Latihan Industri)'
-        };
-        
-        data.semesters.forEach(sem => {
-          if (semesterNameMap[sem.name]) {
-            sem.name = semesterNameMap[sem.name];
-          }
-        });
       }
       
-      // Load subjects - merge to preserve codes
+      // Load subjects directly from Firebase
       if (remote.subjects && remote.subjects.length > 0) {
-        // Check if remote subjects have codes
-        const hasCodes = remote.subjects.some(s => s.code);
-        
-        if (hasCodes) {
-          // Remote has codes, use remote
-          data.subjects = remote.subjects;
-        } else {
-          // Remote doesn't have codes, merge with default
-          // Match by name and semester to preserve codes
-          const mergedSubjects = [];
-          const defaultSubjects = [...data.subjects];
-          
-          remote.subjects.forEach(remoteSubj => {
-            const defaultMatch = defaultSubjects.find(d => 
-              d.name === remoteSubj.name && d.semester === remoteSubj.semester
-            );
-            
-            if (defaultMatch) {
-              // Use default (has code) but update other fields from remote
-              mergedSubjects.push({
-                ...defaultMatch,
-                pengajar: remoteSubj.pengajar || defaultMatch.pengajar || '',
-                credit: remoteSubj.credit || defaultMatch.credit
-              });
-            } else {
-              // New subject from remote, keep as is
-              mergedSubjects.push(remoteSubj);
-            }
-          });
-          
-          // Add any default subjects not in remote
-          defaultSubjects.forEach(defaultSubj => {
-            const exists = mergedSubjects.find(m => 
-              m.name === defaultSubj.name && m.semester === defaultSubj.semester
-            );
-            if (!exists) {
-              mergedSubjects.push(defaultSubj);
-            }
-          });
-          
-          data.subjects = mergedSubjects;
-        }
+        data.subjects = remote.subjects;
       }
       
     } else {
@@ -1338,8 +1213,11 @@ async function loadFromFirebase() {
           data.fyp = backup.fyp;
         }
       }
-    } catch(e) { console.warn('localStorage cm_fyp_backup restore failed:', e); }
-  }
+  } catch(e) { console.warn('localStorage cm_fyp_backup restore failed:', e); }
+  
+  // Set snapshot so autoSync doesn't overwrite Firebase with same data
+  lastDataSnapshot = JSON.stringify(data);
+}
 }
 
 async function saveData() {
