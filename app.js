@@ -1163,49 +1163,19 @@ async function loadFromFirebase() {
     console.error('❌ Firebase load error:', e);
   }
 
-  // STEP 3: Compare Firebase vs localStorage, pick the BETTER data
+  // STEP 3: Firebase is ALWAYS source of truth (user confirmed data exists there)
+  // Only use localStorage if Firebase has NO data at all
   const fb = remote || {};
-  const lb = (localBackup && localBackup.data) ? localBackup.data : {};
-  
   const fbStudents = (fb.students || []).length;
-  const lbStudents = (lb.students || []).length;
   const fbMarks = (fb.marks || []).length;
-  const lbMarks = (lb.marks || []).length;
-  const fbTeachers = (fb.teachers || []).length;
-  const lbTeachers = (lb.teachers || []).length;
   
-  console.log('📊 Comparison - Firebase: ' + fbStudents + ' students, ' + fbMarks + ' marks | localStorage: ' + lbStudents + ' students, ' + lbMarks + ' marks');
+  console.log('📊 Firebase: ' + fbStudents + ' students, ' + fbMarks + ' marks');
   
-  // Prefer the source with MORE data (students + marks combined)
-  const fbScore = fbStudents + fbMarks + fbTeachers;
-  const lbScore = lbStudents + lbMarks + lbTeachers;
-  
-  let useFirebase = false;
-  
-  if (!firebaseExists && lbScore > 0) {
-    // Firebase empty, use localStorage
-    console.log('📦 Firebase empty, restoring from localStorage');
-    useFirebase = false;
-  } else if (lbScore === 0 && fbScore > 0) {
-    // localStorage empty, use Firebase
-    console.log('🔥 localStorage empty, using Firebase');
-    useFirebase = true;
-  } else if (lbScore > fbScore) {
-    // localStorage has more data, prefer it
-    console.log('📦 localStorage has MORE data, preferring localStorage backup');
-    useFirebase = false;
-  } else {
-    // Firebase has more or equal data
-    console.log('🔥 Firebase has more or equal data, using Firebase');
-    useFirebase = true;
-  }
-  
-  // STEP 4: Load the winning data
-  if (useFirebase && remote) {
-    // Load from Firebase
-    if (remote.students && remote.students.length > 0) {
-      data.students = remote.students;
-    }
+  if (firebaseExists && fbStudents > 0) {
+    // Firebase has data - ALWAYS use Firebase
+    console.log('🔥 Firebase has data, loading from Firebase...');
+    
+    data.students = remote.students || [];
     data.marks = remote.marks || [];
     data.timetable = remote.timetable || [];
     data.memos = remote.memos || [];
@@ -1218,27 +1188,21 @@ async function loadFromFirebase() {
     data.calculatedResults = remote.calculatedResults || [];
     data.resultAuditLog = remote.resultAuditLog || [];
     data.merit = remote.merit || [];
-    if (remote.teachers && remote.teachers.length > 0) {
-      data.teachers = remote.teachers;
-    }
-    if (remote.semesters && remote.semesters.length > 0) {
-      data.semesters = remote.semesters;
-    }
-    if (remote.subjects && remote.subjects.length > 0) {
-      data.subjects = remote.subjects;
-    }
-  } else if (lbScore > 0) {
-    // Load from localStorage backup
-    console.log('📦 Restoring ALL data from localStorage backup...');
-    restoreFromBackup(lb);
+    data.teachers = remote.teachers || [];
+    data.semesters = remote.semesters || [];
+    data.subjects = remote.subjects || [];
     
-    // Force save restored data back to Firebase
+  } else if (localBackup && localBackup.data) {
+    // Firebase empty - use localStorage
+    console.log('📦 Firebase empty, restoring from localStorage backup...');
+    restoreFromBackup(localBackup.data);
+    
     setTimeout(() => {
       console.log('📤 Saving restored data back to Firebase...');
       autoSyncToFirebase();
     }, 500);
   } else {
-    console.log('ℹ️ No good data source found, using defaults');
+    console.log('⚠️ No data source found, using defaults');
   }
   
   // STEP 5: Save backup to localStorage
