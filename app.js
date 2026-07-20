@@ -905,7 +905,14 @@ let data = {
       { grade: 'E', min: 0, max: 34, ptr: 0.00 }
     ],
     auditLog: []
-  }
+  },
+  assignments: [],
+  assignmentSubmissions: [],
+  messages: [],
+  examSchedule: [],
+  calculatedResults: [],
+  resultAuditLog: [],
+  merit: []
 };
 
 // Clear all data from Firebase and localStorage
@@ -988,7 +995,8 @@ function optimizeData(data) {
       name: s.name,
       kod: s.kod || '',
       class: s.class || '',
-      subjects: s.subjects || []
+      subjects: s.subjects || [],
+      track: s.track || ''
     })),
     subjects: data.subjects.map(s => ({
       id: s.id,
@@ -1110,7 +1118,8 @@ function optimizeData(data) {
       studentId: l.studentId || '',
       user: l.user || '',
       timestamp: l.timestamp || ''
-    }))
+    })),
+    merit: (data.merit || [])
   };
   return optimized;
 }
@@ -1178,6 +1187,7 @@ async function loadFromFirebase() {
       data.carrymark = remote.carrymark || { templates: [], marks: [], gradeConfig: [], auditLog: [] };
       data.calculatedResults = remote.calculatedResults || [];
       data.resultAuditLog = remote.resultAuditLog || [];
+      data.merit = remote.merit || [];
       
       // Backup to localStorage as fallback
       try {
@@ -10898,9 +10908,6 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
   // Then load data from Firebase in background
   try {
     await loadFromFirebase();
-    
-    // Force save default data to Firebase to ensure all data is synced
-    await saveData();
   } catch (e) {
     console.warn('Error loading data:', e);
   }
