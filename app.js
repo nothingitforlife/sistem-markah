@@ -994,9 +994,11 @@ function optimizeData(data) {
       id: s.id,
       name: s.name,
       kod: s.kod || '',
+      ic: s.ic || '',
       class: s.class || '',
       subjects: s.subjects || [],
-      track: s.track || ''
+      track: s.track || '',
+      createdAt: s.createdAt || ''
     })),
     subjects: data.subjects.map(s => ({
       id: s.id,
@@ -1126,20 +1128,39 @@ function optimizeData(data) {
 
 // Firebase Firestore functions
 async function loadFromFirebase() {
+  console.log('📥 Loading data from Firebase...');
+  
+  // Try loading from localStorage backup FIRST (fastest, most reliable)
+  let localBackup = null;
+  try {
+    const raw = localStorage.getItem('sistemMarkahBackup');
+    if (raw) {
+      localBackup = JSON.parse(raw);
+      console.log('💾 Found localStorage backup from', localBackup.backedUpAt);
+    }
+  } catch(e) { console.warn('localStorage read failed:', e); }
+
+  let firebaseHasStudents = false;
+  
   try {
     const doc = await db.collection('app_data').doc('sistem-markah-1').get({ source: 'server' });
     if (doc.exists) {
       const remote = doc.data();
+      console.log('🔥 Firebase data loaded. Students:', (remote.students||[]).length, 'Marks:', (remote.marks||[]).length, 'Teachers:', (remote.teachers||[]).length);
+      
       if (remote.deleted === true) {
+        console.warn('⚠️ Firebase data marked as deleted, using defaults');
         return;
       }
       
-      // Load directly from Firebase - NO merging with defaults
+      // Load ALL fields from Firebase - use Firebase as source of truth
       if (remote.students && remote.students.length > 0) {
         data.students = remote.students;
+        firebaseHasStudents = true;
+      } else {
+        console.warn('⚠️ Firebase has no students, keeping defaults');
       }
       
-      // Load marks, timetable, memos and all other data
       data.marks = remote.marks || [];
       data.timetable = remote.timetable || [];
       data.memos = remote.memos || [];
@@ -1158,66 +1179,122 @@ async function loadFromFirebase() {
         localStorage.setItem('cm_fyp_backup', JSON.stringify({ fyp: data.fyp, carrymark: data.carrymark }));
       } catch(e) { console.warn('localStorage backup failed:', e); }
       
-      // Load teachers directly from Firebase
+      // Load teachers
       if (remote.teachers && remote.teachers.length > 0) {
         data.teachers = remote.teachers;
+      } else {
+        console.warn('⚠️ Firebase has no teachers, keeping defaults');
       }
       
-      // Load semesters directly from Firebase
+      // Load semesters
       if (remote.semesters && remote.semesters.length > 0) {
         data.semesters = remote.semesters;
+      } else {
+        console.warn('⚠️ Firebase has no semesters, keeping defaults');
       }
       
-      // Load subjects directly from Firebase
+      // Load subjects
       if (remote.subjects && remote.subjects.length > 0) {
         data.subjects = remote.subjects;
+      } else {
+        console.warn('⚠️ Firebase has no subjects, keeping defaults');
       }
       
+      // Also save full backup to localStorage
+      try {
+        localStorage.setItem('sistemMarkahBackup', JSON.stringify({
+          data: { ...data },
+          backedUpAt: new Date().toISOString()
+        }));
+      } catch(e) { console.warn('localStorage full backup failed:', e); }
+      
     } else {
+      console.warn('⚠️ Firebase document does not exist! Using defaults + localStorage backup');
+      
+      // Try to restore from localStorage backup
+      if (localBackup && localBackup.data) {
+        restoreFromBackup(localBackup.data);
+      }
     }
   } catch (e) {
-    console.warn('Firebase load error:', e);
-  }
-  
-  // Fallback: load from localStorage if Firebase didn't have data
-  try {
-    const fullBackup = JSON.parse(localStorage.getItem('sistemMarkahBackup'));
-    if (fullBackup && fullBackup.data) {
-      // Restore carrymark if empty
-      if ((!data.carrymark || !data.carrymark.templates || data.carrymark.templates.length === 0) &&
-          fullBackup.data.carrymark && fullBackup.data.carrymark.templates && fullBackup.data.carrymark.templates.length > 0) {
-        data.carrymark = fullBackup.data.carrymark;
-      }
-      // Restore FYP if empty
-      if ((!data.fyp || !data.fyp.assessments || data.fyp.assessments.length === 0) &&
-          fullBackup.data.fyp && fullBackup.data.fyp.assessments && fullBackup.data.fyp.assessments.length > 0) {
-        data.fyp = fullBackup.data.fyp;
-      }
-      // Restore memos if empty
-      if ((!data.memos || data.memos.length === 0) && fullBackup.data.memos && fullBackup.data.memos.length > 0) {
-        data.memos = fullBackup.data.memos;
-      }
+    console.error('❌ Firebase load error:', e);
+    
+    // Fallback to localStorage backup on error
+    if (localBackup && localBackup.data) {
+      console.log('📦 Restoring from localStorage backup due to Firebase error');
+      restoreFromBackup(localBackup.data);
     }
-  } catch(e) { console.warn('localStorage full backup restore failed:', e); }
-  
-  // Also try cm_fyp_backup
-  if ((!data.carrymark || !data.carrymark.templates || data.carrymark.templates.length === 0) &&
-      (!data.fyp || !data.fyp.assessments || data.fyp.assessments.length === 0)) {
-    try {
-      const backup = JSON.parse(localStorage.getItem('cm_fyp_backup'));
-      if (backup) {
-        if (backup.carrymark && backup.carrymark.templates && backup.carrymark.templates.length > 0) {
-          data.carrymark = backup.carrymark;
-        }
-        if (backup.fyp && backup.fyp.assessments && backup.fyp.assessments.length > 0) {
-          data.fyp = backup.fyp;
-        }
-      }
-  } catch(e) { console.warn('localStorage cm_fyp_backup restore failed:', e); }
+  }
   
   // Set snapshot so autoSync doesn't overwrite Firebase with same data
   lastDataSnapshot = JSON.stringify(data);
+  
+  // If data was restored from localStorage backup (Firebase was empty/error),
+  // force a save to Firebase to restore the data
+  if (data.students.length > 0 && !firebaseHasStudents) {
+    console.log('📤 Restoring data to Firebase from localStorage backup...');
+    setTimeout(() => {
+      autoSyncToFirebase();
+    }, 500);
+  }
+  
+  console.log('✅ Data loaded. Students:', data.students.length, 'Marks:', data.marks.length, 'Teachers:', data.teachers.length);
 }
+
+function restoreFromBackup(backupData) {
+  if (!backupData) return;
+  console.log('📦 Restoring data from localStorage backup...');
+  
+  if (backupData.students && backupData.students.length > 0) {
+    data.students = backupData.students;
+  }
+  if (backupData.teachers && backupData.teachers.length > 0) {
+    data.teachers = backupData.teachers;
+  }
+  if (backupData.semesters && backupData.semesters.length > 0) {
+    data.semesters = backupData.semesters;
+  }
+  if (backupData.subjects && backupData.subjects.length > 0) {
+    data.subjects = backupData.subjects;
+  }
+  if (backupData.marks && backupData.marks.length > 0) {
+    data.marks = backupData.marks;
+  }
+  if (backupData.timetable && backupData.timetable.length > 0) {
+    data.timetable = backupData.timetable;
+  }
+  if (backupData.memos && backupData.memos.length > 0) {
+    data.memos = backupData.memos;
+  }
+  if (backupData.examSchedule && backupData.examSchedule.length > 0) {
+    data.examSchedule = backupData.examSchedule;
+  }
+  if (backupData.messages && backupData.messages.length > 0) {
+    data.messages = backupData.messages;
+  }
+  if (backupData.assignments && backupData.assignments.length > 0) {
+    data.assignments = backupData.assignments;
+  }
+  if (backupData.assignmentSubmissions && backupData.assignmentSubmissions.length > 0) {
+    data.assignmentSubmissions = backupData.assignmentSubmissions;
+  }
+  if (backupData.carrymark && backupData.carrymark.templates && backupData.carrymark.templates.length > 0) {
+    data.carrymark = backupData.carrymark;
+  }
+  if (backupData.fyp && backupData.fyp.assessments && backupData.fyp.assessments.length > 0) {
+    data.fyp = backupData.fyp;
+  }
+  if (backupData.calculatedResults && backupData.calculatedResults.length > 0) {
+    data.calculatedResults = backupData.calculatedResults;
+  }
+  if (backupData.resultAuditLog && backupData.resultAuditLog.length > 0) {
+    data.resultAuditLog = backupData.resultAuditLog;
+  }
+  if (backupData.merit && backupData.merit.length > 0) {
+    data.merit = backupData.merit;
+  }
+  
+  console.log('✅ Restore complete. Students:', data.students.length, 'Marks:', data.marks.length);
 }
 
 async function saveData() {
@@ -4953,6 +5030,7 @@ async function autoSyncToFirebase() {
       return; // No changes, skip sync
     }
     
+    console.log('🔄 Auto-sync: data changed, saving to Firebase...');
     updateSyncStatus('syncing');
     
     const optimizedData = optimizeData(data);
@@ -4965,6 +5043,7 @@ async function autoSyncToFirebase() {
     lastBackupTime = new Date();
     updateSyncStatus('synced');
     updateLastBackupDisplay();
+    console.log('✅ Auto-sync complete. Students:', (optimizedData.students||[]).length, 'Marks:', (optimizedData.marks||[]).length);
     
     // Also backup to localStorage as fallback
     try {
