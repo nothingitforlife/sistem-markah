@@ -14147,9 +14147,16 @@ function renderExamPaperAppointment() {
 
   const institutions = [
     'ADTEC JTM Kampus Kuala Langat',
+    'ADTEC JTM Kampus Shah Alam',
     'ADTEC JTM Kampus Batu Pahat',
+    'ADTEC JTM Kampus Kulim',
+    'ADTEC JTM Kampus Melaka (PROTON Institute)',
     'ADTEC JTM Kampus Selandar',
+    'ADTEC JTM Kampus Taiping',
+    'ADTEC JTM Kampus Kemaman',
+    'ADTEC JTM Kampus Jerantut',
     'ADTEC JTM Kampus Miri',
+    'ADTEC JTM Kampus Bintulu',
     'ADTEC JTM Kampus Sandakan',
     'Lain-lain Institusi'
   ];
