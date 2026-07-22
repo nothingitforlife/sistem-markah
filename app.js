@@ -1029,7 +1029,8 @@ function optimizeData(data) {
       studentId: m.studentId,
       semesterId: m.semesterId,
       scores: m.scores || {},
-      remarks: m.remarks || ''
+      remarks: m.remarks || '',
+      verified: m.verified || false
     })),
     timetable: data.timetable.map(t => ({
       id: t.id,
@@ -3062,14 +3063,18 @@ function initMarkEntry() {
 
   students.forEach(student => {
     const markRecord = data.marks.find(m => m.studentId === student.id && m.semesterId === semesterId);
-    html += `<tr><td class="mark-student-name">${esc(student.name)}</td>`;
+    const isVerified = markRecord && markRecord.verified;
+    html += `<tr><td class="mark-student-name">${esc(student.name)}${currentRole === 'teacher' && !isVerified ? ' <span style="color:#dc2626;font-size:10px;">(belum disahkan)</span>' : ''}</td>`;
     subjects.forEach(subj => {
       const enrolled = isStudentEnrolled(student, subj.id);
       const score = markRecord ? (markRecord.scores[subj.id] ?? '') : '';
       const isCocu = isCoCurriculumSubject(subj);
       
       if (enrolled) {
-        if (isCocu) {
+        if (currentRole === 'teacher' && !isVerified) {
+          // Teacher sees dashes for unverified marks
+          html += `<td style="text-align:center;color:#cbd5e1;font-size:0.85rem;">—</td>`;
+        } else if (isCocu) {
           // Co-curriculum: L/G buttons
           const isL = score === 'L';
           const isG = score === 'G';
@@ -3109,7 +3114,7 @@ function initMarkEntry() {
 
       let rec = data.marks.find(m => m.studentId === studentId && m.semesterId === semesterId);
       if (!rec) {
-        rec = { studentId, semesterId, scores: {}, remarks: '' };
+        rec = { studentId, semesterId, scores: {}, remarks: '', verified: false };
         data.marks.push(rec);
       }
       
@@ -3162,7 +3167,7 @@ window.setMainCocuMark = function(btn, studentId, subjectId, value, semesterId) 
   // Auto-save to data.marks
   let rec = data.marks.find(m => m.studentId === studentId && m.semesterId === semesterId);
   if (!rec) {
-    rec = { studentId, semesterId, scores: {}, remarks: '' };
+    rec = { studentId, semesterId, scores: {}, remarks: '', verified: false };
     data.marks.push(rec);
   }
   rec.scores[subjectId] = value;
@@ -3178,6 +3183,144 @@ document.getElementById('deleteAllMarksBtn').onclick = function () {
 };
 
 document.getElementById('markSemesterSelect').addEventListener('change', initMarkEntry);
+
+// ============================================
+// MARKS VERIFICATION (Admin Only)
+// ============================================
+let marksMode = 'entry'; // 'entry' or 'verify'
+
+function toggleMarksMode() {
+  marksMode = marksMode === 'entry' ? 'verify' : 'entry';
+  const btn = document.getElementById('toggleMarksModeBtn');
+  const entryArea = document.getElementById('markEntryArea');
+  const verifyArea = document.getElementById('markVerifyArea');
+  
+  if (marksMode === 'verify') {
+    btn.textContent = '📝 Mod Entry';
+    btn.style.background = '#8b5cf6';
+    entryArea.style.display = 'none';
+    verifyArea.style.display = 'block';
+    renderMarksVerification();
+  } else {
+    btn.textContent = '🔄 Mod Verifikasi';
+    btn.style.background = '';
+    entryArea.style.display = 'block';
+    verifyArea.style.display = 'none';
+    initMarkEntry();
+  }
+}
+
+function renderMarksVerification() {
+  const semesterId = document.getElementById('markSemesterSelect').value;
+  const area = document.getElementById('markVerifyArea');
+  
+  if (!semesterId) {
+    area.innerHTML = '<p class="empty-state">Sila pilih semester untuk melihat verifikasi markah.</p>';
+    return;
+  }
+  
+  const semester = data.semesters.find(s => s.id === semesterId);
+  const marks = data.marks.filter(m => m.semesterId === semesterId);
+  
+  if (marks.length === 0) {
+    area.innerHTML = '<p class="empty-state">Tiada markah direkodkan untuk semester ini.</p>';
+    return;
+  }
+  
+  // Stats
+  const totalStudents = marks.length;
+  const verifiedCount = marks.filter(m => m.verified).length;
+  const unverifiedCount = totalStudents - verifiedCount;
+  
+  let html = `
+    <div style="margin-bottom:16px;">
+      <h3 style="margin:0 0 4px 0;">Verifikasi Markah - ${esc(semester ? semester.name : '')}</h3>
+      <p style="margin:0;color:#666;font-size:13px;">Semak dan sahkan markah sebelum diterbitkan kepada pengajar.</p>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 20px;min-width:120px;">
+        <div style="font-size:11px;color:#0369a1;">Jumlah Pelajar</div>
+        <div style="font-size:24px;font-weight:700;color:#0c4a6e;">${totalStudents}</div>
+      </div>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 20px;min-width:120px;">
+        <div style="font-size:11px;color:#15803d;">Disahkan</div>
+        <div style="font-size:24px;font-weight:700;color:#166534;">${verifiedCount}</div>
+      </div>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 20px;min-width:120px;">
+        <div style="font-size:11px;color:#dc2626;">Belum Disahkan</div>
+        <div style="font-size:24px;font-weight:700;color:#991b1b;">${unverifiedCount}</div>
+      </div>
+    </div>
+    <div style="margin-bottom:12px;display:flex;gap:8px;">
+      <button onclick="verifyAllMarks('${semesterId}')" style="padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">✓ Sahkan Semua</button>
+      <button onclick="unverifyAllMarks('${semesterId}')" style="padding:8px 16px;background:#dc2626;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">✗ Batal Semua</button>
+    </div>
+    <table class="data-table" style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Nama Pelajar</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Status</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Tindakan</th>
+        </tr>
+      </thead>
+      <tbody>`;
+  
+  const students = marks.map(m => {
+    const s = data.students.find(st => st.id === m.studentId);
+    return { mark: m, student: s };
+  }).filter(x => x.student).sort((a, b) => (a.student.name || '').localeCompare(b.student.name || ''));
+  
+  students.forEach(({ mark, student }, i) => {
+    const isVerified = mark.verified;
+    const scoreCount = Object.keys(mark.scores || {}).filter(k => mark.scores[k] != null && mark.scores[k] !== '').length;
+    
+    html += `
+      <tr style="background:${isVerified ? '#f0fdf4' : '#fff'};">
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">
+          <div style="font-weight:600;">${esc(student.name)}</div>
+          <div style="font-size:11px;color:#888;">${scoreCount} subjek diisi</div>
+        </td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
+          <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:${isVerified ? '#dcfce7' : '#fee2e2'};color:${isVerified ? '#166534' : '#991b1b'};">
+            ${isVerified ? '✓ Disahkan' : '✗ Belum'}
+          </span>
+        </td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
+          <button onclick="toggleVerifyMark('${mark.studentId}', '${semesterId}')" 
+            style="padding:5px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;background:${isVerified ? '#dc2626' : '#059669'};color:#fff;">
+            ${isVerified ? 'Batal Sahkan' : 'Sahkan'}
+          </button>
+        </td>
+      </tr>`;
+  });
+  
+  html += '</tbody></table>';
+  area.innerHTML = html;
+}
+
+function toggleVerifyMark(studentId, semesterId) {
+  const mark = data.marks.find(m => m.studentId === studentId && m.semesterId === semesterId);
+  if (!mark) return;
+  mark.verified = !mark.verified;
+  saveData();
+  renderMarksVerification();
+}
+
+function verifyAllMarks(semesterId) {
+  data.marks.filter(m => m.semesterId === semesterId).forEach(m => { m.verified = true; });
+  saveData();
+  renderMarksVerification();
+  showToast('Semua markah telah disahkan.', 'success');
+}
+
+function unverifyAllMarks(semesterId) {
+  data.marks.filter(m => m.semesterId === semesterId).forEach(m => { m.verified = false; });
+  saveData();
+  renderMarksVerification();
+  showToast('Semua verifikasi telah dibatalkan.', 'warning');
+}
 
 function renderResults() {
   if (currentRole === 'student') {
@@ -3301,6 +3444,8 @@ function renderResults() {
         if (!pub || now < pub) return;
         const record = data.marks.find(m => m.studentId === student.id && m.semesterId === sem.id);
         if (record && Object.keys(record.scores).length > 0) {
+          // Teacher: only show verified marks
+          if (currentRole === 'teacher' && !record.verified) return;
           html += renderStudentSlip(student, sem, record);
           hasResults = true;
         }
@@ -3335,6 +3480,8 @@ function renderResults() {
       const record = data.marks.find(m => m.studentId === student.id && m.semesterId === semester.id);
       if (!record || Object.keys(record.scores).length === 0) {
         html = `<p class="empty-state">Tiada markah untuk ${esc(student.name)} pada ${esc(semester.name)}</p>`;
+      } else if (currentRole === 'teacher' && !record.verified) {
+        html = `<div class="result-slip" style="text-align:center;padding:2rem;"><p style="font-size:1rem;color:#e74c3c;font-weight:600;">Markah Belum Disahkan</p><p style="color:#6b7280;">Markah untuk semester ini belum disahkan oleh admin.</p></div>`;
       } else {
         html = renderStudentSlip(student, semester, record);
       }
