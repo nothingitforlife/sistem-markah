@@ -14191,10 +14191,12 @@ function renderExamPaperAppointment() {
     if (code.startsWith('HAK')) return true; // Hak Pekerja
     if (code.startsWith('PTA')) return true; // Final Year Project
     if (code.startsWith('LI')) return true;  // Industrial Training
+    if (code === 'ENT4131') return true; // eEntrepreneurship
     if (name.includes('co-curriculum') || name.includes('kokurikulum')) return true;
     if (name.includes('hak pekerja')) return true;
     if (name.includes('final year project')) return true;
     if (name.includes('industrial training')) return true;
+    if (name.includes('entrepreneurship')) return true;
     return false;
   }
 
@@ -14349,7 +14351,8 @@ window.printExamPaperAppointment = function() {
     const code = (subj.code || '').toUpperCase();
     const name = (subj.name || '').toLowerCase();
     if (code.startsWith('KK') || code.startsWith('HAK') || code.startsWith('PTA') || code.startsWith('LI')) return true;
-    if (name.includes('co-curriculum') || name.includes('kokurikulum') || name.includes('hak pekerja') || name.includes('final year project') || name.includes('industrial training')) return true;
+    if (code === 'ENT4131') return true;
+    if (name.includes('co-curriculum') || name.includes('kokurikulum') || name.includes('hak pekerja') || name.includes('final year project') || name.includes('industrial training') || name.includes('entrepreneurship')) return true;
     return false;
   }
 
@@ -14428,7 +14431,8 @@ window.exportExamPaperAppointment = function() {
     const code = (subj.code || '').toUpperCase();
     const name = (subj.name || '').toLowerCase();
     if (code.startsWith('KK') || code.startsWith('HAK') || code.startsWith('PTA') || code.startsWith('LI')) return true;
-    if (name.includes('co-curriculum') || name.includes('kokurikulum') || name.includes('hak pekerja') || name.includes('final year project') || name.includes('industrial training')) return true;
+    if (code === 'ENT4131') return true;
+    if (name.includes('co-curriculum') || name.includes('kokurikulum') || name.includes('hak pekerja') || name.includes('final year project') || name.includes('industrial training') || name.includes('entrepreneurship')) return true;
     return false;
   }
 
@@ -14489,69 +14493,3 @@ window.exportExamPaperAppointment = function() {
   }
 }
 
-// Export exam paper appointment to Excel
-window.exportExamPaperAppointment = function() {
-  function isExcluded(subj) {
-    const code = (subj.code || '').toUpperCase();
-    const name = (subj.name || '').toLowerCase();
-    if (code.startsWith('KK') || code.startsWith('HAK') || code.startsWith('PTA') || code.startsWith('LI')) return true;
-    if (name.includes('co-curriculum') || name.includes('kokurikulum') || name.includes('hak pekerja') || name.includes('final year project') || name.includes('industrial training')) return true;
-    return false;
-  }
-
-  function isTheoryOnly(subj) {
-    const code = (subj.code || '').toUpperCase();
-    return code.startsWith('PH') || code.startsWith('ES') || code.startsWith('MT') || code.startsWith('PI') || code.startsWith('PM') || code.startsWith('TE');
-  }
-
-  function getSaved(type, subjId) {
-    const s = (data.examPaperAppointment[type] && data.examPaperAppointment[type][subjId]) || {};
-    return { nama: s.nama || '', institusi: s.institusi || '' };
-  }
-
-  const semesters = data.semesters || [];
-  const allSubjects = (data.subjects || []).filter(s => !isExcluded(s));
-
-  const wsData = [
-    ['LANTIKAN PENGGUBAL KERTAS SOALAN PEPERIKSAAN AKHIR ILJTM'],
-    [''],
-    ['KERTAS TEORI'],
-    ['Bil', 'Semester', 'Mata Pelajaran', 'Kod', 'Nama Penggubal', 'Institusi']
-  ];
-
-  let bil = 1;
-  semesters.forEach(sem => {
-    const semSubj = allSubjects.filter(s => s.semester === sem.id);
-    semSubj.forEach(subj => {
-      const s = getSaved('teori', subj.id);
-      wsData.push([bil, sem.name, subj.name, subj.code || '', s.nama, s.institusi]);
-      bil++;
-    });
-  });
-
-  wsData.push(['']);
-  wsData.push(['KERTAS AMALI']);
-  wsData.push(['Bil', 'Semester', 'Mata Pelajaran', 'Kod', 'Nama Penggubal', 'Institusi']);
-
-  bil = 1;
-  semesters.forEach(sem => {
-    const semSubj = allSubjects.filter(s => s.semester === sem.id && !isTheoryOnly(s));
-    semSubj.forEach(subj => {
-      const s = getSaved('amali', subj.id);
-      wsData.push([bil, sem.name, subj.name, subj.code || '', s.nama, s.institusi]);
-      bil++;
-    });
-  });
-
-  wsData.push(['']);
-  wsData.push(['Dicetak pada:', new Date().toLocaleString('ms-MY')]);
-
-  if (typeof XLSX !== 'undefined') {
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Lantikan Penggubal');
-    XLSX.writeFile(wb, 'Lantikan_Penggubal_Kertas_Soalan_ILJTM.xlsx');
-  } else {
-    alert('XLSX library tidak tersedia. Sila muat turun semula.');
-  }
-}
