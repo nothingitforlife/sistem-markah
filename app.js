@@ -13438,7 +13438,7 @@ function renderPDPEval() {
 }
 
 // ============================================
-// STUDENT VIEW - Submit Evaluation
+// STUDENT VIEW - Submit Evaluation (Per Subject)
 // ============================================
 function renderPDPEvalStudent(area) {
   const student = data.students.find(s => s.id === currentUser.id);
@@ -13458,63 +13458,66 @@ function renderPDPEvalStudent(area) {
 
   let html = `
     <div style="margin-bottom:16px;">
-      <h3 style="margin:0 0 4px 0;">Senarai Pengajar</h3>
-      <p style="margin:0;color:#666;font-size:13px;">Pilih pengajar untuk memberi penilaian. Anda hanya boleh menilai pengajar yang mengajar subjek anda.</p>
+      <h3 style="margin:0 0 4px 0;">Senarai Pengajar & Subjek</h3>
+      <p style="margin:0;color:#666;font-size:13px;">Pilih subjek untuk memberi penilaian terhadap pengajar subjek tersebut.</p>
     </div>
     <table class="data-table" style="width:100%;border-collapse:collapse;">
       <thead>
         <tr>
           <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
-          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Nama Pengajar</th>
-          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Subjek Diajar</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Pengajar</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Subjek</th>
           <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Status</th>
           <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Tindakan</th>
         </tr>
       </thead>
       <tbody>`;
 
-  teachers.forEach((teacher, i) => {
-    const teacherEvals = myEvals.filter(e => e.teacherName === teacher.name);
-    const hasEval = teacherEvals.length > 0;
-    const statusText = hasEval ? '✓ Sudah Dinilai' : 'Belum Dinilai';
-    const statusColor = hasEval ? '#27ae60' : '#e74c3c';
-    const subjectNames = teacher.subjects.map(s => s.name).join(', ');
+  let row = 1;
+  teachers.forEach(teacher => {
+    teacher.subjects.forEach(subj => {
+      const hasEval = myEvals.some(e => e.teacherName === teacher.name && e.subjectId === subj.id);
+      const statusText = hasEval ? '✓ Sudah Dinilai' : 'Belum Dinilai';
+      const statusColor = hasEval ? '#27ae60' : '#e74c3c';
 
-    html += `
-      <tr>
-        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-weight:600;">${esc(teacher.name)}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-size:13px;">${esc(subjectNames)}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
-          <span style="color:${statusColor};font-weight:600;font-size:13px;">${statusText}</span>
-        </td>
-        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
-          <button onclick="openPDPEvalForm('${esc(teacher.name)}', '${esc(student.id)}')" 
-            style="padding:6px 16px;background:${hasEval ? '#3498db' : '#27ae60'};color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">
-            ${hasEval ? 'Semak / Kemaskini' : 'Beri Penilaian'}
-          </button>
-        </td>
-      </tr>`;
+      html += `
+        <tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${row}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-weight:600;">${esc(teacher.name)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;">
+            <div>${esc(subj.name)}</div>
+            <div style="font-size:11px;color:#888;">${esc(subj.code || '-')}</div>
+          </td>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
+            <span style="color:${statusColor};font-weight:600;font-size:13px;">${statusText}</span>
+          </td>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
+            <button onclick="openPDPEvalForm('${esc(teacher.name)}', '${esc(student.id)}', '${esc(subj.id)}')" 
+              style="padding:6px 16px;background:${hasEval ? '#3498db' : '#27ae60'};color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">
+              ${hasEval ? 'Semak / Kemaskini' : 'Beri Penilaian'}
+            </button>
+          </td>
+        </tr>`;
+      row++;
+    });
   });
 
   html += `</tbody></table>`;
   area.innerHTML = html;
 }
 
-// Open evaluation form modal for a teacher
-function openPDPEvalForm(teacherName, studentId) {
+// Open evaluation form modal for a teacher + subject
+function openPDPEvalForm(teacherName, studentId, subjectId) {
   const student = data.students.find(s => s.id === studentId);
   if (!student) return;
 
-  const teacher = getStudentTeachers(studentId).find(t => t.name === teacherName);
-  if (!teacher) return;
+  const subject = data.subjects.find(s => s.id === subjectId);
+  if (!subject) return;
 
-  // Find existing evaluation
+  // Find existing evaluation for this teacher+subject
   const existingEval = (data.pdpevaluations || []).find(
-    e => e.studentId === studentId && e.teacherName === teacherName
+    e => e.studentId === studentId && e.teacherName === teacherName && e.subjectId === subjectId
   );
-
-  const subjectNames = teacher.subjects.map(s => `${s.name} (${s.code})`).join(', ');
 
   let criteriaHtml = '';
   PDP_CRITERIA.forEach(c => {
@@ -13550,8 +13553,8 @@ function openPDPEvalForm(teacherName, studentId) {
       <div style="padding:16px 20px;">
         <div style="background:#f8f9fa;border:1px solid #e0e0e0;border-radius:6px;padding:12px 16px;margin-bottom:16px;">
           <div style="font-size:13px;color:#666;">Pengajar</div>
-          <div style="font-weight:700;font-size:16px;">${esc(teacher.name)}</div>
-          <div style="font-size:12px;color:#888;margin-top:4px;">Subjek: ${esc(subjectNames)}</div>
+          <div style="font-weight:700;font-size:16px;">${esc(teacherName)}</div>
+          <div style="font-size:12px;color:#888;margin-top:4px;">Subjek: ${esc(subject.name)} (${esc(subject.code || '-')})</div>
         </div>
 
         <p style="margin:0 0 8px 0;font-size:13px;color:#666;">
@@ -13576,7 +13579,7 @@ function openPDPEvalForm(teacherName, studentId) {
 
         <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px;">
           <button onclick="closeModal()" style="padding:8px 20px;background:#95a5a6;color:#fff;border:none;border-radius:4px;cursor:pointer;">Batal</button>
-          <button onclick="submitPDPEval('${esc(studentId)}', '${esc(teacherName)}')" 
+          <button onclick="submitPDPEval('${esc(studentId)}', '${esc(teacherName)}', '${esc(subjectId)}')" 
             style="padding:8px 20px;background:#27ae60;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;">
             Hantar Penilaian
           </button>
@@ -13597,12 +13600,12 @@ function adjustPDPScore(key, delta) {
 }
 
 // Submit evaluation
-function submitPDPEval(studentId, teacherName) {
+function submitPDPEval(studentId, teacherName, subjectId) {
   const student = data.students.find(s => s.id === studentId);
   if (!student) return;
 
-  const teacher = getStudentTeachers(studentId).find(t => t.name === teacherName);
-  if (!teacher) return;
+  const subject = data.subjects.find(s => s.id === subjectId);
+  if (!subject) return;
 
   const criteria = {};
   let allValid = true;
@@ -13624,13 +13627,9 @@ function submitPDPEval(studentId, teacherName) {
   const comments = document.getElementById('pdpeval_comments').value.trim();
   const { total, max, percentage } = calcPDPScore(criteria);
 
-  // Find the semester (use the semester of the first subject taught by this teacher)
-  const semesterId = teacher.subjects[0] ? teacher.subjects[0].semester : '';
-  const subjectId = teacher.subjects[0] ? teacher.subjects[0].id : '';
-
-  // Check if already exists
+  // Check if already exists for this teacher+subject
   const existingIndex = (data.pdpevaluations || []).findIndex(
-    e => e.studentId === studentId && e.teacherName === teacherName
+    e => e.studentId === studentId && e.teacherName === teacherName && e.subjectId === subjectId
   );
 
   const evaluation = {
@@ -13639,13 +13638,14 @@ function submitPDPEval(studentId, teacherName) {
     studentName: student.name,
     teacherName,
     subjectId,
-    subjectName: teacher.subjects.map(s => s.name).join(', '),
-    semesterId,
+    subjectName: subject.name,
+    semesterId: subject.semester || '',
     criteria,
     totalScore: total,
     percentage,
     comments,
-    createdAt: new Date().toISOString()
+    published: existingIndex >= 0 ? (data.pdpevaluations[existingIndex].published || false) : false,
+    createdAt: existingIndex >= 0 ? data.pdpevaluations[existingIndex].createdAt : new Date().toISOString()
   };
 
   if (existingIndex >= 0) {
@@ -13660,7 +13660,7 @@ function submitPDPEval(studentId, teacherName) {
   renderPDPEvalStudent(document.getElementById('pdpevalArea'));
 
   const rating = getPDPRatingLabel(percentage);
-  alert(`Penilaian berjaya dihantar!\n\nMarkah: ${total}/${max} (${percentage}%)\nPenilaian: ${rating.text}`);
+  alert(`Penilaian berjaya dihantar!\n\nSubjek: ${subject.name}\nMarkah: ${total}/${max} (${percentage}%)\nPenilaian: ${rating.text}`);
 }
 
 // ============================================
@@ -13935,105 +13935,201 @@ function showPDPEvalDetail(teacherName) {
 }
 
 // ============================================
-// TEACHER VIEW - Published PDP Evaluation Results
+// TEACHER VIEW - Published PDP Evaluation Results (Aggregated per Subject, No Student Names)
 // ============================================
 function renderPDPEvalTeacher(area) {
   const teacherName = currentUser.name;
-  const evaluations = (data.pdpevaluations || []).filter(e => e.teacherName === teacherName && e.published);
 
-  if (evaluations.length === 0) {
-    area.innerHTML = '<div style="padding:20px;text-align:center;color:#666;">Tiada penilaian PDP yang telah diterbitkan untuk anda.<br><span style="font-size:12px;">Penilaian akan muncul setelah admin menerbitkannya.</span></div>';
+  // Get subjects taught by this teacher
+  const teacherSubjects = data.subjects.filter(s => s.pengajar === teacherName);
+  if (teacherSubjects.length === 0) {
+    area.innerHTML = '<div style="padding:20px;text-align:center;color:#666;">Tiada subjek ditemui untuk anda.</div>';
     return;
   }
 
-  // Calculate averages
-  const criteriaAvgs = {};
-  PDP_CRITERIA.forEach(c => {
-    const total = evaluations.reduce((sum, e) => sum + (e.criteria[c.key] || 0), 0);
-    criteriaAvgs[c.key] = evaluations.length > 0 ? (total / evaluations.length).toFixed(2) : '0.00';
+  const evaluations = data.pdpevaluations || [];
+
+  // Check each subject: only show if ALL students have evaluated
+  const subjectResults = [];
+  const pendingSubjects = [];
+
+  teacherSubjects.forEach(subj => {
+    // Get all students enrolled in this subject
+    const enrolledStudents = data.students.filter(s =>
+      (s.subjects || []).includes(subj.id) && s.track !== 'graduated'
+    );
+
+    if (enrolledStudents.length === 0) return;
+
+    // Get evaluations for this subject (published only)
+    const subjectEvals = evaluations.filter(e =>
+      e.subjectId === subj.id && e.teacherName === teacherName && e.published
+    );
+
+    // Check if all students have evaluated
+    const evaluatedStudentIds = new Set(subjectEvals.map(e => e.studentId));
+    const missingStudents = enrolledStudents.filter(s => !evaluatedStudentIds.has(s.id));
+
+    if (missingStudents.length === 0 && subjectEvals.length > 0) {
+      // All students evaluated - show aggregated mark
+      const avgScore = subjectEvals.reduce((sum, e) => sum + e.totalScore, 0) / subjectEvals.length;
+      const avgPct = subjectEvals.reduce((sum, e) => sum + e.percentage, 0) / subjectEvals.length;
+
+      // Criteria averages
+      const criteriaAvgs = {};
+      PDP_CRITERIA.forEach(c => {
+        const total = subjectEvals.reduce((sum, e) => sum + (e.criteria[c.key] || 0), 0);
+        criteriaAvgs[c.key] = subjectEvals.length > 0 ? (total / subjectEvals.length) : 0;
+      });
+
+      subjectResults.push({
+        subject: subj,
+        evalCount: subjectEvals.length,
+        totalStudents: enrolledStudents.length,
+        avgScore,
+        avgPct,
+        criteriaAvgs
+      });
+    } else {
+      // Some students haven't evaluated yet
+      pendingSubjects.push({
+        subject: subj,
+        evalCount: subjectEvals.length,
+        totalStudents: enrolledStudents.length,
+        missingCount: missingStudents.length
+      });
+    }
   });
 
-  const avgPercentage = evaluations.reduce((sum, e) => sum + e.percentage, 0) / evaluations.length;
-  const rating = getPDPRatingLabel(avgPercentage);
+  // Calculate overall average from published subjects
+  const allPublishedEvals = evaluations.filter(e =>
+    e.teacherName === teacherName && e.published && subjectResults.some(sr => sr.subject.id === e.subjectId)
+  );
+  const overallAvgPct = allPublishedEvals.length > 0
+    ? allPublishedEvals.reduce((sum, e) => sum + e.percentage, 0) / allPublishedEvals.length
+    : 0;
+  const overallRating = getPDPRatingLabel(overallAvgPct);
 
   let html = `
     <div style="margin-bottom:16px;">
       <h3 style="margin:0 0 4px 0;">Keputusan Penilaian PDP Anda</h3>
-      <p style="margin:0;color:#666;font-size:13px;">Penilaian daripada pelajar yang telah diterbitkan oleh admin.</p>
+      <p style="margin:0;color:#666;font-size:13px;">Purata markah mengikut subjek yang diajar. Markah hanya diterbitkan jika semua pelajar telah menilai.</p>
     </div>
-    <div style="background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;padding:16px 20px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
+
+    <div style="background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;padding:16px 20px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
       <div>
         <div style="font-size:13px;color:#666;">Pengajar</div>
         <div style="font-weight:700;font-size:18px;">${esc(teacherName)}</div>
       </div>
       <div style="text-align:center;">
-        <div style="font-size:13px;color:#666;">Jumlah Penilaian</div>
-        <div style="font-weight:700;font-size:24px;">${evaluations.length}</div>
+        <div style="font-size:13px;color:#666;">Subjek Diterbitkan</div>
+        <div style="font-weight:700;font-size:24px;">${subjectResults.length} / ${teacherSubjects.length}</div>
       </div>
       <div style="text-align:right;">
         <div style="font-size:13px;color:#666;">Purata Keseluruhan</div>
-        <div style="font-weight:700;font-size:20px;color:${rating.color};">${avgPercentage.toFixed(1)}% - ${rating.text}</div>
+        <div style="font-weight:700;font-size:20px;color:${overallRating.color};">${allPublishedEvals.length > 0 ? overallAvgPct.toFixed(1) + '% - ' + overallRating.text : '-'}</div>
       </div>
-    </div>
+    </div>`;
 
-    <h4 style="margin:0 0 8px 0;">Pecahan Kriteria</h4>
-    <table class="data-table" style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-      <thead>
-        <tr>
-          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Kriteria</th>
-          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Purata Markah</th>
-          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">%</th>
-          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Penilaian</th>
-        </tr>
-      </thead>
-      <tbody>`;
-
-  PDP_CRITERIA.forEach(c => {
-    const avg = parseFloat(criteriaAvgs[c.key]);
-    const pct = Math.round((avg / 10) * 100);
-    const r = getPDPRatingLabel(pct);
+  // Pending subjects warning
+  if (pendingSubjects.length > 0) {
     html += `
-      <tr>
-        <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-weight:600;">${esc(c.label)}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">${avg}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">${pct}%</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">
-          <span style="background:${r.color};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;">${r.text}</span>
-        </td>
-      </tr>`;
-  });
+      <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 16px;margin-bottom:16px;">
+        <div style="font-weight:600;color:#92400e;margin-bottom:6px;">⏳ Subjek Belum Diterbitkan (${pendingSubjects.length})</div>
+        <div style="font-size:13px;color:#78350f;">Markah tidak akan diterbitkan sehingga semua pelajar menilai.</div>
+        <table style="width:100%;border-collapse:collapse;margin-top:8px;">
+          <thead>
+            <tr>
+              <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #d97706;font-size:12px;">Subjek</th>
+              <th style="padding:6px 10px;text-align:center;border-bottom:1px solid #d97706;font-size:12px;">Sudah Dinilai</th>
+              <th style="padding:6px 10px;text-align:center;border-bottom:1px solid #d97706;font-size:12px;">Belum Dinilai</th>
+            </tr>
+          </thead>
+          <tbody>`;
 
-  html += `</tbody></table>`;
-
-  // Individual evaluations
-  html += `<h4 style="margin:0 0 8px 0;">Senarai Penilaian Pelajar</h4>
-    <table class="data-table" style="width:100%;border-collapse:collapse;">
-      <thead>
+    pendingSubjects.forEach(ps => {
+      html += `
         <tr>
-          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
-          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Nama Pelajar</th>
-          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">Markah</th>
-          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">%</th>
-          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Ulasan</th>
-        </tr>
-      </thead>
-      <tbody>`;
+          <td style="padding:6px 10px;border-bottom:1px solid #fde68a;font-size:12px;">${esc(ps.subject.name)} (${esc(ps.subject.code || '-')})</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #fde68a;text-align:center;font-size:12px;">${ps.evalCount}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #fde68a;text-align:center;font-size:12px;color:#dc2626;font-weight:600;">${ps.missingCount}</td>
+        </tr>`;
+    });
 
-  evaluations.sort((a, b) => b.percentage - a.percentage).forEach((e, i) => {
-    const r = getPDPRatingLabel(e.percentage);
+    html += `</tbody></table></div>`;
+  }
+
+  // Published subjects
+  if (subjectResults.length > 0) {
     html += `
-      <tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(e.studentName)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;font-weight:600;">${e.totalScore}/${PDP_CRITERIA.length * 10}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;">
-          <span style="background:${r.color};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;">${e.percentage}%</span>
-        </td>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-size:12px;">${esc(e.comments || '-')}</td>
-      </tr>`;
-  });
+      <h4 style="margin:0 0 12px 0;">Purata Markah Mengikut Subjek</h4>
+      <table class="data-table" style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+        <thead>
+          <tr>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Subjek</th>
+            <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Pelajar</th>
+            <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Purata Markah</th>
+            <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">%</th>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Penilaian</th>
+          </tr>
+        </thead>
+        <tbody>`;
 
-  html += `</tbody></table>`;
+    subjectResults.forEach((sr, i) => {
+      const r = getPDPRatingLabel(sr.avgPct);
+      html += `
+        <tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;">
+            <div style="font-weight:600;">${esc(sr.subject.name)}</div>
+            <div style="font-size:11px;color:#888;">${esc(sr.subject.code || '-')}</div>
+          </td>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">${sr.evalCount}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;font-weight:600;">${sr.avgScore.toFixed(1)} / ${PDP_CRITERIA.length * 10}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;font-weight:600;">${sr.avgPct.toFixed(1)}%</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;">
+            <span style="background:${r.color};color:#fff;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">${r.text}</span>
+          </td>
+        </tr>`;
+    });
+
+    html += `</tbody></table>`;
+
+    // Criteria breakdown for published subjects only
+    html += `<h4 style="margin:0 0 8px 0;">Pecahan Kriteria Purata</h4>
+      <table class="data-table" style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Kriteria</th>
+            <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Purata Markah</th>
+            <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">%</th>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Penilaian</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+    PDP_CRITERIA.forEach(c => {
+      const total = allPublishedEvals.reduce((sum, e) => sum + (e.criteria[c.key] || 0), 0);
+      const avg = allPublishedEvals.length > 0 ? total / allPublishedEvals.length : 0;
+      const pct = Math.round((avg / 10) * 100);
+      const r = getPDPRatingLabel(pct);
+
+      html += `
+        <tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-weight:600;">${esc(c.label)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">${avg.toFixed(2)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">${pct}%</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #ddd;">
+            <span style="background:${r.color};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;">${r.text}</span>
+          </td>
+        </tr>`;
+    });
+
+    html += `</tbody></table>`;
+  } else if (pendingSubjects.length === 0) {
+    html += '<div style="padding:20px;text-align:center;color:#666;">Tiada subjek dengan penilaian yang diterbitkan.</div>';
+  }
 
   area.innerHTML = html;
 }
