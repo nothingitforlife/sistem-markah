@@ -274,12 +274,12 @@ function applyRoleRestrictions() {
   userInfo.textContent = (roleLabels[currentRole] || currentRole) + ': ' + (currentUser ? currentUser.name : '');
 
   if (currentRole === 'admin') {
-    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'graduation', 'fyp', 'carrymark', 'pdpeval'];
+    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'graduation', 'fyp', 'carrymark', 'pdpeval', 'exampaper'];
     allTabs.forEach(t => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (t === 'dashboard' ? ' active' : '');
       btn.dataset.tab = t;
-      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark', pdpeval: 'Penilaian PDP' };
+      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark', pdpeval: 'Penilaian PDP', exampaper: 'Lantikan Kertas Soalan' };
       btn.textContent = labels[t];
       nav.appendChild(btn);
     });
@@ -366,6 +366,7 @@ function applyRoleRestrictions() {
       if (this.dataset.tab === 'fyp') renderFYP();
       if (this.dataset.tab === 'carrymark') renderCarrymark();
       if (this.dataset.tab === 'pdpeval') renderPDPEval();
+      if (this.dataset.tab === 'exampaper') renderExamPaperAppointment();
     });
   });
 
@@ -914,7 +915,8 @@ let data = {
   calculatedResults: [],
   resultAuditLog: [],
   merit: [],
-  pdpevaluations: []
+  pdpevaluations: [],
+  examPaperAppointment: { campus: '', teori: {}, amali: {} }
 };
 
 // Clear all data from Firebase and localStorage
@@ -14132,4 +14134,395 @@ function renderPDPEvalTeacher(area) {
   }
 
   area.innerHTML = html;
+}
+
+// Lantikan Penggubal Kertas Soalan Peperiksaan Akhir ILJTM
+function renderExamPaperAppointment() {
+  const container = document.getElementById('examPaperContent');
+  if (!container) return;
+
+  // Initialize exam paper data if not exists
+  if (!data.examPaperAppointment) {
+    data.examPaperAppointment = {
+      campus: '',
+      teori: {},
+      amali: {}
+    };
+  }
+
+  const campuses = [
+    'ADTEC JTM Kampus Kuala Langat',
+    'ADTEC JTM Kampus Batu Pahat',
+    'ADTEC JTM Kampus Selandar',
+    'ADTEC JTM Kampus Miri',
+    'ADTEC JTM Kampus Sandakan'
+  ];
+
+  // Subjects that ONLY have theory (no practical)
+  const theoryOnlySubjects = [
+    { id: 'PH1081', code: 'PH1081', name: 'Physics 1' },
+    { id: 'PH2081', code: 'PH2081', name: 'Physics 2' },
+    { id: 'ES3111', code: 'ES3111', name: 'Engineering Science' },
+    { id: 'MT1121', code: 'MT1121', name: 'Mathematics 1' },
+    { id: 'MT2121', code: 'MT2121', name: 'Mathematics 2' },
+    { id: 'MT3121', code: 'MT3121', name: 'Mathematics 3' },
+    { id: 'PI1031', code: 'PI1031', name: 'Islamic Studies 1' },
+    { id: 'PI2031', code: 'PI2031', name: 'Islamic Studies 2' },
+    { id: 'PI3031', code: 'PI3031', name: 'Islamic Studies 3' },
+    { id: 'PM1031', code: 'PM1031', name: 'Moral Studies 1' },
+    { id: 'PM2031', code: 'PM2031', name: 'Moral Studies 2' },
+    { id: 'PM3031', code: 'PM3031', name: 'Moral Studies 3' },
+    { id: 'TE1091', code: 'TE1091', name: 'Technical English 1' },
+    { id: 'TE2091', code: 'TE2091', name: 'Technical English 2' }
+  ];
+
+  // Subjects that have BOTH theory and practical (excluding Kokurikulum and Hak Asasi)
+  const bothSubjects = [
+    { id: 'F01-31-11', code: 'F01-31-11', name: 'Office Application' },
+    { id: 'F02-41-11', code: 'F02-41-11', name: 'Computer Hardware & Software' },
+    { id: 'F02-41-12', code: 'F02-41-12', name: 'Network Fundamental' },
+    { id: 'F02-41-13', code: 'F02-41-13', name: 'Network Structured Cabling' },
+    { id: 'F02-22-15', code: 'F02-22-15', name: 'Project Management' },
+    { id: 'F02-32-14', code: 'F02-32-14', name: 'Computer and Network Security' },
+    { id: 'F02-42-11', code: 'F02-42-11', name: 'Server Essential' },
+    { id: 'F02-42-12', code: 'F02-42-12', name: 'Wireless Technology' },
+    { id: 'F02-42-13', code: 'F02-42-13', name: 'Fiber Network Cabling' },
+    { id: 'F01-43-12', code: 'F01-43-12', name: 'Mobile Device Configuration' },
+    { id: 'F02-33-12', code: 'F02-33-12', name: 'Linux Essential' },
+    { id: 'F02-33-13', code: 'F02-33-13', name: 'Fundamental of Programming' },
+    { id: 'F02-33-14', code: 'F02-33-14', name: 'Ethernet Switching' },
+    { id: 'F02-43-11', code: 'F02-43-11', name: 'Computer Network Maintenance' },
+    { id: 'ENT4131', code: 'ENT4131', name: 'eEntrepreneurship' },
+    { id: 'G02-34-11', code: 'G02-34-11', name: 'Server Configuration' },
+    { id: 'G02-34-12', code: 'G02-34-12', name: 'Computer Network Security Deployment' },
+    { id: 'G02-34-15', code: 'G02-34-15', name: 'Open Source Administration' },
+    { id: 'G02-44-13', code: 'G02-44-13', name: 'Computer Network Maintenance Management' },
+    { id: 'G02-44-14', code: 'G02-44-14', name: 'Router and Routing Configuration' },
+    { id: 'PTA4011', code: 'PTA4011', name: 'Final Year Project 1' },
+    { id: 'G02-25-12', code: 'G02-25-12', name: 'Computer System and Network Procurement' },
+    { id: 'G02-25-13', code: 'G02-25-13', name: 'WAN Technology' },
+    { id: 'G02-35-11', code: 'G02-35-11', name: 'Server Maintenance Administration' },
+    { id: 'PTA5025', code: 'PTA5025', name: 'Final Year Project 2' },
+    { id: 'LI6026', code: 'LI6026', name: 'Industrial Training' }
+  ];
+
+  const savedCampus = data.examPaperAppointment.campus || '';
+  let html = '';
+
+  // Campus selector
+  html += '<div style="background:linear-gradient(135deg,#0f3460,#16213e);color:white;padding:1.5rem;border-radius:12px;margin-bottom:1.5rem;">';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">';
+  html += '<div>';
+  html += '<h3 style="margin:0;font-size:1.1rem;">🏛️ Pilih Kampus ADTEC JTM</h3>';
+  html += '<p style="margin:4px 0 0;opacity:0.8;font-size:0.85rem;">Pilih kampus untuk melantik penggubal kertas soalan</p>';
+  html += '</div>';
+  html += '<div>';
+  html += '<select id="examPaperCampus" onchange="updateExamPaperCampus(this.value)" style="padding:10px 16px;border-radius:8px;border:none;font-size:0.95rem;font-weight:600;min-width:280px;background:white;color:#1a1a2e;">';
+  html += '<option value="">-- Pilih Kampus --</option>';
+  campuses.forEach(c => {
+    html += '<option value="' + esc(c) + '"' + (c === savedCampus ? ' selected' : '') + '>' + esc(c) + '</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+  html += '</div>';
+  html += '</div>';
+
+  // Two columns layout
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">';
+
+  // ==================== KERTAS TEORI ====================
+  html += '<div style="background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">';
+  html += '<div style="background:linear-gradient(135deg,#0f3460,#1a1a4e);color:white;padding:1rem 1.25rem;">';
+  html += '<h3 style="margin:0;font-size:1rem;">📝 Kertas Teori</h3>';
+  html += '<p style="margin:4px 0 0;opacity:0.8;font-size:0.8rem;">Subjek dengan peperiksaan teori sahaja</p>';
+  html += '</div>';
+  html += '<div style="padding:1rem;">';
+
+  // Theory only subjects
+  html += '<h4 style="color:#0f3460;margin:0 0 0.75rem;font-size:0.85rem;border-bottom:2px solid #e5e7eb;padding-bottom:0.5rem;">Subjek Teori Sahaja</h4>';
+  theoryOnlySubjects.forEach(subj => {
+    const savedName = (data.examPaperAppointment.teori && data.examPaperAppointment.teori[subj.id]) || '';
+    html += '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid #f3f4f6;">';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<div style="font-weight:600;font-size:0.85rem;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(subj.name) + '</div>';
+    html += '<div style="font-size:0.75rem;color:#6b7280;">' + esc(subj.code) + '</div>';
+    html += '</div>';
+    html += '<input type="text" placeholder="Nama Penggubal" value="' + esc(savedName) + '" onchange="saveExamPaperTeacher(\'teori\',\'' + subj.id + '\',this.value)" style="flex:1.2;min-width:120px;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.8rem;">';
+    html += '</div>';
+  });
+
+  // Both subjects - theory column
+  html += '<h4 style="color:#0f3460;margin:1rem 0 0.75rem;font-size:0.85rem;border-bottom:2px solid #e5e7eb;padding-bottom:0.5rem;">Subjek Teori + Amali</h4>';
+  bothSubjects.forEach(subj => {
+    const savedName = (data.examPaperAppointment.teori && data.examPaperAppointment.teori[subj.id]) || '';
+    html += '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid #f3f4f6;">';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<div style="font-weight:600;font-size:0.85rem;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(subj.name) + '</div>';
+    html += '<div style="font-size:0.75rem;color:#6b7280;">' + esc(subj.code) + '</div>';
+    html += '</div>';
+    html += '<input type="text" placeholder="Nama Penggubal" value="' + esc(savedName) + '" onchange="saveExamPaperTeacher(\'teori\',\'' + subj.id + '\',this.value)" style="flex:1.2;min-width:120px;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.8rem;">';
+    html += '</div>';
+  });
+
+  html += '</div></div>';
+
+  // ==================== KERTAS AMALI ====================
+  html += '<div style="background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">';
+  html += '<div style="background:linear-gradient(135deg,#059669,#065f46);color:white;padding:1rem 1.25rem;">';
+  html += '<h3 style="margin:0;font-size:1rem;">🔧 Kertas Amali</h3>';
+  html += '<p style="margin:4px 0 0;opacity:0.8;font-size:0.8rem;">Subjek dengan peperiksaan amali</p>';
+  html += '</div>';
+  html += '<div style="padding:1rem;">';
+
+  // Theory only subjects - notice
+  html += '<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:0.75rem;margin-bottom:0.75rem;">';
+  html += '<p style="color:#92400e;font-size:0.8rem;margin:0;font-weight:600;">⚠️ Subjek ini TIADA kertas amali:</p>';
+  html += '<p style="color:#78350f;font-size:0.75rem;margin:4px 0 0;">Physics, Engineering Science, Mathematics, Islamic Studies, Moral Studies, Technical English</p>';
+  html += '</div>';
+
+  // Both subjects - amali column
+  html += '<h4 style="color:#059669;margin:0 0 0.75rem;font-size:0.85rem;border-bottom:2px solid #e5e7eb;padding-bottom:0.5rem;">Subjek Amali</h4>';
+  bothSubjects.forEach(subj => {
+    const savedName = (data.examPaperAppointment.amali && data.examPaperAppointment.amali[subj.id]) || '';
+    html += '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid #f3f4f6;">';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<div style="font-weight:600;font-size:0.85rem;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(subj.name) + '</div>';
+    html += '<div style="font-size:0.75rem;color:#6b7280;">' + esc(subj.code) + '</div>';
+    html += '</div>';
+    html += '<input type="text" placeholder="Nama Penggubal" value="' + esc(savedName) + '" onchange="saveExamPaperTeacher(\'amali\',\'' + subj.id + '\',this.value)" style="flex:1.2;min-width:120px;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.8rem;">';
+    html += '</div>';
+  });
+
+  html += '</div></div>';
+  html += '</div>';
+
+  // Print button
+  html += '<div style="margin-top:1.5rem;display:flex;gap:0.75rem;">';
+  html += '<button class="btn btn-primary" onclick="printExamPaperAppointment()" style="padding:10px 20px;">🖨️ Cetak</button>';
+  html += '<button class="btn btn-sm btn-outline" onclick="exportExamPaperAppointment()" style="color:#059669;border-color:#059669;">📊 Excel</button>';
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+// Save campus selection
+window.updateExamPaperCampus = function(campus) {
+  if (!data.examPaperAppointment) data.examPaperAppointment = { campus: '', teori: {}, amali: {} };
+  data.examPaperAppointment.campus = campus;
+  saveData();
+};
+
+// Save teacher name for exam paper
+window.saveExamPaperTeacher = function(type, subjectId, teacherName) {
+  if (!data.examPaperAppointment) data.examPaperAppointment = { campus: '', teori: {}, amali: {} };
+  if (!data.examPaperAppointment[type]) data.examPaperAppointment[type] = {};
+  data.examPaperAppointment[type][subjectId] = teacherName;
+  saveData();
+};
+
+// Print exam paper appointment
+window.printExamPaperAppointment = function() {
+  const campus = data.examPaperAppointment ? data.examPaperAppointment.campus : '';
+  if (!campus) {
+    alert('Sila pilih kampus terlebih dahulu.');
+    return;
+  }
+
+  const theoryOnlySubjects = [
+    { id: 'PH1081', code: 'PH1081', name: 'Physics 1' },
+    { id: 'PH2081', code: 'PH2081', name: 'Physics 2' },
+    { id: 'ES3111', code: 'ES3111', name: 'Engineering Science' },
+    { id: 'MT1121', code: 'MT1121', name: 'Mathematics 1' },
+    { id: 'MT2121', code: 'MT2121', name: 'Mathematics 2' },
+    { id: 'MT3121', code: 'MT3121', name: 'Mathematics 3' },
+    { id: 'PI1031', code: 'PI1031', name: 'Islamic Studies 1' },
+    { id: 'PI2031', code: 'PI2031', name: 'Islamic Studies 2' },
+    { id: 'PI3031', code: 'PI3031', name: 'Islamic Studies 3' },
+    { id: 'PM1031', code: 'PM1031', name: 'Moral Studies 1' },
+    { id: 'PM2031', code: 'PM2031', name: 'Moral Studies 2' },
+    { id: 'PM3031', code: 'PM3031', name: 'Moral Studies 3' },
+    { id: 'TE1091', code: 'TE1091', name: 'Technical English 1' },
+    { id: 'TE2091', code: 'TE2091', name: 'Technical English 2' }
+  ];
+
+  const bothSubjects = [
+    { id: 'F01-31-11', code: 'F01-31-11', name: 'Office Application' },
+    { id: 'F02-41-11', code: 'F02-41-11', name: 'Computer Hardware & Software' },
+    { id: 'F02-41-12', code: 'F02-41-12', name: 'Network Fundamental' },
+    { id: 'F02-41-13', code: 'F02-41-13', name: 'Network Structured Cabling' },
+    { id: 'F02-22-15', code: 'F02-22-15', name: 'Project Management' },
+    { id: 'F02-32-14', code: 'F02-32-14', name: 'Computer and Network Security' },
+    { id: 'F02-42-11', code: 'F02-42-11', name: 'Server Essential' },
+    { id: 'F02-42-12', code: 'F02-42-12', name: 'Wireless Technology' },
+    { id: 'F02-42-13', code: 'F02-42-13', name: 'Fiber Network Cabling' },
+    { id: 'F01-43-12', code: 'F01-43-12', name: 'Mobile Device Configuration' },
+    { id: 'F02-33-12', code: 'F02-33-12', name: 'Linux Essential' },
+    { id: 'F02-33-13', code: 'F02-33-13', name: 'Fundamental of Programming' },
+    { id: 'F02-33-14', code: 'F02-33-14', name: 'Ethernet Switching' },
+    { id: 'F02-43-11', code: 'F02-43-11', name: 'Computer Network Maintenance' },
+    { id: 'ENT4131', code: 'ENT4131', name: 'eEntrepreneurship' },
+    { id: 'G02-34-11', code: 'G02-34-11', name: 'Server Configuration' },
+    { id: 'G02-34-12', code: 'G02-34-12', name: 'Computer Network Security Deployment' },
+    { id: 'G02-34-15', code: 'G02-34-15', name: 'Open Source Administration' },
+    { id: 'G02-44-13', code: 'G02-44-13', name: 'Computer Network Maintenance Management' },
+    { id: 'G02-44-14', code: 'G02-44-14', name: 'Router and Routing Configuration' },
+    { id: 'PTA4011', code: 'PTA4011', name: 'Final Year Project 1' },
+    { id: 'G02-25-12', code: 'G02-25-12', name: 'Computer System and Network Procurement' },
+    { id: 'G02-25-13', code: 'G02-25-13', name: 'WAN Technology' },
+    { id: 'G02-35-11', code: 'G02-35-11', name: 'Server Maintenance Administration' },
+    { id: 'PTA5025', code: 'PTA5025', name: 'Final Year Project 2' },
+    { id: 'LI6026', code: 'LI6026', name: 'Industrial Training' }
+  ];
+
+  let printContent = '<!DOCTYPE html><html><head><title>Lantikan Penggubal Kertas Soalan</title>';
+  printContent += '<style>';
+  printContent += 'body{font-family:Arial,sans-serif;padding:20px;color:#000;}';
+  printContent += 'h1{text-align:center;font-size:16px;margin-bottom:5px;}';
+  printContent += 'h2{text-align:center;font-size:13px;color:#555;margin-bottom:20px;font-weight:normal;}';
+  printContent += 'h3{font-size:13px;color:#0f3460;margin:15px 0 8px;border-bottom:1px solid #ccc;padding-bottom:4px;}';
+  printContent += 'h4{font-size:12px;color:#059669;margin:15px 0 8px;border-bottom:1px solid #ccc;padding-bottom:4px;}';
+  printContent += 'table{width:100%;border-collapse:collapse;margin-bottom:15px;font-size:12px;}';
+  printContent += 'th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;}';
+  printContent += 'th{background:#f0f0f0;font-weight:bold;}';
+  printContent += '.campus-label{text-align:center;font-size:14px;font-weight:bold;margin-bottom:15px;color:#0f3460;}';
+  printContent += '</style></head><body>';
+  printContent += '<h1>LANTIKAN PENGGUBAL KERTAS SOALAN</h1>';
+  printContent += '<h2>Peperiksaan Akhir ILJTM</h2>';
+  printContent += '<div class="campus-label">' + esc(campus) + '</div>';
+
+  // Theory table
+  printContent += '<h3>📝 KERTAS TEORI</h3>';
+  printContent += '<table><thead><tr><th style="width:40px;">Bil</th><th style="width:250px;">Mata Pelajaran</th><th style="width:100px;">Kod</th><th>Nama Penggubal</th></tr></thead><tbody>';
+  let bil = 1;
+  theoryOnlySubjects.forEach(subj => {
+    const teacher = (data.examPaperAppointment.teori && data.examPaperAppointment.teori[subj.id]) || '';
+    printContent += '<tr><td>' + bil + '</td><td>' + esc(subj.name) + '</td><td>' + esc(subj.code) + '</td><td>' + esc(teacher) + '</td></tr>';
+    bil++;
+  });
+  bothSubjects.forEach(subj => {
+    const teacher = (data.examPaperAppointment.teori && data.examPaperAppointment.teori[subj.id]) || '';
+    printContent += '<tr><td>' + bil + '</td><td>' + esc(subj.name) + '</td><td>' + esc(subj.code) + '</td><td>' + esc(teacher) + '</td></tr>';
+    bil++;
+  });
+  printContent += '</tbody></table>';
+
+  // Practical table
+  printContent += '<h4>🔧 KERTAS AMALI</h4>';
+  printContent += '<table><thead><tr><th style="width:40px;">Bil</th><th style="width:250px;">Mata Pelajaran</th><th style="width:100px;">Kod</th><th>Nama Penggubal</th></tr></thead><tbody>';
+  bil = 1;
+  bothSubjects.forEach(subj => {
+    const teacher = (data.examPaperAppointment.amali && data.examPaperAppointment.amali[subj.id]) || '';
+    printContent += '<tr><td>' + bil + '</td><td>' + esc(subj.name) + '</td><td>' + esc(subj.code) + '</td><td>' + esc(teacher) + '</td></tr>';
+    bil++;
+  });
+  printContent += '</tbody></table>';
+
+  printContent += '<p style="margin-top:30px;font-size:11px;text-align:right;">Dicetak pada: ' + new Date().toLocaleString('ms-MY') + '</p>';
+  printContent += '</body></html>';
+
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(printContent);
+  printWindow.document.close();
+  printWindow.print();
+};
+
+// Export exam paper appointment to Excel
+window.exportExamPaperAppointment = function() {
+  if (!data.examPaperAppointment || !data.examPaperAppointment.campus) {
+    alert('Sila pilih kampus terlebih dahulu.');
+    return;
+  }
+
+  const campus = data.examPaperAppointment.campus;
+
+  const theoryOnlySubjects = [
+    { id: 'PH1081', code: 'PH1081', name: 'Physics 1' },
+    { id: 'PH2081', code: 'PH2081', name: 'Physics 2' },
+    { id: 'ES3111', code: 'ES3111', name: 'Engineering Science' },
+    { id: 'MT1121', code: 'MT1121', name: 'Mathematics 1' },
+    { id: 'MT2121', code: 'MT2121', name: 'Mathematics 2' },
+    { id: 'MT3121', code: 'MT3121', name: 'Mathematics 3' },
+    { id: 'PI1031', code: 'PI1031', name: 'Islamic Studies 1' },
+    { id: 'PI2031', code: 'PI2031', name: 'Islamic Studies 2' },
+    { id: 'PI3031', code: 'PI3031', name: 'Islamic Studies 3' },
+    { id: 'PM1031', code: 'PM1031', name: 'Moral Studies 1' },
+    { id: 'PM2031', code: 'PM2031', name: 'Moral Studies 2' },
+    { id: 'PM3031', code: 'PM3031', name: 'Moral Studies 3' },
+    { id: 'TE1091', code: 'TE1091', name: 'Technical English 1' },
+    { id: 'TE2091', code: 'TE2091', name: 'Technical English 2' }
+  ];
+
+  const bothSubjects = [
+    { id: 'F01-31-11', code: 'F01-31-11', name: 'Office Application' },
+    { id: 'F02-41-11', code: 'F02-41-11', name: 'Computer Hardware & Software' },
+    { id: 'F02-41-12', code: 'F02-41-12', name: 'Network Fundamental' },
+    { id: 'F02-41-13', code: 'F02-41-13', name: 'Network Structured Cabling' },
+    { id: 'F02-22-15', code: 'F02-22-15', name: 'Project Management' },
+    { id: 'F02-32-14', code: 'F02-32-14', name: 'Computer and Network Security' },
+    { id: 'F02-42-11', code: 'F02-42-11', name: 'Server Essential' },
+    { id: 'F02-42-12', code: 'F02-42-12', name: 'Wireless Technology' },
+    { id: 'F02-42-13', code: 'F02-42-13', name: 'Fiber Network Cabling' },
+    { id: 'F01-43-12', code: 'F01-43-12', name: 'Mobile Device Configuration' },
+    { id: 'F02-33-12', code: 'F02-33-12', name: 'Linux Essential' },
+    { id: 'F02-33-13', code: 'F02-33-13', name: 'Fundamental of Programming' },
+    { id: 'F02-33-14', code: 'F02-33-14', name: 'Ethernet Switching' },
+    { id: 'F02-43-11', code: 'F02-43-11', name: 'Computer Network Maintenance' },
+    { id: 'ENT4131', code: 'ENT4131', name: 'eEntrepreneurship' },
+    { id: 'G02-34-11', code: 'G02-34-11', name: 'Server Configuration' },
+    { id: 'G02-34-12', code: 'G02-34-12', name: 'Computer Network Security Deployment' },
+    { id: 'G02-34-15', code: 'G02-34-15', name: 'Open Source Administration' },
+    { id: 'G02-44-13', code: 'G02-44-13', name: 'Computer Network Maintenance Management' },
+    { id: 'G02-44-14', code: 'G02-44-14', name: 'Router and Routing Configuration' },
+    { id: 'PTA4011', code: 'PTA4011', name: 'Final Year Project 1' },
+    { id: 'G02-25-12', code: 'G02-25-12', name: 'Computer System and Network Procurement' },
+    { id: 'G02-25-13', code: 'G02-25-13', name: 'WAN Technology' },
+    { id: 'G02-35-11', code: 'G02-35-11', name: 'Server Maintenance Administration' },
+    { id: 'PTA5025', code: 'PTA5025', name: 'Final Year Project 2' },
+    { id: 'LI6026', code: 'LI6026', name: 'Industrial Training' }
+  ];
+
+  // Build worksheet data
+  const wsData = [
+    ['LANTIKAN PENGGUBAL KERTAS SOALAN PEPERIKSAAN AKHIR ILJTM'],
+    ['Kampus:', campus],
+    [''],
+    ['KERTAS TEORI'],
+    ['Bil', 'Mata Pelajaran', 'Kod', 'Nama Penggubal']
+  ];
+
+  let bil = 1;
+  theoryOnlySubjects.forEach(subj => {
+    const teacher = (data.examPaperAppointment.teori && data.examPaperAppointment.teori[subj.id]) || '';
+    wsData.push([bil, subj.name, subj.code, teacher]);
+    bil++;
+  });
+  bothSubjects.forEach(subj => {
+    const teacher = (data.examPaperAppointment.teori && data.examPaperAppointment.teori[subj.id]) || '';
+    wsData.push([bil, subj.name, subj.code, teacher]);
+    bil++;
+  });
+
+  wsData.push(['']);
+  wsData.push(['KERTAS AMALI']);
+  wsData.push(['Bil', 'Mata Pelajaran', 'Kod', 'Nama Penggubal']);
+
+  bil = 1;
+  bothSubjects.forEach(subj => {
+    const teacher = (data.examPaperAppointment.amali && data.examPaperAppointment.amali[subj.id]) || '';
+    wsData.push([bil, subj.name, subj.code, teacher]);
+    bil++;
+  });
+
+  wsData.push(['']);
+  wsData.push(['Dicetak pada:', new Date().toLocaleString('ms-MY')]);
+
+  // Export to Excel
+  if (typeof XLSX !== 'undefined') {
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Lantikan Penggubal');
+    XLSX.writeFile(wb, 'Lantikan_Penggubal_Kertas_Soalan_ILJTM.xlsx');
+  } else {
+    alert('XLSX library tidak tersedia. Sila muat turun semula.');
+  }
 }
