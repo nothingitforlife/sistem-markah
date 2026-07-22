@@ -14141,24 +14141,19 @@ function renderExamPaperAppointment() {
   const container = document.getElementById('examPaperContent');
   if (!container) return;
 
-  // Initialize exam paper data if not exists
   if (!data.examPaperAppointment) {
-    data.examPaperAppointment = {
-      campus: '',
-      teori: {},
-      amali: {}
-    };
+    data.examPaperAppointment = { teori: {}, amali: {} };
   }
 
-  const campuses = [
+  const institutions = [
     'ADTEC JTM Kampus Kuala Langat',
     'ADTEC JTM Kampus Batu Pahat',
     'ADTEC JTM Kampus Selandar',
     'ADTEC JTM Kampus Miri',
-    'ADTEC JTM Kampus Sandakan'
+    'ADTEC JTM Kampus Sandakan',
+    'Lain-lain Institusi'
   ];
 
-  // Subjects that ONLY have theory (no practical)
   const theoryOnlySubjects = [
     { id: 'PH1081', code: 'PH1081', name: 'Physics 1' },
     { id: 'PH2081', code: 'PH2081', name: 'Physics 2' },
@@ -14176,7 +14171,6 @@ function renderExamPaperAppointment() {
     { id: 'TE2091', code: 'TE2091', name: 'Technical English 2' }
   ];
 
-  // Subjects that have BOTH theory and practical (excluding Kokurikulum and Hak Asasi)
   const bothSubjects = [
     { id: 'F01-31-11', code: 'F01-31-11', name: 'Office Application' },
     { id: 'F02-41-11', code: 'F02-41-11', name: 'Computer Hardware & Software' },
@@ -14198,105 +14192,95 @@ function renderExamPaperAppointment() {
     { id: 'G02-34-15', code: 'G02-34-15', name: 'Open Source Administration' },
     { id: 'G02-44-13', code: 'G02-44-13', name: 'Computer Network Maintenance Management' },
     { id: 'G02-44-14', code: 'G02-44-14', name: 'Router and Routing Configuration' },
-    { id: 'PTA4011', code: 'PTA4011', name: 'Final Year Project 1' },
     { id: 'G02-25-12', code: 'G02-25-12', name: 'Computer System and Network Procurement' },
     { id: 'G02-25-13', code: 'G02-25-13', name: 'WAN Technology' },
-    { id: 'G02-35-11', code: 'G02-35-11', name: 'Server Maintenance Administration' },
-    { id: 'PTA5025', code: 'PTA5025', name: 'Final Year Project 2' },
-    { id: 'LI6026', code: 'LI6026', name: 'Industrial Training' }
+    { id: 'G02-35-11', code: 'G02-35-11', name: 'Server Maintenance Administration' }
   ];
 
-  const savedCampus = data.examPaperAppointment.campus || '';
+  function buildSubjectRows(subjects, type) {
+    let rows = '';
+    subjects.forEach((subj, i) => {
+      const saved = (data.examPaperAppointment[type] && data.examPaperAppointment[type][subj.id]) || {};
+      const savedName = saved.nama || '';
+      const savedInst = saved.institusi || '';
+      rows += '<tr style="border-bottom:1px solid #e5e7eb;">';
+      rows += '<td style="padding:8px 10px;text-align:center;font-weight:600;color:#6b7280;">' + (i + 1) + '</td>';
+      rows += '<td style="padding:8px 10px;"><div style="font-weight:600;font-size:0.85rem;">' + esc(subj.name) + '</div><div style="font-size:0.75rem;color:#6b7280;">' + esc(subj.code) + '</div></td>';
+      rows += '<td style="padding:8px 10px;"><input type="text" placeholder="Nama Penggubal" value="' + esc(savedName) + '" onchange="saveExamPaperField(\'' + type + '\',\'' + subj.id + '\',\'nama\',this.value)" style="width:100%;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.8rem;"></td>';
+      rows += '<td style="padding:8px 10px;"><select onchange="saveExamPaperField(\'' + type + '\',\'' + subj.id + '\',\'institusi\',this.value)" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:0.8rem;">';
+      rows += '<option value="">-- Pilih Institusi --</option>';
+      institutions.forEach(inst => {
+        rows += '<option value="' + esc(inst) + '"' + (inst === savedInst ? ' selected' : '') + '>' + esc(inst) + '</option>';
+      });
+      rows += '</select></td>';
+      rows += '</tr>';
+    });
+    return rows;
+  }
+
   let html = '';
 
-  // Campus selector
+  // Header
   html += '<div style="background:linear-gradient(135deg,#0f3460,#16213e);color:white;padding:1.5rem;border-radius:12px;margin-bottom:1.5rem;">';
-  html += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">';
-  html += '<div>';
-  html += '<h3 style="margin:0;font-size:1.1rem;">🏛️ Pilih Kampus ADTEC JTM</h3>';
-  html += '<p style="margin:4px 0 0;opacity:0.8;font-size:0.85rem;">Pilih kampus untuk melantik penggubal kertas soalan</p>';
-  html += '</div>';
-  html += '<div>';
-  html += '<select id="examPaperCampus" onchange="updateExamPaperCampus(this.value)" style="padding:10px 16px;border-radius:8px;border:none;font-size:0.95rem;font-weight:600;min-width:280px;background:white;color:#1a1a2e;">';
-  html += '<option value="">-- Pilih Kampus --</option>';
-  campuses.forEach(c => {
-    html += '<option value="' + esc(c) + '"' + (c === savedCampus ? ' selected' : '') + '>' + esc(c) + '</option>';
-  });
-  html += '</select>';
-  html += '</div>';
-  html += '</div>';
+  html += '<h3 style="margin:0;font-size:1.1rem;">📋 Lantikan Penggubal Kertas Soalan Peperiksaan Akhir ILJTM</h3>';
+  html += '<p style="margin:6px 0 0;opacity:0.8;font-size:0.85rem;">Isi nama penggubal dan pilih institusi untuk setiap subjek</p>';
   html += '</div>';
 
-  // Two columns layout
+  // Two columns
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">';
 
   // ==================== KERTAS TEORI ====================
   html += '<div style="background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">';
   html += '<div style="background:linear-gradient(135deg,#0f3460,#1a1a4e);color:white;padding:1rem 1.25rem;">';
   html += '<h3 style="margin:0;font-size:1rem;">📝 Kertas Teori</h3>';
-  html += '<p style="margin:4px 0 0;opacity:0.8;font-size:0.8rem;">Subjek dengan peperiksaan teori sahaja</p>';
   html += '</div>';
-  html += '<div style="padding:1rem;">';
+  html += '<div style="padding:0;">';
+  html += '<table style="width:100%;border-collapse:collapse;">';
+  html += '<thead><tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">';
+  html += '<th style="padding:8px 10px;text-align:center;width:40px;font-size:0.75rem;color:#6b7280;">Bil</th>';
+  html += '<th style="padding:8px 10px;text-align:left;font-size:0.75rem;color:#6b7280;">Mata Pelajaran</th>';
+  html += '<th style="padding:8px 10px;text-align:left;font-size:0.75rem;color:#6b7280;">Nama Penggubal</th>';
+  html += '<th style="padding:8px 10px;text-align:left;font-size:0.75rem;color:#6b7280;">Institusi</th>';
+  html += '</tr></thead><tbody>';
 
-  // Theory only subjects
-  html += '<h4 style="color:#0f3460;margin:0 0 0.75rem;font-size:0.85rem;border-bottom:2px solid #e5e7eb;padding-bottom:0.5rem;">Subjek Teori Sahaja</h4>';
-  theoryOnlySubjects.forEach(subj => {
-    const savedName = (data.examPaperAppointment.teori && data.examPaperAppointment.teori[subj.id]) || '';
-    html += '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid #f3f4f6;">';
-    html += '<div style="flex:1;min-width:0;">';
-    html += '<div style="font-weight:600;font-size:0.85rem;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(subj.name) + '</div>';
-    html += '<div style="font-size:0.75rem;color:#6b7280;">' + esc(subj.code) + '</div>';
-    html += '</div>';
-    html += '<input type="text" placeholder="Nama Penggubal" value="' + esc(savedName) + '" onchange="saveExamPaperTeacher(\'teori\',\'' + subj.id + '\',this.value)" style="flex:1.2;min-width:120px;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.8rem;">';
-    html += '</div>';
-  });
+  // Section: Teori Sahaja
+  html += '<tr><td colspan="4" style="padding:8px 12px;background:#eff6ff;font-weight:700;font-size:0.8rem;color:#1e40af;border-bottom:1px solid #bfdbfe;">📌 Subjek Teori Sahaja (Tiada Amali)</td></tr>';
+  html += buildSubjectRows(theoryOnlySubjects, 'teori');
 
-  // Both subjects - theory column
-  html += '<h4 style="color:#0f3460;margin:1rem 0 0.75rem;font-size:0.85rem;border-bottom:2px solid #e5e7eb;padding-bottom:0.5rem;">Subjek Teori + Amali</h4>';
-  bothSubjects.forEach(subj => {
-    const savedName = (data.examPaperAppointment.teori && data.examPaperAppointment.teori[subj.id]) || '';
-    html += '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid #f3f4f6;">';
-    html += '<div style="flex:1;min-width:0;">';
-    html += '<div style="font-weight:600;font-size:0.85rem;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(subj.name) + '</div>';
-    html += '<div style="font-size:0.75rem;color:#6b7280;">' + esc(subj.code) + '</div>';
-    html += '</div>';
-    html += '<input type="text" placeholder="Nama Penggubal" value="' + esc(savedName) + '" onchange="saveExamPaperTeacher(\'teori\',\'' + subj.id + '\',this.value)" style="flex:1.2;min-width:120px;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.8rem;">';
-    html += '</div>';
-  });
+  // Section: Teori + Amali
+  html += '<tr><td colspan="4" style="padding:8px 12px;background:#f0fdf4;font-weight:700;font-size:0.8rem;color:#166534;border-bottom:1px solid #bbf7d0;">📌 Subjek Teori & Amali</td></tr>';
+  html += buildSubjectRows(bothSubjects, 'teori');
 
-  html += '</div></div>';
+  html += '</tbody></table></div></div>';
 
   // ==================== KERTAS AMALI ====================
   html += '<div style="background:white;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">';
   html += '<div style="background:linear-gradient(135deg,#059669,#065f46);color:white;padding:1rem 1.25rem;">';
   html += '<h3 style="margin:0;font-size:1rem;">🔧 Kertas Amali</h3>';
-  html += '<p style="margin:4px 0 0;opacity:0.8;font-size:0.8rem;">Subjek dengan peperiksaan amali</p>';
   html += '</div>';
-  html += '<div style="padding:1rem;">';
+  html += '<div style="padding:0;">';
+  html += '<table style="width:100%;border-collapse:collapse;">';
+  html += '<thead><tr style="background:#f9fafb;border-bottom:2px solid #e5e7eb;">';
+  html += '<th style="padding:8px 10px;text-align:center;width:40px;font-size:0.75rem;color:#6b7280;">Bil</th>';
+  html += '<th style="padding:8px 10px;text-align:left;font-size:0.75rem;color:#6b7280;">Mata Pelajaran</th>';
+  html += '<th style="padding:8px 10px;text-align:left;font-size:0.75rem;color:#6b7280;">Nama Penggubal</th>';
+  html += '<th style="padding:8px 10px;text-align:left;font-size:0.75rem;color:#6b7280;">Institusi</th>';
+  html += '</tr></thead><tbody>';
 
-  // Theory only subjects - notice
-  html += '<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:0.75rem;margin-bottom:0.75rem;">';
-  html += '<p style="color:#92400e;font-size:0.8rem;margin:0;font-weight:600;">⚠️ Subjek ini TIADA kertas amali:</p>';
-  html += '<p style="color:#78350f;font-size:0.75rem;margin:4px 0 0;">Physics, Engineering Science, Mathematics, Islamic Studies, Moral Studies, Technical English</p>';
-  html += '</div>';
+  // Notice for theory-only
+  html += '<tr><td colspan="4" style="padding:10px 12px;background:#fef3c7;border-bottom:1px solid #fcd34d;">';
+  html += '<span style="color:#92400e;font-size:0.8rem;font-weight:600;">⚠️ Tiada Kertas Amali untuk:</span> ';
+  html += '<span style="color:#78350f;font-size:0.75rem;">Physics, Engineering Science, Mathematics, Islamic Studies, Moral Studies, Technical English</span>';
+  html += '</td></tr>';
 
-  // Both subjects - amali column
-  html += '<h4 style="color:#059669;margin:0 0 0.75rem;font-size:0.85rem;border-bottom:2px solid #e5e7eb;padding-bottom:0.5rem;">Subjek Amali</h4>';
-  bothSubjects.forEach(subj => {
-    const savedName = (data.examPaperAppointment.amali && data.examPaperAppointment.amali[subj.id]) || '';
-    html += '<div style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid #f3f4f6;">';
-    html += '<div style="flex:1;min-width:0;">';
-    html += '<div style="font-weight:600;font-size:0.85rem;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(subj.name) + '</div>';
-    html += '<div style="font-size:0.75rem;color:#6b7280;">' + esc(subj.code) + '</div>';
-    html += '</div>';
-    html += '<input type="text" placeholder="Nama Penggubal" value="' + esc(savedName) + '" onchange="saveExamPaperTeacher(\'amali\',\'' + subj.id + '\',this.value)" style="flex:1.2;min-width:120px;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.8rem;">';
-    html += '</div>';
-  });
+  // Both subjects - amali
+  html += '<tr><td colspan="4" style="padding:8px 12px;background:#f0fdf4;font-weight:700;font-size:0.8rem;color:#166534;border-bottom:1px solid #bbf7d0;">📌 Subjek Amali</td></tr>';
+  html += buildSubjectRows(bothSubjects, 'amali');
 
-  html += '</div></div>';
+  html += '</tbody></table></div></div>';
   html += '</div>';
 
-  // Print button
+  // Buttons
   html += '<div style="margin-top:1.5rem;display:flex;gap:0.75rem;">';
   html += '<button class="btn btn-primary" onclick="printExamPaperAppointment()" style="padding:10px 20px;">🖨️ Cetak</button>';
   html += '<button class="btn btn-sm btn-outline" onclick="exportExamPaperAppointment()" style="color:#059669;border-color:#059669;">📊 Excel</button>';
@@ -14305,29 +14289,16 @@ function renderExamPaperAppointment() {
   container.innerHTML = html;
 }
 
-// Save campus selection
-window.updateExamPaperCampus = function(campus) {
-  if (!data.examPaperAppointment) data.examPaperAppointment = { campus: '', teori: {}, amali: {} };
-  data.examPaperAppointment.campus = campus;
-  saveData();
-};
-
-// Save teacher name for exam paper
-window.saveExamPaperTeacher = function(type, subjectId, teacherName) {
-  if (!data.examPaperAppointment) data.examPaperAppointment = { campus: '', teori: {}, amali: {} };
+window.saveExamPaperField = function(type, subjectId, field, value) {
+  if (!data.examPaperAppointment) data.examPaperAppointment = { teori: {}, amali: {} };
   if (!data.examPaperAppointment[type]) data.examPaperAppointment[type] = {};
-  data.examPaperAppointment[type][subjectId] = teacherName;
+  if (!data.examPaperAppointment[type][subjectId]) data.examPaperAppointment[type][subjectId] = {};
+  data.examPaperAppointment[type][subjectId][field] = value;
   saveData();
 };
 
 // Print exam paper appointment
 window.printExamPaperAppointment = function() {
-  const campus = data.examPaperAppointment ? data.examPaperAppointment.campus : '';
-  if (!campus) {
-    alert('Sila pilih kampus terlebih dahulu.');
-    return;
-  }
-
   const theoryOnlySubjects = [
     { id: 'PH1081', code: 'PH1081', name: 'Physics 1' },
     { id: 'PH2081', code: 'PH2081', name: 'Physics 2' },
@@ -14366,13 +14337,15 @@ window.printExamPaperAppointment = function() {
     { id: 'G02-34-15', code: 'G02-34-15', name: 'Open Source Administration' },
     { id: 'G02-44-13', code: 'G02-44-13', name: 'Computer Network Maintenance Management' },
     { id: 'G02-44-14', code: 'G02-44-14', name: 'Router and Routing Configuration' },
-    { id: 'PTA4011', code: 'PTA4011', name: 'Final Year Project 1' },
     { id: 'G02-25-12', code: 'G02-25-12', name: 'Computer System and Network Procurement' },
     { id: 'G02-25-13', code: 'G02-25-13', name: 'WAN Technology' },
-    { id: 'G02-35-11', code: 'G02-35-11', name: 'Server Maintenance Administration' },
-    { id: 'PTA5025', code: 'PTA5025', name: 'Final Year Project 2' },
-    { id: 'LI6026', code: 'LI6026', name: 'Industrial Training' }
+    { id: 'G02-35-11', code: 'G02-35-11', name: 'Server Maintenance Administration' }
   ];
+
+  function getSaved(type, subjId) {
+    const s = (data.examPaperAppointment[type] && data.examPaperAppointment[type][subjId]) || {};
+    return { nama: s.nama || '', institusi: s.institusi || '' };
+  }
 
   let printContent = '<!DOCTYPE html><html><head><title>Lantikan Penggubal Kertas Soalan</title>';
   printContent += '<style>';
@@ -14384,35 +14357,33 @@ window.printExamPaperAppointment = function() {
   printContent += 'table{width:100%;border-collapse:collapse;margin-bottom:15px;font-size:12px;}';
   printContent += 'th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;}';
   printContent += 'th{background:#f0f0f0;font-weight:bold;}';
-  printContent += '.campus-label{text-align:center;font-size:14px;font-weight:bold;margin-bottom:15px;color:#0f3460;}';
   printContent += '</style></head><body>';
   printContent += '<h1>LANTIKAN PENGGUBAL KERTAS SOALAN</h1>';
   printContent += '<h2>Peperiksaan Akhir ILJTM</h2>';
-  printContent += '<div class="campus-label">' + esc(campus) + '</div>';
 
   // Theory table
   printContent += '<h3>📝 KERTAS TEORI</h3>';
-  printContent += '<table><thead><tr><th style="width:40px;">Bil</th><th style="width:250px;">Mata Pelajaran</th><th style="width:100px;">Kod</th><th>Nama Penggubal</th></tr></thead><tbody>';
+  printContent += '<table><thead><tr><th style="width:35px;">Bil</th><th>Mata Pelajaran</th><th style="width:90px;">Kod</th><th style="width:150px;">Nama Penggubal</th><th style="width:180px;">Institusi</th></tr></thead><tbody>';
   let bil = 1;
   theoryOnlySubjects.forEach(subj => {
-    const teacher = (data.examPaperAppointment.teori && data.examPaperAppointment.teori[subj.id]) || '';
-    printContent += '<tr><td>' + bil + '</td><td>' + esc(subj.name) + '</td><td>' + esc(subj.code) + '</td><td>' + esc(teacher) + '</td></tr>';
+    const s = getSaved('teori', subj.id);
+    printContent += '<tr><td>' + bil + '</td><td>' + esc(subj.name) + '</td><td>' + esc(subj.code) + '</td><td>' + esc(s.nama) + '</td><td>' + esc(s.institusi) + '</td></tr>';
     bil++;
   });
   bothSubjects.forEach(subj => {
-    const teacher = (data.examPaperAppointment.teori && data.examPaperAppointment.teori[subj.id]) || '';
-    printContent += '<tr><td>' + bil + '</td><td>' + esc(subj.name) + '</td><td>' + esc(subj.code) + '</td><td>' + esc(teacher) + '</td></tr>';
+    const s = getSaved('teori', subj.id);
+    printContent += '<tr><td>' + bil + '</td><td>' + esc(subj.name) + '</td><td>' + esc(subj.code) + '</td><td>' + esc(s.nama) + '</td><td>' + esc(s.institusi) + '</td></tr>';
     bil++;
   });
   printContent += '</tbody></table>';
 
   // Practical table
   printContent += '<h4>🔧 KERTAS AMALI</h4>';
-  printContent += '<table><thead><tr><th style="width:40px;">Bil</th><th style="width:250px;">Mata Pelajaran</th><th style="width:100px;">Kod</th><th>Nama Penggubal</th></tr></thead><tbody>';
+  printContent += '<table><thead><tr><th style="width:35px;">Bil</th><th>Mata Pelajaran</th><th style="width:90px;">Kod</th><th style="width:150px;">Nama Penggubal</th><th style="width:180px;">Institusi</th></tr></thead><tbody>';
   bil = 1;
   bothSubjects.forEach(subj => {
-    const teacher = (data.examPaperAppointment.amali && data.examPaperAppointment.amali[subj.id]) || '';
-    printContent += '<tr><td>' + bil + '</td><td>' + esc(subj.name) + '</td><td>' + esc(subj.code) + '</td><td>' + esc(teacher) + '</td></tr>';
+    const s = getSaved('amali', subj.id);
+    printContent += '<tr><td>' + bil + '</td><td>' + esc(subj.name) + '</td><td>' + esc(subj.code) + '</td><td>' + esc(s.nama) + '</td><td>' + esc(s.institusi) + '</td></tr>';
     bil++;
   });
   printContent += '</tbody></table>';
@@ -14428,13 +14399,6 @@ window.printExamPaperAppointment = function() {
 
 // Export exam paper appointment to Excel
 window.exportExamPaperAppointment = function() {
-  if (!data.examPaperAppointment || !data.examPaperAppointment.campus) {
-    alert('Sila pilih kampus terlebih dahulu.');
-    return;
-  }
-
-  const campus = data.examPaperAppointment.campus;
-
   const theoryOnlySubjects = [
     { id: 'PH1081', code: 'PH1081', name: 'Physics 1' },
     { id: 'PH2081', code: 'PH2081', name: 'Physics 2' },
@@ -14473,50 +14437,49 @@ window.exportExamPaperAppointment = function() {
     { id: 'G02-34-15', code: 'G02-34-15', name: 'Open Source Administration' },
     { id: 'G02-44-13', code: 'G02-44-13', name: 'Computer Network Maintenance Management' },
     { id: 'G02-44-14', code: 'G02-44-14', name: 'Router and Routing Configuration' },
-    { id: 'PTA4011', code: 'PTA4011', name: 'Final Year Project 1' },
     { id: 'G02-25-12', code: 'G02-25-12', name: 'Computer System and Network Procurement' },
     { id: 'G02-25-13', code: 'G02-25-13', name: 'WAN Technology' },
-    { id: 'G02-35-11', code: 'G02-35-11', name: 'Server Maintenance Administration' },
-    { id: 'PTA5025', code: 'PTA5025', name: 'Final Year Project 2' },
-    { id: 'LI6026', code: 'LI6026', name: 'Industrial Training' }
+    { id: 'G02-35-11', code: 'G02-35-11', name: 'Server Maintenance Administration' }
   ];
 
-  // Build worksheet data
+  function getSaved(type, subjId) {
+    const s = (data.examPaperAppointment[type] && data.examPaperAppointment[type][subjId]) || {};
+    return { nama: s.nama || '', institusi: s.institusi || '' };
+  }
+
   const wsData = [
     ['LANTIKAN PENGGUBAL KERTAS SOALAN PEPERIKSAAN AKHIR ILJTM'],
-    ['Kampus:', campus],
     [''],
     ['KERTAS TEORI'],
-    ['Bil', 'Mata Pelajaran', 'Kod', 'Nama Penggubal']
+    ['Bil', 'Mata Pelajaran', 'Kod', 'Nama Penggubal', 'Institusi']
   ];
 
   let bil = 1;
   theoryOnlySubjects.forEach(subj => {
-    const teacher = (data.examPaperAppointment.teori && data.examPaperAppointment.teori[subj.id]) || '';
-    wsData.push([bil, subj.name, subj.code, teacher]);
+    const s = getSaved('teori', subj.id);
+    wsData.push([bil, subj.name, subj.code, s.nama, s.institusi]);
     bil++;
   });
   bothSubjects.forEach(subj => {
-    const teacher = (data.examPaperAppointment.teori && data.examPaperAppointment.teori[subj.id]) || '';
-    wsData.push([bil, subj.name, subj.code, teacher]);
+    const s = getSaved('teori', subj.id);
+    wsData.push([bil, subj.name, subj.code, s.nama, s.institusi]);
     bil++;
   });
 
   wsData.push(['']);
   wsData.push(['KERTAS AMALI']);
-  wsData.push(['Bil', 'Mata Pelajaran', 'Kod', 'Nama Penggubal']);
+  wsData.push(['Bil', 'Mata Pelajaran', 'Kod', 'Nama Penggubal', 'Institusi']);
 
   bil = 1;
   bothSubjects.forEach(subj => {
-    const teacher = (data.examPaperAppointment.amali && data.examPaperAppointment.amali[subj.id]) || '';
-    wsData.push([bil, subj.name, subj.code, teacher]);
+    const s = getSaved('amali', subj.id);
+    wsData.push([bil, subj.name, subj.code, s.nama, s.institusi]);
     bil++;
   });
 
   wsData.push(['']);
   wsData.push(['Dicetak pada:', new Date().toLocaleString('ms-MY')]);
 
-  // Export to Excel
   if (typeof XLSX !== 'undefined') {
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
