@@ -294,12 +294,12 @@ function applyRoleRestrictions() {
     document.getElementById('deleteAllTimetableBtn').style.display = '';
     document.getElementById('deleteAllMemosBtn').style.display = '';
   } else if (currentRole === 'teacher') {
-    const t = ['students', 'marks', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'fyp', 'carrymark'];
+    const t = ['students', 'marks', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'fyp', 'carrymark', 'pdpeval'];
     t.forEach((tab, i) => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
       btn.dataset.tab = tab;
-      const labels = { students: 'Pelajar', marks: 'Markah', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', fyp: 'FYP', carrymark: 'Carrymark' };
+      const labels = { students: 'Pelajar', marks: 'Markah', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', fyp: 'FYP', carrymark: 'Carrymark', pdpeval: 'Penilaian PDP' };
       btn.textContent = labels[tab];
       nav.appendChild(btn);
     });
@@ -1029,8 +1029,7 @@ function optimizeData(data) {
       studentId: m.studentId,
       semesterId: m.semesterId,
       scores: m.scores || {},
-      remarks: m.remarks || '',
-      verified: m.verified || false
+      remarks: m.remarks || ''
     })),
     timetable: data.timetable.map(t => ({
       id: t.id,
@@ -1137,6 +1136,7 @@ function optimizeData(data) {
       totalScore: e.totalScore || 0,
       percentage: e.percentage || 0,
       comments: e.comments || '',
+      published: e.published || false,
       createdAt: e.createdAt || ''
     }))
   };
@@ -3063,18 +3063,14 @@ function initMarkEntry() {
 
   students.forEach(student => {
     const markRecord = data.marks.find(m => m.studentId === student.id && m.semesterId === semesterId);
-    const isVerified = markRecord && markRecord.verified;
-    html += `<tr><td class="mark-student-name">${esc(student.name)}${currentRole === 'teacher' && !isVerified ? ' <span style="color:#dc2626;font-size:10px;">(belum disahkan)</span>' : ''}</td>`;
+    html += `<tr><td class="mark-student-name">${esc(student.name)}</td>`;
     subjects.forEach(subj => {
       const enrolled = isStudentEnrolled(student, subj.id);
       const score = markRecord ? (markRecord.scores[subj.id] ?? '') : '';
       const isCocu = isCoCurriculumSubject(subj);
       
       if (enrolled) {
-        if (currentRole === 'teacher' && !isVerified) {
-          // Teacher sees dashes for unverified marks
-          html += `<td style="text-align:center;color:#cbd5e1;font-size:0.85rem;">—</td>`;
-        } else if (isCocu) {
+        if (isCocu) {
           // Co-curriculum: L/G buttons
           const isL = score === 'L';
           const isG = score === 'G';
@@ -3114,7 +3110,7 @@ function initMarkEntry() {
 
       let rec = data.marks.find(m => m.studentId === studentId && m.semesterId === semesterId);
       if (!rec) {
-        rec = { studentId, semesterId, scores: {}, remarks: '', verified: false };
+        rec = { studentId, semesterId, scores: {}, remarks: '' };
         data.marks.push(rec);
       }
       
@@ -3167,7 +3163,7 @@ window.setMainCocuMark = function(btn, studentId, subjectId, value, semesterId) 
   // Auto-save to data.marks
   let rec = data.marks.find(m => m.studentId === studentId && m.semesterId === semesterId);
   if (!rec) {
-    rec = { studentId, semesterId, scores: {}, remarks: '', verified: false };
+    rec = { studentId, semesterId, scores: {}, remarks: '' };
     data.marks.push(rec);
   }
   rec.scores[subjectId] = value;
@@ -3183,144 +3179,6 @@ document.getElementById('deleteAllMarksBtn').onclick = function () {
 };
 
 document.getElementById('markSemesterSelect').addEventListener('change', initMarkEntry);
-
-// ============================================
-// MARKS VERIFICATION (Admin Only)
-// ============================================
-let marksMode = 'entry'; // 'entry' or 'verify'
-
-function toggleMarksMode() {
-  marksMode = marksMode === 'entry' ? 'verify' : 'entry';
-  const btn = document.getElementById('toggleMarksModeBtn');
-  const entryArea = document.getElementById('markEntryArea');
-  const verifyArea = document.getElementById('markVerifyArea');
-  
-  if (marksMode === 'verify') {
-    btn.textContent = '📝 Mod Entry';
-    btn.style.background = '#8b5cf6';
-    entryArea.style.display = 'none';
-    verifyArea.style.display = 'block';
-    renderMarksVerification();
-  } else {
-    btn.textContent = '🔄 Mod Verifikasi';
-    btn.style.background = '';
-    entryArea.style.display = 'block';
-    verifyArea.style.display = 'none';
-    initMarkEntry();
-  }
-}
-
-function renderMarksVerification() {
-  const semesterId = document.getElementById('markSemesterSelect').value;
-  const area = document.getElementById('markVerifyArea');
-  
-  if (!semesterId) {
-    area.innerHTML = '<p class="empty-state">Sila pilih semester untuk melihat verifikasi markah.</p>';
-    return;
-  }
-  
-  const semester = data.semesters.find(s => s.id === semesterId);
-  const marks = data.marks.filter(m => m.semesterId === semesterId);
-  
-  if (marks.length === 0) {
-    area.innerHTML = '<p class="empty-state">Tiada markah direkodkan untuk semester ini.</p>';
-    return;
-  }
-  
-  // Stats
-  const totalStudents = marks.length;
-  const verifiedCount = marks.filter(m => m.verified).length;
-  const unverifiedCount = totalStudents - verifiedCount;
-  
-  let html = `
-    <div style="margin-bottom:16px;">
-      <h3 style="margin:0 0 4px 0;">Verifikasi Markah - ${esc(semester ? semester.name : '')}</h3>
-      <p style="margin:0;color:#666;font-size:13px;">Semak dan sahkan markah sebelum diterbitkan kepada pengajar.</p>
-    </div>
-    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-      <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 20px;min-width:120px;">
-        <div style="font-size:11px;color:#0369a1;">Jumlah Pelajar</div>
-        <div style="font-size:24px;font-weight:700;color:#0c4a6e;">${totalStudents}</div>
-      </div>
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 20px;min-width:120px;">
-        <div style="font-size:11px;color:#15803d;">Disahkan</div>
-        <div style="font-size:24px;font-weight:700;color:#166534;">${verifiedCount}</div>
-      </div>
-      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 20px;min-width:120px;">
-        <div style="font-size:11px;color:#dc2626;">Belum Disahkan</div>
-        <div style="font-size:24px;font-weight:700;color:#991b1b;">${unverifiedCount}</div>
-      </div>
-    </div>
-    <div style="margin-bottom:12px;display:flex;gap:8px;">
-      <button onclick="verifyAllMarks('${semesterId}')" style="padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">✓ Sahkan Semua</button>
-      <button onclick="unverifyAllMarks('${semesterId}')" style="padding:8px 16px;background:#dc2626;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">✗ Batal Semua</button>
-    </div>
-    <table class="data-table" style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr>
-          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
-          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Nama Pelajar</th>
-          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Status</th>
-          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Tindakan</th>
-        </tr>
-      </thead>
-      <tbody>`;
-  
-  const students = marks.map(m => {
-    const s = data.students.find(st => st.id === m.studentId);
-    return { mark: m, student: s };
-  }).filter(x => x.student).sort((a, b) => (a.student.name || '').localeCompare(b.student.name || ''));
-  
-  students.forEach(({ mark, student }, i) => {
-    const isVerified = mark.verified;
-    const scoreCount = Object.keys(mark.scores || {}).filter(k => mark.scores[k] != null && mark.scores[k] !== '').length;
-    
-    html += `
-      <tr style="background:${isVerified ? '#f0fdf4' : '#fff'};">
-        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
-        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">
-          <div style="font-weight:600;">${esc(student.name)}</div>
-          <div style="font-size:11px;color:#888;">${scoreCount} subjek diisi</div>
-        </td>
-        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
-          <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:${isVerified ? '#dcfce7' : '#fee2e2'};color:${isVerified ? '#166534' : '#991b1b'};">
-            ${isVerified ? '✓ Disahkan' : '✗ Belum'}
-          </span>
-        </td>
-        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
-          <button onclick="toggleVerifyMark('${mark.studentId}', '${semesterId}')" 
-            style="padding:5px 14px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;background:${isVerified ? '#dc2626' : '#059669'};color:#fff;">
-            ${isVerified ? 'Batal Sahkan' : 'Sahkan'}
-          </button>
-        </td>
-      </tr>`;
-  });
-  
-  html += '</tbody></table>';
-  area.innerHTML = html;
-}
-
-function toggleVerifyMark(studentId, semesterId) {
-  const mark = data.marks.find(m => m.studentId === studentId && m.semesterId === semesterId);
-  if (!mark) return;
-  mark.verified = !mark.verified;
-  saveData();
-  renderMarksVerification();
-}
-
-function verifyAllMarks(semesterId) {
-  data.marks.filter(m => m.semesterId === semesterId).forEach(m => { m.verified = true; });
-  saveData();
-  renderMarksVerification();
-  showToast('Semua markah telah disahkan.', 'success');
-}
-
-function unverifyAllMarks(semesterId) {
-  data.marks.filter(m => m.semesterId === semesterId).forEach(m => { m.verified = false; });
-  saveData();
-  renderMarksVerification();
-  showToast('Semua verifikasi telah dibatalkan.', 'warning');
-}
 
 function renderResults() {
   if (currentRole === 'student') {
@@ -3444,8 +3302,6 @@ function renderResults() {
         if (!pub || now < pub) return;
         const record = data.marks.find(m => m.studentId === student.id && m.semesterId === sem.id);
         if (record && Object.keys(record.scores).length > 0) {
-          // Teacher: only show verified marks
-          if (currentRole === 'teacher' && !record.verified) return;
           html += renderStudentSlip(student, sem, record);
           hasResults = true;
         }
@@ -3480,8 +3336,6 @@ function renderResults() {
       const record = data.marks.find(m => m.studentId === student.id && m.semesterId === semester.id);
       if (!record || Object.keys(record.scores).length === 0) {
         html = `<p class="empty-state">Tiada markah untuk ${esc(student.name)} pada ${esc(semester.name)}</p>`;
-      } else if (currentRole === 'teacher' && !record.verified) {
-        html = `<div class="result-slip" style="text-align:center;padding:2rem;"><p style="font-size:1rem;color:#e74c3c;font-weight:600;">Markah Belum Disahkan</p><p style="color:#6b7280;">Markah untuk semester ini belum disahkan oleh admin.</p></div>`;
       } else {
         html = renderStudentSlip(student, semester, record);
       }
@@ -13569,13 +13423,15 @@ function getPDPRatingLabel(percentage) {
   return { text: 'Sangat Lemah', color: '#e74c3c' };
 }
 
-// Render PDP Evaluation (Student or Admin view)
+// Render PDP Evaluation (Student, Teacher, or Admin view)
 function renderPDPEval() {
   const area = document.getElementById('pdpevalArea');
   if (!area) return;
 
   if (currentRole === 'admin') {
     renderPDPEvalAdmin(area);
+  } else if (currentRole === 'teacher') {
+    renderPDPEvalTeacher(area);
   } else if (currentRole === 'student') {
     renderPDPEvalStudent(area);
   }
@@ -13808,7 +13664,7 @@ function submitPDPEval(studentId, teacherName) {
 }
 
 // ============================================
-// ADMIN VIEW - Aggregated Results
+// ADMIN VIEW - Aggregated Results + Publish to Teachers
 // ============================================
 function renderPDPEvalAdmin(area) {
   const evaluations = data.pdpevaluations || [];
@@ -13825,29 +13681,30 @@ function renderPDPEvalAdmin(area) {
       teacherMap.set(e.teacherName, {
         name: e.teacherName,
         evaluations: [],
-        criteriaTotals: {},
-        criteriaCounts: {}
+        publishedCount: 0,
+        unpublishCount: 0
       });
     }
     const t = teacherMap.get(e.teacherName);
     t.evaluations.push(e);
-
-    // Aggregate criteria scores
-    PDP_CRITERIA.forEach(c => {
-      if (e.criteria && e.criteria[c.key]) {
-        t.criteriaTotals[c.key] = (t.criteriaTotals[c.key] || 0) + e.criteria[c.key];
-        t.criteriaCounts[c.key] = (t.criteriaCounts[c.key] || 0) + 1;
-      }
-    });
+    if (e.published) t.publishedCount++;
+    else t.unpublishCount++;
   });
 
   // Sort by name
   const sortedTeachers = Array.from(teacherMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
+  const totalPublished = evaluations.filter(e => e.published).length;
+  const totalUnpublished = evaluations.length - totalPublished;
+
   let html = `
     <div style="margin-bottom:16px;">
       <h3 style="margin:0 0 4px 0;">Ringkasan Penilaian PDP Pengajar</h3>
-      <p style="margin:0;color:#666;font-size:13px;">Jumlah penilaian: ${evaluations.length} | Jumlah pengajar: ${sortedTeachers.length}</p>
+      <p style="margin:0;color:#666;font-size:13px;">Jumlah penilaian: ${evaluations.length} | Jumlah pengajar: ${sortedTeachers.length} | Diterbitkan: ${totalPublished} | Belum: ${totalUnpublished}</p>
+    </div>
+    <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button onclick="publishAllPDPEval()" style="padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">📤 Terbitkan Semua Kepada Pengajar</button>
+      <button onclick="unpublishAllPDPEval()" style="padding:8px 16px;background:#dc2626;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">📥 Tarik Semula Semua</button>
     </div>
     <table class="data-table" style="width:100%;border-collapse:collapse;">
       <thead>
@@ -13857,7 +13714,7 @@ function renderPDPEvalAdmin(area) {
           <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Jumlah Penilaian</th>
           <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Markah Purata</th>
           <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">% Purata</th>
-          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Penilaian</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Status</th>
           <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Tindakan</th>
         </tr>
       </thead>
@@ -13867,6 +13724,7 @@ function renderPDPEvalAdmin(area) {
     const avgScore = teacher.evaluations.reduce((sum, e) => sum + e.totalScore, 0) / teacher.evaluations.length;
     const avgPercentage = teacher.evaluations.reduce((sum, e) => sum + e.percentage, 0) / teacher.evaluations.length;
     const rating = getPDPRatingLabel(avgPercentage);
+    const allPublished = teacher.unpublishCount === 0;
 
     html += `
       <tr>
@@ -13876,12 +13734,18 @@ function renderPDPEvalAdmin(area) {
         <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;font-weight:600;">${avgScore.toFixed(1)}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;font-weight:600;">${avgPercentage.toFixed(1)}%</td>
         <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
-          <span style="background:${rating.color};color:#fff;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">${rating.text}</span>
+          <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:${allPublished ? '#dcfce7' : '#fef3c7'};color:${allPublished ? '#166534' : '#92400e'};">
+            ${allPublished ? '✓ Diterbitkan' : '⏳ Belum'}
+          </span>
         </td>
         <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
           <button onclick="showPDPEvalDetail('${esc(teacher.name)}')" 
-            style="padding:5px 12px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">
-            Lihat Detail
+            style="padding:5px 10px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;margin-right:4px;">
+            Detail
+          </button>
+          <button onclick="publishPDPEvalForTeacher('${esc(teacher.name)}')" 
+            style="padding:5px 10px;background:${allPublished ? '#dc2626' : '#059669'};color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">
+            ${allPublished ? 'Tarik Semula' : 'Terbitkan'}
           </button>
         </td>
       </tr>`;
@@ -13932,6 +13796,33 @@ function renderPDPEvalAdmin(area) {
   html += `</tbody></table></div>`;
 
   area.innerHTML = html;
+}
+
+// Publish PDP evaluations for a specific teacher
+function publishPDPEvalForTeacher(teacherName) {
+  const evals = (data.pdpevaluations || []).filter(e => e.teacherName === teacherName);
+  const allPublished = evals.every(e => e.published);
+  
+  evals.forEach(e => { e.published = !allPublished; });
+  saveData();
+  renderPDPEvalAdmin(document.getElementById('pdpevalArea'));
+  showToast(allPublished ? `Penilaian untuk ${teacherName} telah ditarik semula.` : `Penilaian untuk ${teacherName} telah diterbitkan.`, 'success');
+}
+
+// Publish all PDP evaluations
+function publishAllPDPEval() {
+  (data.pdpevaluations || []).forEach(e => { e.published = true; });
+  saveData();
+  renderPDPEvalAdmin(document.getElementById('pdpevalArea'));
+  showToast('Semua penilaian PDP telah diterbitkan kepada pengajar.', 'success');
+}
+
+// Unpublish all PDP evaluations
+function unpublishAllPDPEval() {
+  (data.pdpevaluations || []).forEach(e => { e.published = false; });
+  saveData();
+  renderPDPEvalAdmin(document.getElementById('pdpevalArea'));
+  showToast('Semua penilaian PDP telah ditarik semula.', 'warning');
 }
 
 // Show detailed evaluation for a teacher
@@ -14041,4 +13932,108 @@ function showPDPEvalDetail(teacherName) {
 
   modal.innerHTML = html;
   modal.classList.remove('hidden');
+}
+
+// ============================================
+// TEACHER VIEW - Published PDP Evaluation Results
+// ============================================
+function renderPDPEvalTeacher(area) {
+  const teacherName = currentUser.name;
+  const evaluations = (data.pdpevaluations || []).filter(e => e.teacherName === teacherName && e.published);
+
+  if (evaluations.length === 0) {
+    area.innerHTML = '<div style="padding:20px;text-align:center;color:#666;">Tiada penilaian PDP yang telah diterbitkan untuk anda.<br><span style="font-size:12px;">Penilaian akan muncul setelah admin menerbitkannya.</span></div>';
+    return;
+  }
+
+  // Calculate averages
+  const criteriaAvgs = {};
+  PDP_CRITERIA.forEach(c => {
+    const total = evaluations.reduce((sum, e) => sum + (e.criteria[c.key] || 0), 0);
+    criteriaAvgs[c.key] = evaluations.length > 0 ? (total / evaluations.length).toFixed(2) : '0.00';
+  });
+
+  const avgPercentage = evaluations.reduce((sum, e) => sum + e.percentage, 0) / evaluations.length;
+  const rating = getPDPRatingLabel(avgPercentage);
+
+  let html = `
+    <div style="margin-bottom:16px;">
+      <h3 style="margin:0 0 4px 0;">Keputusan Penilaian PDP Anda</h3>
+      <p style="margin:0;color:#666;font-size:13px;">Penilaian daripada pelajar yang telah diterbitkan oleh admin.</p>
+    </div>
+    <div style="background:#f8f9fa;border:1px solid #e0e0e0;border-radius:8px;padding:16px 20px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:13px;color:#666;">Pengajar</div>
+        <div style="font-weight:700;font-size:18px;">${esc(teacherName)}</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:13px;color:#666;">Jumlah Penilaian</div>
+        <div style="font-weight:700;font-size:24px;">${evaluations.length}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:13px;color:#666;">Purata Keseluruhan</div>
+        <div style="font-weight:700;font-size:20px;color:${rating.color};">${avgPercentage.toFixed(1)}% - ${rating.text}</div>
+      </div>
+    </div>
+
+    <h4 style="margin:0 0 8px 0;">Pecahan Kriteria</h4>
+    <table class="data-table" style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+      <thead>
+        <tr>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Kriteria</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Purata Markah</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">%</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Penilaian</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+  PDP_CRITERIA.forEach(c => {
+    const avg = parseFloat(criteriaAvgs[c.key]);
+    const pct = Math.round((avg / 10) * 100);
+    const r = getPDPRatingLabel(pct);
+    html += `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-weight:600;">${esc(c.label)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">${avg}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">${pct}%</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">
+          <span style="background:${r.color};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;">${r.text}</span>
+        </td>
+      </tr>`;
+  });
+
+  html += `</tbody></table>`;
+
+  // Individual evaluations
+  html += `<h4 style="margin:0 0 8px 0;">Senarai Penilaian Pelajar</h4>
+    <table class="data-table" style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Nama Pelajar</th>
+          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">Markah</th>
+          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">%</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Ulasan</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+  evaluations.sort((a, b) => b.percentage - a.percentage).forEach((e, i) => {
+    const r = getPDPRatingLabel(e.percentage);
+    html += `
+      <tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(e.studentName)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;font-weight:600;">${e.totalScore}/${PDP_CRITERIA.length * 10}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;">
+          <span style="background:${r.color};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;">${e.percentage}%</span>
+        </td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-size:12px;">${esc(e.comments || '-')}</td>
+      </tr>`;
+  });
+
+  html += `</tbody></table>`;
+
+  area.innerHTML = html;
 }
