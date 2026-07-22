@@ -274,12 +274,12 @@ function applyRoleRestrictions() {
   userInfo.textContent = (roleLabels[currentRole] || currentRole) + ': ' + (currentUser ? currentUser.name : '');
 
   if (currentRole === 'admin') {
-    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'graduation', 'fyp', 'carrymark'];
+    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'graduation', 'fyp', 'carrymark', 'pdpeval'];
     allTabs.forEach(t => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (t === 'dashboard' ? ' active' : '');
       btn.dataset.tab = t;
-      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark' };
+      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark', pdpeval: 'Penilaian PDP' };
       btn.textContent = labels[t];
       nav.appendChild(btn);
     });
@@ -326,12 +326,12 @@ function applyRoleRestrictions() {
       });
     }
   } else if (currentRole === 'student') {
-    const t = ['results', 'timetable', 'memos', 'messages', 'assignments'];
+    const t = ['results', 'timetable', 'memos', 'messages', 'assignments', 'pdpeval'];
     t.forEach((tab, i) => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
       btn.dataset.tab = tab;
-      const labels = { results: 'Keputusan', timetable: 'Jadual Saya', memos: 'Memo', messages: 'Mesej', assignments: 'Tugasan' };
+      const labels = { results: 'Keputusan', timetable: 'Jadual Saya', memos: 'Memo', messages: 'Mesej', assignments: 'Tugasan', pdpeval: 'Penilaian PDP' };
       btn.textContent = labels[tab];
       nav.appendChild(btn);
     });
@@ -365,6 +365,7 @@ function applyRoleRestrictions() {
       if (this.dataset.tab === 'graduation') renderGraduation();
       if (this.dataset.tab === 'fyp') renderFYP();
       if (this.dataset.tab === 'carrymark') renderCarrymark();
+      if (this.dataset.tab === 'pdpeval') renderPDPEval();
     });
   });
 
@@ -912,7 +913,8 @@ let data = {
   examSchedule: [],
   calculatedResults: [],
   resultAuditLog: [],
-  merit: []
+  merit: [],
+  pdpevaluations: []
 };
 
 // Clear all data from Firebase and localStorage
@@ -1121,7 +1123,21 @@ function optimizeData(data) {
       user: l.user || '',
       timestamp: l.timestamp || ''
     })),
-    merit: (data.merit || [])
+    merit: (data.merit || []),
+    pdpevaluations: (data.pdpevaluations || []).map(e => ({
+      id: e.id,
+      studentId: e.studentId,
+      studentName: e.studentName || '',
+      teacherName: e.teacherName || '',
+      subjectId: e.subjectId || '',
+      subjectName: e.subjectName || '',
+      semesterId: e.semesterId || '',
+      criteria: e.criteria || {},
+      totalScore: e.totalScore || 0,
+      percentage: e.percentage || 0,
+      comments: e.comments || '',
+      createdAt: e.createdAt || ''
+    }))
   };
   return optimized;
 }
@@ -1191,6 +1207,7 @@ async function loadFromFirebase() {
     data.teachers = remote.teachers || [];
     data.semesters = remote.semesters || [];
     data.subjects = remote.subjects || [];
+    data.pdpevaluations = remote.pdpevaluations || [];
     
   } else if (localBackup && localBackup.data) {
     // Firebase empty - use localStorage
@@ -1218,6 +1235,9 @@ async function loadFromFirebase() {
   lastDataSnapshot = JSON.stringify(data);
   
   console.log('✅ Data loaded. Students:', data.students.length, 'Marks:', data.marks.length, 'Teachers:', data.teachers.length);
+  
+  // STEP 6: Auto-assign pengajar ke subjek dari carrymark templates + auto-create teacher
+  autoAssignPengajar();
 }
 
 function restoreFromBackup(backupData) {
@@ -1272,8 +1292,57 @@ function restoreFromBackup(backupData) {
   if (backupData.merit && backupData.merit.length > 0) {
     data.merit = backupData.merit;
   }
+  if (backupData.pdpevaluations && backupData.pdpevaluations.length > 0) {
+    data.pdpevaluations = backupData.pdpevaluations;
+  }
   
   console.log('✅ Restore complete. Students:', data.students.length, 'Marks:', data.marks.length);
+}
+
+function autoAssignPengajar() {
+  const templates = (data.carrymark && data.carrymark.templates) || [];
+  if (!templates.length || !data.subjects.length) return;
+
+  const codeToLecturer = {};
+  const nameToLecturer = {};
+  templates.forEach(t => {
+    if (t.courseCode && t.lecturer) codeToLecturer[t.courseCode] = t.lecturer;
+    if (t.course && t.lecturer) nameToLecturer[t.course] = t.lecturer;
+  });
+
+  let updated = 0;
+  data.subjects.forEach(subj => {
+    if (subj.pengajar && subj.pengajar.trim()) return;
+    if (codeToLecturer[subj.code]) { subj.pengajar = codeToLecturer[subj.code]; updated++; }
+    else if (nameToLecturer[subj.name]) { subj.pengajar = nameToLecturer[subj.name]; updated++; }
+  });
+
+  if (updated > 0) {
+    console.log('🔧 Auto-assigned pengajar ke', updated, 'subjek');
+  }
+
+  const existingNames = new Set(data.teachers.map(t => t.name));
+  let created = 0;
+  data.subjects.forEach(subj => {
+    if (subj.pengajar && !existingNames.has(subj.pengajar)) {
+      data.teachers.push({
+        id: generateId('TCH'),
+        name: subj.pengajar,
+        phone: '',
+        email: '',
+        grade: '',
+        position: 'Pegawai Latihan Vokasional',
+        createdAt: new Date().toISOString()
+      });
+      existingNames.add(subj.pengajar);
+      created++;
+      console.log('➕ Auto-created teacher:', subj.pengajar);
+    }
+  });
+
+  if (created > 0) {
+    console.log('✅ Created', created, 'new teacher records');
+  }
 }
 
 async function saveData() {
@@ -3198,8 +3267,9 @@ function renderResults() {
   studentSelect.innerHTML = '<option value="">-- Pilih Pelajar --</option>' +
     data.students.map(s => `<option value="${s.id}">${esc(s.name)} (${esc(s.class)})</option>`).join('');
 
+  const semestersForResult = getTeacherSemesters();
   semesterSelect.innerHTML = '<option value="all">Semua Semester</option>' +
-    data.semesters.map(s => `<option value="${s.id}">${esc(s.name)}${s.penyelia ? ' - ' + esc(s.penyelia) : ''}</option>`).join('');
+    semestersForResult.map(s => `<option value="${s.id}">${esc(s.name)}${s.penyelia ? ' - ' + esc(s.penyelia) : ''}</option>`).join('');
 
   if (prevStudent) studentSelect.value = prevStudent;
   if (prevSemester) semesterSelect.value = prevSemester;
@@ -3759,11 +3829,28 @@ document.getElementById('resultSemesterSelect').addEventListener('change', gener
 function renderDashboard() {
   const statsDiv = document.getElementById('dashboardStats');
   const detailDiv = document.getElementById('dashboardDetail');
+  const teacherName = currentRole === 'teacher' ? (currentUser ? currentUser.name : '') : '';
+  const teacherSubjectIds = teacherName ? data.subjects.filter(s => s.pengajar === teacherName).map(s => s.id) : [];
 
-  const totalStudents = data.students.length;
-  const totalSubjects = data.subjects.length;
-  const totalSemesters = data.semesters.length;
-  const totalMarks = data.marks.length;
+  // Filter semesters based on teacher's subjects
+  let semestersToShow = data.semesters;
+  let subjectsToShow = data.subjects;
+  let studentsToShow = data.students;
+  let marksToShow = data.marks;
+
+  if (teacherName) {
+    const teacherSemIds = [...new Set(data.subjects.filter(s => s.pengajar === teacherName).map(s => s.semester))];
+    semestersToShow = data.semesters.filter(s => teacherSemIds.includes(s.id));
+    subjectsToShow = data.subjects.filter(s => s.pengajar === teacherName);
+    const teacherSemNames = semestersToShow.map(s => s.name);
+    studentsToShow = data.students.filter(s => teacherSemNames.includes(s.class) && s.track !== 'graduated');
+    marksToShow = data.marks.filter(m => teacherSubjectIds.includes(m.studentId) || studentsToShow.some(s => s.id === m.studentId));
+  }
+
+  const totalStudents = studentsToShow.length;
+  const totalSubjects = subjectsToShow.length;
+  const totalSemesters = semestersToShow.length;
+  const totalMarks = marksToShow.length;
 
   statsDiv.innerHTML = `
     <div class="stat-card"><div class="stat-value">${totalStudents}</div><div class="stat-label">Pelajar</div></div>
@@ -3785,21 +3872,21 @@ function renderDashboard() {
     html += '</div>';
   }
 
-  if (data.semesters.length > 0) {
+  if (semestersToShow.length > 0) {
     html += '<div style="background:white;border-radius:8px;padding:1rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.08);">';
     html += '<h3 style="margin-bottom:0.75rem;color:#0f3460;">Senarai Semester & Penyelia</h3>';
     html += '<table><thead><tr><th>Semester</th><th>Penyelia</th></tr></thead><tbody>';
-    data.semesters.forEach(sem => {
+    semestersToShow.forEach(sem => {
       html += `<tr><td>${esc(sem.name)}</td><td>${esc(sem.penyelia || '-')}</td></tr>`;
     });
     html += '</tbody></table></div>';
   }
 
   // Subjek & Pengajar dikelompokkan mengikut semester
-  if (data.subjects.length > 0) {
+  if (subjectsToShow.length > 0) {
     // Group subjects by semester
     const grouped = {};
-    data.subjects.forEach(subj => {
+    subjectsToShow.forEach(subj => {
       const semName = getSemesterName(subj.semester);
       if (!grouped[semName]) grouped[semName] = [];
       grouped[semName].push(subj);
@@ -3930,9 +4017,24 @@ function getSubjectInfo(id) {
 function rebuildTimetableSemesterFilter() {
   const sel = document.getElementById('timetableSemesterFilter');
   const prev = sel.value;
+  
+  let semestersToShow = data.semesters;
+  if (currentRole === 'teacher') {
+    const teacherSubjectIds = data.subjects.filter(s => s.pengajar === currentUser.name).map(s => s.id);
+    const teacherSemIds = [...new Set(data.subjects.filter(s => teacherSubjectIds.includes(s.id)).map(s => s.semester))];
+    semestersToShow = data.semesters.filter(s => teacherSemIds.includes(s.id));
+  }
+  
   sel.innerHTML = '<option value="">Semua Semester</option>' +
-    data.semesters.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    semestersToShow.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
   sel.value = prev;
+}
+
+function getTeacherSemesters() {
+  if (currentRole !== 'teacher' || !currentUser) return data.semesters;
+  const teacherSubIds = data.subjects.filter(s => s.pengajar === currentUser.name).map(s => s.id);
+  const teacherSemIds = [...new Set(data.subjects.filter(s => teacherSubIds.includes(s.id)).map(s => s.semester))];
+  return data.semesters.filter(s => teacherSemIds.includes(s.id));
 }
 
 function timeToMinutes(timeStr) {
@@ -3954,6 +4056,23 @@ function checkTeacherConflict(teacherName, day, startTime, endTime, excludeId) {
     if (e.id === excludeId) return false;
     if (!teacherSubjectIds.includes(e.subjectId)) return false;
     if (parseInt(e.day) !== parseInt(day)) return false;
+    const eStart = timeToMinutes(e.startTime);
+    const eEnd = timeToMinutes(e.endTime);
+    return startM < eEnd && endM > eStart;
+  });
+  return conflicts;
+}
+
+function checkRoomConflict(room, day, startTime, endTime, excludeId) {
+  if (!room) return [];
+  const startM = timeToMinutes(startTime);
+  const endM = timeToMinutes(endTime);
+  const conflicts = data.timetable.filter(e => {
+    if (e.id === excludeId) return false;
+    if (e.room !== room) return false;
+    if (parseInt(e.day) !== parseInt(day)) return false;
+    const eSubj = data.subjects.find(s => s.id === e.subjectId);
+    if (eSubj && eSubj.pengajar && eSubj.pengajar.toLowerCase().includes('bppl')) return false;
     const eStart = timeToMinutes(e.startTime);
     const eEnd = timeToMinutes(e.endTime);
     return startM < eEnd && endM > eStart;
@@ -4041,6 +4160,15 @@ function subjectColor(subjectId) {
   return SUBJECT_COLORS[idx];
 }
 
+function buildSemesterColorMap(entries) {
+  const subjectIds = [...new Set(entries.map(e => e.subjectId))];
+  const map = {};
+  subjectIds.forEach((sid, i) => {
+    map[sid] = SUBJECT_COLORS[i % SUBJECT_COLORS.length];
+  });
+  return map;
+}
+
 function renderTimetableView(container, semesterId, readOnly) {
   let entries = data.timetable;
   if (semesterId) entries = entries.filter(e => e.semester === semesterId);
@@ -4054,6 +4182,9 @@ function renderTimetableView(container, semesterId, readOnly) {
     container.innerHTML = '<p class="empty-state">Tiada jadual waktu</p>';
     return;
   }
+
+  // Build color map per semester - setiap subjek warna berlainan
+  const semColorMap = buildSemesterColorMap(entries);
 
   const semester = semesterId ? data.semesters.find(s => s.id === semesterId) : null;
 
@@ -4108,7 +4239,7 @@ function renderTimetableView(container, semesterId, readOnly) {
         html += `<div class="tt-cell-stack">`;
         cellEntries.forEach(entry => {
           const info = getSubjectInfo(entry.subjectId);
-          const color = subjectColor(entry.subjectId);
+          const color = semColorMap[entry.subjectId] || subjectColor(entry.subjectId);
           const sem = data.semesters.find(s => s.id === entry.semester);
           html += `<div class="tt-entry tt-entry-filled" style="background:${color.light};border-left:3px solid ${color.border}">
             <div class="tt-entry-name" style="color:${color.bg}">${esc(info.name)}</div>`;
@@ -4131,7 +4262,92 @@ function renderTimetableView(container, semesterId, readOnly) {
     html += '</tr>';
   });
 
-  html += '</tbody></table></div></div>';
+  html += '</tbody></table></div>';
+
+  // Legend warna subjek
+  const uniqueSubjects = {};
+  entries.forEach(e => {
+    if (!uniqueSubjects[e.subjectId]) {
+      const info = getSubjectInfo(e.subjectId);
+      const color = semColorMap[e.subjectId] || subjectColor(e.subjectId);
+      uniqueSubjects[e.subjectId] = { name: info.name, color };
+    }
+  });
+  if (Object.keys(uniqueSubjects).length > 0) {
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:1rem;padding:0.75rem;background:#f8fafc;border-radius:8px;">';
+    html += '<span style="font-weight:600;color:#334155;font-size:0.85rem;width:100%;margin-bottom:2px;">Legend:</span>';
+    Object.values(uniqueSubjects).forEach(s => {
+      html += `<div style="display:flex;align-items:center;gap:5px;font-size:0.8rem;"><span style="width:14px;height:14px;border-radius:3px;background:${s.color.bg};border:1px solid ${s.color.border};display:inline-block;"></span>${esc(s.name)}</div>`;
+    });
+    html += '</div>';
+  }
+
+  // Detect clash
+  const clashes = [];
+  const allEntries = data.timetable;
+
+  // Room clash - across ALL semesters
+  for (let i = 0; i < allEntries.length; i++) {
+    for (let j = i + 1; j < allEntries.length; j++) {
+      const a = allEntries[i], b = allEntries[j];
+      if (parseInt(a.day) !== parseInt(b.day)) continue;
+      const aStart = timeToMinutes(a.startTime), aEnd = timeToMinutes(a.endTime);
+      const bStart = timeToMinutes(b.startTime), bEnd = timeToMinutes(b.endTime);
+      if (aStart < bEnd && bStart < aEnd) {
+        if (a.room && b.room && a.room === b.room) {
+          const infoA = getSubjectInfo(a.subjectId), infoB = getSubjectInfo(b.subjectId);
+          if (infoA.pengajar && infoA.pengajar.toLowerCase().includes('bppl')) continue;
+          if (infoB.pengajar && infoB.pengajar.toLowerCase().includes('bppl')) continue;
+          const semA = data.semesters.find(s => s.id === a.semester);
+          const semB = data.semesters.find(s => s.id === b.semester);
+          const DAYS = ['Isnin','Selasa','Rabu','Khamis','Jumaat'];
+          clashes.push({
+            type: 'room',
+            msg: `🏠 Bilik "${a.room}" digunakan serentak: ${infoA.name} (${semA ? semA.name : '-'}) ${a.startTime}-${a.endTime} & ${infoB.name} (${semB ? semB.name : '-'}) ${b.startTime}-${b.endTime} pada ${DAYS[parseInt(a.day)-1]}`
+          });
+        }
+      }
+    }
+  }
+
+  // Teacher clash - across ALL semesters
+  for (let i = 0; i < allEntries.length; i++) {
+    for (let j = i + 1; j < allEntries.length; j++) {
+      const a = allEntries[i], b = allEntries[j];
+      if (parseInt(a.day) !== parseInt(b.day)) continue;
+      const aStart = timeToMinutes(a.startTime), aEnd = timeToMinutes(a.endTime);
+      const bStart = timeToMinutes(b.startTime), bEnd = timeToMinutes(b.endTime);
+      if (aStart < bEnd && bStart < aEnd) {
+        const infoA = getSubjectInfo(a.subjectId), infoB = getSubjectInfo(b.subjectId);
+        if (infoA.pengajar && infoA.pengajar.toLowerCase().includes('bppl')) continue;
+        if (infoB.pengajar && infoB.pengajar.toLowerCase().includes('bppl')) continue;
+        const teacher = infoA.pengajar;
+        if (teacher && infoB.pengajar === teacher) {
+          const semA = data.semesters.find(s => s.id === a.semester);
+          const semB = data.semesters.find(s => s.id === b.semester);
+          const DAYS = ['Isnin','Selasa','Rabu','Khamis','Jumaat'];
+          clashes.push({
+            type: 'teacher',
+            msg: `👩‍🏫 Pengajar "${teacher}" ada kelas bertindih: ${infoA.name} (${semA ? semA.name : '-'}) ${a.startTime}-${a.endTime} & ${infoB.name} (${semB ? semB.name : '-'}) ${b.startTime}-${b.endTime} pada ${DAYS[parseInt(a.day)-1]}`
+          });
+        }
+      }
+    }
+  }
+
+  if (clashes.length > 0) {
+    const unique = [...new Set(clashes.map(c => c.msg))];
+    const uniqueClashes = unique.map(msg => clashes.find(c => c.msg === msg));
+    html += '<div style="margin-top:1rem;padding:0.75rem;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;">';
+    html += '<h4 style="color:#dc2626;margin-bottom:0.5rem;">⚠️ Clash Detected (' + uniqueClashes.length + ')</h4>';
+    uniqueClashes.forEach(c => {
+      const icon = c.type === 'room' ? '🏠' : '👩‍🏫';
+      html += `<div style="font-size:0.85rem;color:#991b1b;padding:3px 0;border-bottom:1px solid #fecaca;">${icon} ${esc(c.msg)}</div>`;
+    });
+    html += '</div>';
+  }
+
+  html += '</div>';
 
   if (!readOnly) {
     html += `<div style="text-align:center;margin-top:1rem;">
@@ -4193,7 +4409,37 @@ document.getElementById('addTimetableBtn').onclick = function () {
     </div>
     <div class="form-group">
       <label>Bilik / Lokasi</label>
-      <input type="text" id="fTtRoom" placeholder="Contoh: Bilik 101">
+      <select id="fTtRoom">
+        <option value="">-- Pilih Bilik --</option>
+        <option value="SOC Lab 1">SOC Lab 1</option>
+        <option value="SOC Lab 2">SOC Lab 2</option>
+        <option value="Cisco Networking Lab">Cisco Networking Lab</option>
+        <option value="Linux Administration Lab">Linux Administration Lab</option>
+        <option value="Server & Virtualization Lab">Server & Virtualization Lab</option>
+        <option value="Cloud Computing Lab">Cloud Computing Lab</option>
+        <option value="Wireless & IoT Lab">Wireless & IoT Lab</option>
+        <option value="Network Operations Center (NOC) Lab">Network Operations Center (NOC) Lab</option>
+        <option value="Data Center Lab">Data Center Lab</option>
+        <option value="Fiber Optic & Structured Cabling Lab">Fiber Optic & Structured Cabling Lab</option>
+        <option value="Computer Maintenance Lab">Computer Maintenance Lab</option>
+        <option value="Project Development Lab">Project Development Lab</option>
+        <option value="ICT Innovation Lab">ICT Innovation Lab</option>
+        <option value="Bilik Kuliah 1">Bilik Kuliah 1</option>
+        <option value="Bilik Kuliah 2">Bilik Kuliah 2</option>
+        <option value="Bilik Kuliah 3">Bilik Kuliah 3</option>
+        <option value="Bilik Kuliah 4">Bilik Kuliah 4</option>
+        <option value="Bilik Kuliah 5">Bilik Kuliah 5</option>
+        <option value="Bilik Seminar 1">Bilik Seminar 1</option>
+        <option value="Bilik Seminar 2">Bilik Seminar 2</option>
+        <option value="Bilik Seminar 3">Bilik Seminar 3</option>
+        <option value="Bilik Seminar 4">Bilik Seminar 4</option>
+        <option value="Bilik Seminar 5">Bilik Seminar 5</option>
+        <option value="Bilik Server">Bilik Server</option>
+        <option value="Foyer 1">Foyer 1</option>
+        <option value="Foyer 2">Foyer 2</option>
+        <option value="Hybrid 1">Hybrid 1</option>
+        <option value="Hybrid 2">Hybrid 2</option>
+      </select>
     </div>
   `, function () {
     const semester = document.getElementById('fTtSemester').value;
@@ -4201,11 +4447,23 @@ document.getElementById('addTimetableBtn').onclick = function () {
     const startTime = document.getElementById('fTtStart').value;
     const endTime = document.getElementById('fTtEnd').value;
     const subjectId = document.getElementById('fTtSubject').value;
-    const room = document.getElementById('fTtRoom').value.trim();
+    const room = document.getElementById('fTtRoom').value;
     if (!semester || !day || !startTime || !endTime || !subjectId) return;
 
     if (timeToMinutes(startTime) >= timeToMinutes(endTime)) {
       alert('Masa tamat mesti selepas masa mula.');
+      return;
+    }
+
+    // Room clash check
+    const roomConflicts = checkRoomConflict(room, day, startTime, endTime, null);
+    if (roomConflicts.length > 0) {
+      const conflictDetails = roomConflicts.map(c => {
+        const cSubj = data.subjects.find(s => s.id === c.subjectId);
+        const cSem = data.semesters.find(s => s.id === c.semester);
+        return `${cSubj ? cSubj.name : '?'} (${cSem ? cSem.name : '?'}) - ${c.startTime} hingga ${c.endTime}`;
+      }).join('\n');
+      alert(`Bilik "${room}" sudah digunakan pada masa ini!\n\nJadual bertindih:\n${conflictDetails}`);
       return;
     }
 
@@ -4299,7 +4557,37 @@ window.editTimetable = function (id) {
     </div>
     <div class="form-group">
       <label>Bilik / Lokasi</label>
-      <input type="text" id="fTtRoom" value="${esc(e.room || '')}" placeholder="Contoh: Bilik 101">
+      <select id="fTtRoom">
+        <option value="">-- Pilih Bilik --</option>
+        <option value="SOC Lab 1"${e.room === 'SOC Lab 1' ? ' selected' : ''}>SOC Lab 1</option>
+        <option value="SOC Lab 2"${e.room === 'SOC Lab 2' ? ' selected' : ''}>SOC Lab 2</option>
+        <option value="Cisco Networking Lab"${e.room === 'Cisco Networking Lab' ? ' selected' : ''}>Cisco Networking Lab</option>
+        <option value="Linux Administration Lab"${e.room === 'Linux Administration Lab' ? ' selected' : ''}>Linux Administration Lab</option>
+        <option value="Server & Virtualization Lab"${e.room === 'Server & Virtualization Lab' ? ' selected' : ''}>Server & Virtualization Lab</option>
+        <option value="Cloud Computing Lab"${e.room === 'Cloud Computing Lab' ? ' selected' : ''}>Cloud Computing Lab</option>
+        <option value="Wireless & IoT Lab"${e.room === 'Wireless & IoT Lab' ? ' selected' : ''}>Wireless & IoT Lab</option>
+        <option value="Network Operations Center (NOC) Lab"${e.room === 'Network Operations Center (NOC) Lab' ? ' selected' : ''}>Network Operations Center (NOC) Lab</option>
+        <option value="Data Center Lab"${e.room === 'Data Center Lab' ? ' selected' : ''}>Data Center Lab</option>
+        <option value="Fiber Optic & Structured Cabling Lab"${e.room === 'Fiber Optic & Structured Cabling Lab' ? ' selected' : ''}>Fiber Optic & Structured Cabling Lab</option>
+        <option value="Computer Maintenance Lab"${e.room === 'Computer Maintenance Lab' ? ' selected' : ''}>Computer Maintenance Lab</option>
+        <option value="Project Development Lab"${e.room === 'Project Development Lab' ? ' selected' : ''}>Project Development Lab</option>
+        <option value="ICT Innovation Lab"${e.room === 'ICT Innovation Lab' ? ' selected' : ''}>ICT Innovation Lab</option>
+        <option value="Bilik Kuliah 1"${e.room === 'Bilik Kuliah 1' ? ' selected' : ''}>Bilik Kuliah 1</option>
+        <option value="Bilik Kuliah 2"${e.room === 'Bilik Kuliah 2' ? ' selected' : ''}>Bilik Kuliah 2</option>
+        <option value="Bilik Kuliah 3"${e.room === 'Bilik Kuliah 3' ? ' selected' : ''}>Bilik Kuliah 3</option>
+        <option value="Bilik Kuliah 4"${e.room === 'Bilik Kuliah 4' ? ' selected' : ''}>Bilik Kuliah 4</option>
+        <option value="Bilik Kuliah 5"${e.room === 'Bilik Kuliah 5' ? ' selected' : ''}>Bilik Kuliah 5</option>
+        <option value="Bilik Seminar 1"${e.room === 'Bilik Seminar 1' ? ' selected' : ''}>Bilik Seminar 1</option>
+        <option value="Bilik Seminar 2"${e.room === 'Bilik Seminar 2' ? ' selected' : ''}>Bilik Seminar 2</option>
+        <option value="Bilik Seminar 3"${e.room === 'Bilik Seminar 3' ? ' selected' : ''}>Bilik Seminar 3</option>
+        <option value="Bilik Seminar 4"${e.room === 'Bilik Seminar 4' ? ' selected' : ''}>Bilik Seminar 4</option>
+        <option value="Bilik Seminar 5"${e.room === 'Bilik Seminar 5' ? ' selected' : ''}>Bilik Seminar 5</option>
+        <option value="Bilik Server"${e.room === 'Bilik Server' ? ' selected' : ''}>Bilik Server</option>
+        <option value="Foyer 1"${e.room === 'Foyer 1' ? ' selected' : ''}>Foyer 1</option>
+        <option value="Foyer 2"${e.room === 'Foyer 2' ? ' selected' : ''}>Foyer 2</option>
+        <option value="Hybrid 1"${e.room === 'Hybrid 1' ? ' selected' : ''}>Hybrid 1</option>
+        <option value="Hybrid 2"${e.room === 'Hybrid 2' ? ' selected' : ''}>Hybrid 2</option>
+      </select>
     </div>
   `, function () {
     const semester = document.getElementById('fTtSemester').value;
@@ -4307,11 +4595,23 @@ window.editTimetable = function (id) {
     const startTime = document.getElementById('fTtStart').value;
     const endTime = document.getElementById('fTtEnd').value;
     const subjectId = document.getElementById('fTtSubject').value;
-    const room = document.getElementById('fTtRoom').value.trim();
+    const room = document.getElementById('fTtRoom').value;
     if (!semester || !day || !startTime || !endTime || !subjectId) return;
 
     if (timeToMinutes(startTime) >= timeToMinutes(endTime)) {
       alert('Masa tamat mesti selepas masa mula.');
+      return;
+    }
+
+    // Room clash check
+    const roomConflicts = checkRoomConflict(room, day, startTime, endTime, e.id);
+    if (roomConflicts.length > 0) {
+      const conflictDetails = roomConflicts.map(c => {
+        const cSubj = data.subjects.find(s => s.id === c.subjectId);
+        const cSem = data.semesters.find(s => s.id === c.semester);
+        return `${cSubj ? cSubj.name : '?'} (${cSem ? cSem.name : '?'}) - ${c.startTime} hingga ${c.endTime}`;
+      }).join('\n');
+      alert(`Bilik "${room}" sudah digunakan pada masa ini!\n\nJadual bertindih:\n${conflictDetails}`);
       return;
     }
 
@@ -5689,8 +5989,9 @@ function renderStudentAnalysis() {
   const content = document.getElementById('studentAnalysisContent');
 
   if (semesterSelect.options.length <= 1) {
+    const semsForAnalysis = getTeacherSemesters();
     semesterSelect.innerHTML = '<option value="">Semua Semester</option>' +
-      data.semesters.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+      semsForAnalysis.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
   }
 
   semesterSelect.onchange = function() {
@@ -5939,12 +6240,13 @@ function renderIndividualTeacherAnalysis(teacherName, container) {
 }
 
 function renderStudentAwards() {
-  const select = document.getElementById('awardSemesterSelect');
+  const select = document.getElementById('studentAwardSemesterSelect');
   const content = document.getElementById('studentAwardsContent');
 
   if (select.options.length <= 1) {
+    const semsForAwards = getTeacherSemesters();
     select.innerHTML = '<option value="">-- Pilih Semester --</option>' +
-      data.semesters.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+      semsForAwards.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
   }
 
   select.onchange = function() {
@@ -6058,8 +6360,9 @@ function renderDeansList() {
   const generateBtn = document.getElementById('generateDeansListBtn');
 
   if (semesterSelect.options.length <= 1) {
+    const semsForDeans = getTeacherSemesters();
     semesterSelect.innerHTML = '<option value="">-- Pilih Semester --</option>' +
-      data.semesters.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+      semsForDeans.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
   }
 
   generateBtn.onclick = function() {
@@ -6861,76 +7164,106 @@ function renderCarrymarkAdmin(area) {
   html += '<div class="credit-card" style="border-top:3px solid #6366f1;"><div class="credit-card-value" style="color:#6366f1;">' + publishedCount + '</div><div class="credit-card-label">Published</div></div>';
   html += '</div>';
   
-  // Dashboard: Pengajar yang belum submit assessment
-  html += '<div class="individual-analysis-card" style="margin-bottom:1.5rem;border-left:4px solid #dc2626;">';
-  html += '<h3 style="color:#dc2626;">⚠️ Pengajar Belum Submit Assessment</h3>';
-  
+  // Dashboard: Status Assessment Mengikut Subjek
   const subjects = data.subjects || [];
   const semesters = data.semesters || [];
+  const excludedSubjects = ['co-curriculum', 'co kurikulum', 'kokurikulum'];
   
-  // Get all subjects with assigned teachers (exclude Co-Curriculum and FYP)
-  const excludedSubjects = ['co-curriculum', 'co kurikulum', 'kokurikulum', 'final year project', 'fyp'];
-  const subjectsWithTeachers = subjects.filter(s => {
-    if (!s.pengajar) return false;
+  const activeSubjects = subjects.filter(s => {
     const nameLower = (s.name || '').toLowerCase();
     return !excludedSubjects.some(ex => nameLower.includes(ex));
   });
   
-  // Find subjects without submitted assessments
-  const unsubmitted = [];
-  subjectsWithTeachers.forEach(subj => {
-    const hasTemplate = templates.some(t => 
-      t.lecturer === subj.pengajar && 
-      t.courseCode === subj.code &&
-      t.status !== 'draft' &&
-      t.status !== 'rejected'
-    );
+  // Status setiap subjek
+  const subjectStatus = activeSubjects.map(subj => {
+    const matchingTemplates = templates.filter(t => t.courseCode === subj.code || (t.course === subj.name && t.lecturer === subj.pengajar));
+    const bestTemplate = matchingTemplates.find(t => t.status === 'published')
+      || matchingTemplates.find(t => t.status === 'submitted')
+      || matchingTemplates.find(t => t.status === 'marks_entry')
+      || matchingTemplates.find(t => t.status === 'approved')
+      || matchingTemplates.find(t => t.status === 'pending_approval')
+      || matchingTemplates.find(t => t.status === 'rejected')
+      || matchingTemplates.find(t => t.status === 'draft')
+      || null;
     
-    if (!hasTemplate) {
-      const semester = semesters.find(s => s.id === subj.semester);
-      unsubmitted.push({
-        teacher: subj.pengajar,
-        subject: subj.name,
-        code: subj.code || '-',
-        semester: semester ? semester.name : '-'
-      });
+    const sem = semesters.find(s => s.id === subj.semester);
+    let status, statusColor, statusBg;
+    if (bestTemplate) {
+      switch (bestTemplate.status) {
+        case 'published': status = 'Published'; statusColor = '#059669'; statusBg = '#f0fdf4'; break;
+        case 'submitted': status = 'Submitted'; statusColor = '#3b82f6'; statusBg = '#eff6ff'; break;
+        case 'marks_entry': status = 'Marks Entry'; statusColor = '#8b5cf6'; statusBg = '#f5f3ff'; break;
+        case 'approved': status = 'Approved'; statusColor = '#059669'; statusBg = '#f0fdf4'; break;
+        case 'pending_approval': status = 'Pending'; statusColor = '#f59e0b'; statusBg = '#fffbeb'; break;
+        case 'rejected': status = 'Rejected'; statusColor = '#dc2626'; statusBg = '#fef2f2'; break;
+        case 'draft': status = 'Draft'; statusColor = '#6b7280'; statusBg = '#f9fafb'; break;
+        default: status = bestTemplate.status; statusColor = '#6b7280'; statusBg = '#f9fafb';
+      }
+    } else {
+      status = 'Belum Dicipta';
+      statusColor = '#dc2626';
+      statusBg = '#fef2f2';
     }
+    
+    return {
+      teacher: subj.pengajar || 'Tiada Pengajar',
+      subject: subj.name,
+      code: subj.code || '-',
+      semester: sem ? sem.name : '-',
+      status,
+      statusColor,
+      statusBg,
+      hasTeacher: !!subj.pengajar
+    };
   });
   
-  if (unsubmitted.length === 0) {
-    html += '<div style="text-align:center;padding:1rem;background:#f0fdf4;border-radius:8px;">';
-    html += '<p style="color:#059669;font-weight:600;">✅ Semua pengajar telah submit assessment!</p>';
-    html += '</div>';
-  } else {
-    html += '<table><thead><tr>';
-    html += '<th>Bil</th><th>Nama Pengajar</th><th>Mata Pelajaran</th><th>Kod</th><th>Semester</th>';
-    html += '</tr></thead><tbody>';
-    
-    // Group by teacher
-    const grouped = {};
-    unsubmitted.forEach(item => {
-      if (!grouped[item.teacher]) grouped[item.teacher] = [];
-      grouped[item.teacher].push(item);
-    });
-    
-    let bil = 1;
-    Object.keys(grouped).sort().forEach(teacher => {
-      const items = grouped[teacher];
-      items.forEach((item, i) => {
-        html += '<tr style="background:#fef2f2;">';
-        html += '<td>' + bil++ + '</td>';
-        html += '<td><strong>' + esc(teacher) + '</strong></td>';
-        html += '<td>' + esc(item.subject) + '</td>';
-        html += '<td>' + esc(item.code) + '</td>';
-        html += '<td>' + esc(item.semester) + '</td>';
-        html += '</tr>';
-      });
-    });
-    
-    html += '</tbody></table>';
-    html += '<p style="font-size:0.85rem;color:#dc2626;margin-top:0.5rem;">* Jumlah: ' + unsubmitted.length + ' subjek belum dihantar</p>';
-  }
+  // Group by teacher
+  const groupedByTeacher = {};
+  subjectStatus.forEach(item => {
+    if (!groupedByTeacher[item.teacher]) groupedByTeacher[item.teacher] = [];
+    groupedByTeacher[item.teacher].push(item);
+  });
   
+  // Count stats
+  const noTemplate = subjectStatus.filter(s => s.status === 'Belum Dicipta');
+  const pendingList = subjectStatus.filter(s => s.status === 'Pending');
+  const draftList = subjectStatus.filter(s => s.status === 'Draft');
+  const approvedList = subjectStatus.filter(s => ['Approved', 'Published', 'Marks Entry', 'Submitted'].includes(s.status));
+  
+  html += '<div class="individual-analysis-card" style="margin-bottom:1.5rem;border-left:4px solid #0f3460;">';
+  html += '<h3 style="color:#0f3460;">📊 Status Assessment Mengikut Subjek</h3>';
+  
+  html += '<div class="credit-summary" style="margin:1rem 0;">';
+  html += '<div class="credit-card" style="border-top:3px solid #dc2626;"><div class="credit-card-value" style="color:#dc2626;">' + noTemplate.length + '</div><div class="credit-card-label">Belum Dicipta</div></div>';
+  html += '<div class="credit-card" style="border-top:3px solid #f59e0b;"><div class="credit-card-value" style="color:#f59e0b;">' + pendingList.length + '</div><div class="credit-card-label">Pending</div></div>';
+  html += '<div class="credit-card" style="border-top:3px solid #6b7280;"><div class="credit-card-value" style="color:#6b7280;">' + draftList.length + '</div><div class="credit-card-label">Draft</div></div>';
+  html += '<div class="credit-card" style="border-top:3px solid #059669;"><div class="credit-card-value" style="color:#059669;">' + approvedList.length + '</div><div class="credit-card-label">Siap</div></div>';
+  html += '</div>';
+  
+  // Table grouped by teacher
+  html += '<table><thead><tr>';
+  html += '<th>Pengajar</th><th>Mata Pelajaran</th><th>Kod</th><th>Semester</th><th>Status</th>';
+  html += '</tr></thead><tbody>';
+  
+  const sortedTeachers = Object.keys(groupedByTeacher).sort();
+  sortedTeachers.forEach(teacher => {
+    const items = groupedByTeacher[teacher];
+    items.sort((a, b) => {
+      const order = { 'Belum Dicipta': 0, 'Draft': 1, 'Pending': 2, 'Rejected': 3 };
+      return (order[a.status] ?? 9) - (order[b.status] ?? 9);
+    });
+    items.forEach((item, i) => {
+      html += '<tr style="background:' + item.statusBg + ';">';
+      html += '<td>' + (i === 0 ? '<strong>' + esc(teacher) + '</strong>' : '') + '</td>';
+      html += '<td>' + esc(item.subject) + '</td>';
+      html += '<td>' + esc(item.code) + '</td>';
+      html += '<td>' + esc(item.semester) + '</td>';
+      html += '<td><span style="color:' + item.statusColor + ';font-weight:600;">' + item.status + '</span></td>';
+      html += '</tr>';
+    });
+  });
+  
+  html += '</tbody></table>';
   html += '</div>';
   
   // Action Buttons
@@ -7069,6 +7402,36 @@ function renderCarrymarkTeacher(area) {
   html += '<div class="credit-card" style="border-top:3px solid #059669;"><div class="credit-card-value" style="color:#059669;">' + publishedCount + '</div><div class="credit-card-label">Published</div></div>';
   html += '</div>';
   
+  // Auto-detect subjek yang belum submit assessment
+  const mySubjects = data.subjects.filter(s => s.pengajar === teacherName);
+  const excludedLower = ['co-curriculum', 'co kurikulum', 'kokurikulum'];
+  const myActiveSubjects = mySubjects.filter(s => !excludedLower.some(ex => (s.name || '').toLowerCase().includes(ex)));
+  
+  const missingSubjects = myActiveSubjects.filter(subj => {
+    return !templates.some(t => 
+      t.courseCode === subj.code && 
+      t.status !== 'draft' && 
+      t.status !== 'rejected'
+    );
+  });
+  
+  if (missingSubjects.length > 0) {
+    html += '<div class="individual-analysis-card" style="margin-bottom:1.5rem;border-left:4px solid #dc2626;background:#fef2f2;">';
+    html += '<h3 style="color:#dc2626;">⚠️ Subjek Belum Submit Assessment (' + missingSubjects.length + ')</h3>';
+    html += '<table><thead><tr><th>Bil</th><th>Subjek</th><th>Kod</th><th>Semester</th><th>Tindakan</th></tr></thead><tbody>';
+    missingSubjects.forEach((subj, i) => {
+      const sem = data.semesters.find(s => s.id === subj.semester);
+      html += '<tr style="background:#fff5f5;">';
+      html += '<td>' + (i + 1) + '</td>';
+      html += '<td><strong>' + esc(subj.name) + '</strong></td>';
+      html += '<td>' + esc(subj.code || '-') + '</td>';
+      html += '<td>' + esc(sem ? sem.name : '-') + '</td>';
+      html += '<td><button class="btn btn-sm btn-primary" onclick="carrymarkCreateTemplateForSubject(\'' + subj.id + '\')">+ Create Assessment</button></td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+  
   // Action Buttons
   html += '<div class="toolbar" style="margin-bottom:1.5rem;">';
   html += '<button class="btn btn-primary" onclick="carrymarkCreateTemplate()">+ Create Assessment</button>';
@@ -7177,6 +7540,22 @@ window.onCourseChange = function(select) {
   if (normalSection) normalSection.style.display = isCocu ? 'none' : '';
   if (cocuSection) cocuSection.style.display = isCocu ? '' : 'none';
   if (progressBars) progressBars.style.display = isCocu ? 'none' : '';
+};
+
+window.carrymarkCreateTemplateForSubject = function(subjectId) {
+  const subj = data.subjects.find(s => s.id === subjectId);
+  if (!subj) return;
+  const sem = data.semesters.find(s => s.id === subj.semester);
+  const fakeTemplate = {
+    course: subj.name,
+    courseCode: subj.code || '',
+    semester: sem ? sem.name : '',
+    class: '',
+    section: '',
+    programme: 'Teknologi Komputer Rangkaian',
+    academicSession: new Date().getFullYear() + '/' + (new Date().getFullYear() + 1)
+  };
+  carrymarkCreateTemplate(fakeTemplate, null);
 };
 
 window.carrymarkCreateTemplate = function(editTemplate, editId) {
@@ -7786,7 +8165,7 @@ window.carrymarkEditMarks = function(templateId) {
   
   // Get students for this semester AND enrolled in this subject
   const semester = data.semesters.find(s => s.name === template.semester);
-  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  const subject = data.subjects.find(s => s.code === template.courseCode) || data.subjects.find(s => s.name === template.course);
   let students = [];
   
   if (semester) {
@@ -7997,7 +8376,7 @@ function carrymarkCalculateTotals(templateId) {
   const semester = data.semesters.find(s => s.name === template.semester);
   if (!semester) return;
   
-  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  const subject = data.subjects.find(s => s.code === template.courseCode) || data.subjects.find(s => s.name === template.course);
   const isCocu = isCoCurriculumSubject(subject);
   
   const students = data.students.filter(s => {
@@ -8076,7 +8455,7 @@ window.carrymarkSaveMarks = function(templateId) {
   if (!template) return;
   
   // Check if Co-curriculum subject
-  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  const subject = data.subjects.find(s => s.code === template.courseCode) || data.subjects.find(s => s.name === template.course);
   const isCocu = isCoCurriculumSubject(subject);
   
   const inputs = document.querySelectorAll('.cm-mark-input');
@@ -8137,7 +8516,7 @@ function syncCarrymarkToMainMarks(templateId) {
   if (!template) return;
   
   // Find the subject
-  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  const subject = data.subjects.find(s => s.code === template.courseCode) || data.subjects.find(s => s.name === template.course);
   if (!subject) return;
   
   const semester = data.semesters.find(s => s.name === template.semester);
@@ -8260,7 +8639,7 @@ window.carrymarkReviewForApproval = function(templateId) {
   if (!template) return;
   
   const semester = data.semesters.find(s => s.name === template.semester);
-  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  const subject = data.subjects.find(s => s.code === template.courseCode) || data.subjects.find(s => s.name === template.course);
   const students = semester ? data.students.filter(s => {
     if (s.class !== semester.name || s.track === 'graduated') return false;
     if (subject) {
@@ -8431,7 +8810,7 @@ window.carrymarkDownloadApproval = function(templateId) {
   if (!template) return;
   
   const semester = data.semesters.find(s => s.name === template.semester);
-  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  const subject = data.subjects.find(s => s.code === template.courseCode) || data.subjects.find(s => s.name === template.course);
   const students = semester ? data.students.filter(s => {
     if (s.class !== semester.name || s.track === 'graduated') return false;
     if (subject) {
@@ -9271,7 +9650,7 @@ window.carrymarkExportExcel = function(templateId) {
     return;
   }
   
-  const subject = data.subjects.find(s => s.code === template.courseCode || s.name === template.course);
+  const subject = data.subjects.find(s => s.code === template.courseCode) || data.subjects.find(s => s.name === template.course);
   const students = data.students.filter(s => {
     if (s.class !== semester.name || s.track === 'graduated') return false;
     if (subject) {
@@ -9847,16 +10226,16 @@ function renderFYPSupervisor(area) {
   const teacherName = currentUser.name;
   const isApprovalOfficer = teacherName.includes('Nurulafiza') || teacherName.includes('Maisarah') || currentRole === 'admin';
   
-  // Get Sem 4 & Sem 5 IDs for filtering
-  const sem4 = data.semesters.find(s => s.name.includes('Semester 4'));
-  const sem5 = data.semesters.find(s => s.name.includes('Semester 5'));
-  const fypSemesterIds = [sem4?.id, sem5?.id].filter(Boolean);
+  // Get Sem 4 & Sem 5 IDs for filtering - guna semesterName kerana semesterId assessment tak match
+  const fypSem4 = 'Semester 4';
+  const fypSem5 = 'Semester 5';
   
   // My students as supervisor (only Sem 4 & 5)
   const myAssessments = (data.fyp.assessments || []).filter(a => {
     if (a.supervisor !== teacherName) return false;
-    // Teacher hanya nampak Sem 4 & Sem 5
-    return fypSemesterIds.includes(a.semesterId);
+    // Teacher hanya nampak Sem 4 & 5 - guna semesterName
+    const semName = a.semesterName || '';
+    return semName.startsWith(fypSem4) || semName.startsWith(fypSem5);
   });
   
   // Pending approvals for approval officers (all semesters)
@@ -9896,9 +10275,10 @@ function renderFYPSupervisor(area) {
     html += '<p style="color:#6b7280;">Tiada pelajar FYP yang ditugaskan kepada anda.</p>';
     html += '</div>';
   } else {
-    // Asingkan mengikut semester
-    const sem4Assessments = myAssessments.filter(a => a.semesterId === sem4?.id);
-    const sem5Assessments = myAssessments.filter(a => a.semesterId === sem5?.id);
+    // Asingkan mengikut semester - guna semesterName dari assessment
+    const sem4Assessments = myAssessments.filter(a => /^Semester 4\b/.test(a.semesterName || ''));
+    const sem5Assessments = myAssessments.filter(a => /^Semester 5\b/.test(a.semesterName || ''));
+    const otherAssessments = myAssessments.filter(a => !sem4Assessments.includes(a) && !sem5Assessments.includes(a));
     
     function renderFYPTable(assessments, semLabel, fypType) {
       if (assessments.length === 0) return '';
@@ -9932,8 +10312,11 @@ function renderFYPSupervisor(area) {
       return t;
     }
     
-    html += renderFYPTable(sem4Assessments, sem4 ? sem4.name : 'Semester 4', 'FYP 1');
-    html += renderFYPTable(sem5Assessments, sem5 ? sem5.name : 'Semester 5', 'FYP 2');
+    html += renderFYPTable(sem4Assessments, 'Semester 4', 'FYP 1');
+    html += renderFYPTable(sem5Assessments, 'Semester 5', 'FYP 2');
+    if (otherAssessments.length > 0) {
+      html += renderFYPTable(otherAssessments, 'Semester Lain', 'FYP');
+    }
     
     // Export Word button
     html += '<div style="margin-top:1.5rem;display:flex;gap:10px;">';
@@ -12967,4 +13350,548 @@ window.deleteAssignment = function(assignmentId) {
   saveData();
   renderAssignments();
   alert('Tugasan berjaya dipadam.');
+}
+
+// ============================================
+// PENILAIAN PDP PENGAJAR (Teacher Teaching Evaluation)
+// ============================================
+
+// Evaluation criteria
+const PDP_CRITERIA = [
+  { key: 'kaedah', label: 'Kaedah Pengajaran', desc: 'Keberkesanan kaedah pengajaran yang digunakan' },
+  { key: 'pengetahuan', label: 'Pengetahuan Subjek', desc: 'Kekuatan penguasaan subjek oleh pengajar' },
+  { key: 'komunikasi', label: 'Komunikasi', desc: 'Kejelasan penyampaian maklumat' },
+  { key: 'masa', label: 'Pengurusan Masa', desc: 'Ketepatan masa dan pengurusan waktu' },
+  { key: 'alatbantu', label: 'Alat Bantu Mengajar', desc: 'Penggunaan ABM yang berkesan' },
+  { key: 'pemahaman', label: 'Pemahaman Pelajar', desc: 'Tahap pemahaman pelajar terhadap pengajaran' }
+];
+
+// Get teachers that teach a specific student
+function getStudentTeachers(studentId) {
+  const student = data.students.find(s => s.id === studentId);
+  if (!student) return [];
+
+  const enrolledSubjectIds = student.subjects || [];
+  const teachers = new Map();
+
+  enrolledSubjectIds.forEach(subjId => {
+    const subject = data.subjects.find(s => s.id === subjId);
+    if (subject && subject.pengajar && subject.pengajar.trim()) {
+      if (!teachers.has(subject.pengajar)) {
+        teachers.set(subject.pengajar, {
+          name: subject.pengajar,
+          subjects: []
+        });
+      }
+      teachers.get(subject.pengajar).subjects.push(subject);
+    }
+  });
+
+  return Array.from(teachers.values());
+}
+
+// Get the current semester for evaluation (latest semester the student has subjects in)
+function getCurrentEvalSemester(studentId) {
+  const student = data.students.find(s => s.id === studentId);
+  if (!student) return null;
+  const enrolledSubjectIds = student.subjects || [];
+  const semesters = new Set();
+  enrolledSubjectIds.forEach(subjId => {
+    const subject = data.subjects.find(s => s.id === subjId);
+    if (subject && subject.semester) semesters.add(subject.semester);
+  });
+  // Return the last semester (most recent)
+  const semArray = Array.from(semesters);
+  return semArray.length > 0 ? semArray[semArray.length - 1] : null;
+}
+
+// Calculate percentage from scores
+function calcPDPScore(criteria) {
+  const total = Object.values(criteria).reduce((sum, v) => sum + (parseInt(v) || 0), 0);
+  const max = PDP_CRITERIA.length * 10; // Each criterion max 10
+  const percentage = Math.round((total / max) * 100);
+  return { total, max, percentage };
+}
+
+// Get rating label
+function getPDPRatingLabel(percentage) {
+  if (percentage >= 80) return { text: 'Sangat Baik', color: '#27ae60' };
+  if (percentage >= 60) return { text: 'Baik', color: '#2ecc71' };
+  if (percentage >= 40) return { text: 'Sederhana', color: '#f39c12' };
+  if (percentage >= 20) return { text: 'Lemah', color: '#e67e22' };
+  return { text: 'Sangat Lemah', color: '#e74c3c' };
+}
+
+// Render PDP Evaluation (Student or Admin view)
+function renderPDPEval() {
+  const area = document.getElementById('pdpevalArea');
+  if (!area) return;
+
+  if (currentRole === 'admin') {
+    renderPDPEvalAdmin(area);
+  } else if (currentRole === 'student') {
+    renderPDPEvalStudent(area);
+  }
+}
+
+// ============================================
+// STUDENT VIEW - Submit Evaluation
+// ============================================
+function renderPDPEvalStudent(area) {
+  const student = data.students.find(s => s.id === currentUser.id);
+  if (!student) {
+    area.innerHTML = '<p>Pelajar tidak ditemui.</p>';
+    return;
+  }
+
+  const teachers = getStudentTeachers(student.id);
+  if (teachers.length === 0) {
+    area.innerHTML = '<div style="padding:20px;text-align:center;color:#666;">Tiap pengajar ditemui untuk pelajar ini.</div>';
+    return;
+  }
+
+  // Get existing evaluations for this student
+  const myEvals = (data.pdpevaluations || []).filter(e => e.studentId === student.id);
+
+  let html = `
+    <div style="margin-bottom:16px;">
+      <h3 style="margin:0 0 4px 0;">Senarai Pengajar</h3>
+      <p style="margin:0;color:#666;font-size:13px;">Pilih pengajar untuk memberi penilaian. Anda hanya boleh menilai pengajar yang mengajar subjek anda.</p>
+    </div>
+    <table class="data-table" style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Nama Pengajar</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Subjek Diajar</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Status</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Tindakan</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+  teachers.forEach((teacher, i) => {
+    const teacherEvals = myEvals.filter(e => e.teacherName === teacher.name);
+    const hasEval = teacherEvals.length > 0;
+    const statusText = hasEval ? '✓ Sudah Dinilai' : 'Belum Dinilai';
+    const statusColor = hasEval ? '#27ae60' : '#e74c3c';
+    const subjectNames = teacher.subjects.map(s => s.name).join(', ');
+
+    html += `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-weight:600;">${esc(teacher.name)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-size:13px;">${esc(subjectNames)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
+          <span style="color:${statusColor};font-weight:600;font-size:13px;">${statusText}</span>
+        </td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
+          <button onclick="openPDPEvalForm('${esc(teacher.name)}', '${esc(student.id)}')" 
+            style="padding:6px 16px;background:${hasEval ? '#3498db' : '#27ae60'};color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">
+            ${hasEval ? 'Semak / Kemaskini' : 'Beri Penilaian'}
+          </button>
+        </td>
+      </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  area.innerHTML = html;
+}
+
+// Open evaluation form modal for a teacher
+function openPDPEvalForm(teacherName, studentId) {
+  const student = data.students.find(s => s.id === studentId);
+  if (!student) return;
+
+  const teacher = getStudentTeachers(studentId).find(t => t.name === teacherName);
+  if (!teacher) return;
+
+  // Find existing evaluation
+  const existingEval = (data.pdpevaluations || []).find(
+    e => e.studentId === studentId && e.teacherName === teacherName
+  );
+
+  const subjectNames = teacher.subjects.map(s => `${s.name} (${s.code})`).join(', ');
+
+  let criteriaHtml = '';
+  PDP_CRITERIA.forEach(c => {
+    const val = existingEval && existingEval.criteria ? (existingEval.criteria[c.key] || 5) : 5;
+    criteriaHtml += `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #eee;">
+          <strong>${esc(c.label)}</strong>
+          <div style="font-size:11px;color:#666;margin-top:2px;">${esc(c.desc)}</div>
+        </td>
+        <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;">
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+            <button type="button" onclick="adjustPDPScore('${c.key}', -1)" 
+              style="width:28px;height:28px;border:1px solid #ccc;background:#f5f5f5;border-radius:4px;cursor:pointer;font-size:16px;font-weight:bold;">−</button>
+            <input type="number" id="pdpc_${c.key}" value="${val}" min="1" max="10" 
+              style="width:50px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:4px;font-size:14px;font-weight:600;">
+            <button type="button" onclick="adjustPDPScore('${c.key}', 1)" 
+              style="width:28px;height:28px;border:1px solid #ccc;background:#f5f5f5;border-radius:4px;cursor:pointer;font-size:16px;font-weight:bold;">+</button>
+          </div>
+        </td>
+      </tr>`;
+  });
+
+  const comments = existingEval ? (existingEval.comments || '') : '';
+
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width:600px;">
+      <div class="modal-header">
+        <h3>📋 Penilaian PDP Pengajar</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div style="padding:16px 20px;">
+        <div style="background:#f8f9fa;border:1px solid #e0e0e0;border-radius:6px;padding:12px 16px;margin-bottom:16px;">
+          <div style="font-size:13px;color:#666;">Pengajar</div>
+          <div style="font-weight:700;font-size:16px;">${esc(teacher.name)}</div>
+          <div style="font-size:12px;color:#888;margin-top:4px;">Subjek: ${esc(subjectNames)}</div>
+        </div>
+
+        <p style="margin:0 0 8px 0;font-size:13px;color:#666;">
+          Berikan markah 1-10 untuk setiap kriteria. Markah lebih tinggi = penilaian lebih baik.
+        </p>
+
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;">
+          <thead>
+            <tr style="background:#f0f0f0;">
+              <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Kriteria</th>
+              <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;width:180px;">Markah (1-10)</th>
+            </tr>
+          </thead>
+          <tbody>${criteriaHtml}</tbody>
+        </table>
+
+        <div style="margin-top:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Ulasan / Komen (pilihan)</label>
+          <textarea id="pdpeval_comments" rows="3" placeholder="Tulis ulasan anda tentang pengajaran pengajar ini..."
+            style="width:100%;border:1px solid #ccc;border-radius:4px;padding:8px;font-size:13px;resize:vertical;">${esc(comments)}</textarea>
+        </div>
+
+        <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px;">
+          <button onclick="closeModal()" style="padding:8px 20px;background:#95a5a6;color:#fff;border:none;border-radius:4px;cursor:pointer;">Batal</button>
+          <button onclick="submitPDPEval('${esc(studentId)}', '${esc(teacherName)}')" 
+            style="padding:8px 20px;background:#27ae60;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;">
+            Hantar Penilaian
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  modal.classList.remove('hidden');
+}
+
+// Adjust score +/- buttons
+function adjustPDPScore(key, delta) {
+  const input = document.getElementById('pdpc_' + key);
+  if (!input) return;
+  let val = parseInt(input.value) || 5;
+  val = Math.max(1, Math.min(10, val + delta));
+  input.value = val;
+}
+
+// Submit evaluation
+function submitPDPEval(studentId, teacherName) {
+  const student = data.students.find(s => s.id === studentId);
+  if (!student) return;
+
+  const teacher = getStudentTeachers(studentId).find(t => t.name === teacherName);
+  if (!teacher) return;
+
+  const criteria = {};
+  let allValid = true;
+  PDP_CRITERIA.forEach(c => {
+    const input = document.getElementById('pdpc_' + c.key);
+    const val = parseInt(input.value);
+    if (isNaN(val) || val < 1 || val > 10) {
+      allValid = false;
+      return;
+    }
+    criteria[c.key] = val;
+  });
+
+  if (!allValid) {
+    alert('Sila masukkan markah yang sah (1-10) untuk setiap kriteria.');
+    return;
+  }
+
+  const comments = document.getElementById('pdpeval_comments').value.trim();
+  const { total, max, percentage } = calcPDPScore(criteria);
+
+  // Find the semester (use the semester of the first subject taught by this teacher)
+  const semesterId = teacher.subjects[0] ? teacher.subjects[0].semester : '';
+  const subjectId = teacher.subjects[0] ? teacher.subjects[0].id : '';
+
+  // Check if already exists
+  const existingIndex = (data.pdpevaluations || []).findIndex(
+    e => e.studentId === studentId && e.teacherName === teacherName
+  );
+
+  const evaluation = {
+    id: existingIndex >= 0 ? data.pdpevaluations[existingIndex].id : generateId('PDPE'),
+    studentId,
+    studentName: student.name,
+    teacherName,
+    subjectId,
+    subjectName: teacher.subjects.map(s => s.name).join(', '),
+    semesterId,
+    criteria,
+    totalScore: total,
+    percentage,
+    comments,
+    createdAt: new Date().toISOString()
+  };
+
+  if (existingIndex >= 0) {
+    data.pdpevaluations[existingIndex] = evaluation;
+  } else {
+    if (!data.pdpevaluations) data.pdpevaluations = [];
+    data.pdpevaluations.push(evaluation);
+  }
+
+  saveData();
+  closeModal();
+  renderPDPEvalStudent(document.getElementById('pdpevalArea'));
+
+  const rating = getPDPRatingLabel(percentage);
+  alert(`Penilaian berjaya dihantar!\n\nMarkah: ${total}/${max} (${percentage}%)\nPenilaian: ${rating.text}`);
+}
+
+// ============================================
+// ADMIN VIEW - Aggregated Results
+// ============================================
+function renderPDPEvalAdmin(area) {
+  const evaluations = data.pdpevaluations || [];
+
+  if (evaluations.length === 0) {
+    area.innerHTML = '<div style="padding:20px;text-align:center;color:#666;">Tiada penilaian PDP ditemui.</div>';
+    return;
+  }
+
+  // Get unique teachers from evaluations
+  const teacherMap = new Map();
+  evaluations.forEach(e => {
+    if (!teacherMap.has(e.teacherName)) {
+      teacherMap.set(e.teacherName, {
+        name: e.teacherName,
+        evaluations: [],
+        criteriaTotals: {},
+        criteriaCounts: {}
+      });
+    }
+    const t = teacherMap.get(e.teacherName);
+    t.evaluations.push(e);
+
+    // Aggregate criteria scores
+    PDP_CRITERIA.forEach(c => {
+      if (e.criteria && e.criteria[c.key]) {
+        t.criteriaTotals[c.key] = (t.criteriaTotals[c.key] || 0) + e.criteria[c.key];
+        t.criteriaCounts[c.key] = (t.criteriaCounts[c.key] || 0) + 1;
+      }
+    });
+  });
+
+  // Sort by name
+  const sortedTeachers = Array.from(teacherMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+  let html = `
+    <div style="margin-bottom:16px;">
+      <h3 style="margin:0 0 4px 0;">Ringkasan Penilaian PDP Pengajar</h3>
+      <p style="margin:0;color:#666;font-size:13px;">Jumlah penilaian: ${evaluations.length} | Jumlah pengajar: ${sortedTeachers.length}</p>
+    </div>
+    <table class="data-table" style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Nama Pengajar</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Jumlah Penilaian</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Markah Purata</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">% Purata</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Penilaian</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Tindakan</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+  sortedTeachers.forEach((teacher, i) => {
+    const avgScore = teacher.evaluations.reduce((sum, e) => sum + e.totalScore, 0) / teacher.evaluations.length;
+    const avgPercentage = teacher.evaluations.reduce((sum, e) => sum + e.percentage, 0) / teacher.evaluations.length;
+    const rating = getPDPRatingLabel(avgPercentage);
+
+    html += `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-weight:600;">${esc(teacher.name)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">${teacher.evaluations.length}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;font-weight:600;">${avgScore.toFixed(1)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;font-weight:600;">${avgPercentage.toFixed(1)}%</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
+          <span style="background:${rating.color};color:#fff;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">${rating.text}</span>
+        </td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
+          <button onclick="showPDPEvalDetail('${esc(teacher.name)}')" 
+            style="padding:5px 12px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">
+            Lihat Detail
+          </button>
+        </td>
+      </tr>`;
+  });
+
+  html += `</tbody></table>`;
+
+  // Criteria breakdown summary
+  html += `
+    <div style="margin-top:24px;">
+      <h3 style="margin:0 0 12px 0;">Pecahan Kriteria Purata (Semua Pengajar)</h3>
+      <table class="data-table" style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Kriteria</th>
+            <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Purata Markah</th>
+            <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">% Purata</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+  // Aggregate all evaluations for criteria breakdown
+  const globalCriteriaTotals = {};
+  const globalCriteriaCounts = {};
+  evaluations.forEach(e => {
+    PDP_CRITERIA.forEach(c => {
+      if (e.criteria && e.criteria[c.key]) {
+        globalCriteriaTotals[c.key] = (globalCriteriaTotals[c.key] || 0) + e.criteria[c.key];
+        globalCriteriaCounts[c.key] = (globalCriteriaCounts[c.key] || 0) + 1;
+      }
+    });
+  });
+
+  PDP_CRITERIA.forEach(c => {
+    const total = globalCriteriaTotals[c.key] || 0;
+    const count = globalCriteriaCounts[c.key] || 0;
+    const avg = count > 0 ? total / count : 0;
+    const pct = Math.round((avg / 10) * 100);
+
+    html += `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-weight:600;">${esc(c.label)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">${avg.toFixed(2)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">${pct}%</td>
+      </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+
+  area.innerHTML = html;
+}
+
+// Show detailed evaluation for a teacher
+function showPDPEvalDetail(teacherName) {
+  const evaluations = (data.pdpevaluations || []).filter(e => e.teacherName === teacherName);
+  if (evaluations.length === 0) {
+    alert('Tiada penilaian ditemui untuk pengajar ini.');
+    return;
+  }
+
+  const modal = document.getElementById('modal');
+
+  // Calculate criteria averages
+  const criteriaAvgs = {};
+  PDP_CRITERIA.forEach(c => {
+    const total = evaluations.reduce((sum, e) => sum + (e.criteria[c.key] || 0), 0);
+    criteriaAvgs[c.key] = evaluations.length > 0 ? (total / evaluations.length).toFixed(2) : '0.00';
+  });
+
+  const avgPercentage = evaluations.reduce((sum, e) => sum + e.percentage, 0) / evaluations.length;
+  const rating = getPDPRatingLabel(avgPercentage);
+
+  let html = `
+    <div class="modal-content" style="max-width:700px;max-height:85vh;overflow-y:auto;">
+      <div class="modal-header">
+        <h3>📋 Detail Penilaian PDP - ${esc(teacherName)}</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div style="padding:16px 20px;">
+        <div style="background:#f8f9fa;border:1px solid #e0e0e0;border-radius:6px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:13px;color:#666;">Pengajar</div>
+            <div style="font-weight:700;font-size:16px;">${esc(teacherName)}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:13px;color:#666;">Purata Keseluruhan</div>
+            <div style="font-weight:700;font-size:18px;color:${rating.color};">${avgPercentage.toFixed(1)}% - ${rating.text}</div>
+            <div style="font-size:12px;color:#888;">${evaluations.length} penilaian</div>
+          </div>
+        </div>
+
+        <h4 style="margin:0 0 8px 0;">Pecahan Kriteria</h4>
+        <table class="data-table" style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+          <thead>
+            <tr>
+              <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Kriteria</th>
+              <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">Purata Markah</th>
+              <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">%</th>
+              <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Penilaian</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+  PDP_CRITERIA.forEach(c => {
+    const avg = parseFloat(criteriaAvgs[c.key]);
+    const pct = Math.round((avg / 10) * 100);
+    const r = getPDPRatingLabel(pct);
+    html += `
+      <tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(c.label)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;font-weight:600;">${avg}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;">${pct}%</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">
+          <span style="background:${r.color};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;">${r.text}</span>
+        </td>
+      </tr>`;
+  });
+
+  html += `</tbody></table>`;
+
+  // Individual evaluations
+  html += `<h4 style="margin:0 0 8px 0;">Senarai Penilaian Individu</h4>
+    <table class="data-table" style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Nama Pelajar</th>
+          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">Markah</th>
+          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">%</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Ulasan</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+  evaluations.sort((a, b) => b.percentage - a.percentage).forEach((e, i) => {
+    const r = getPDPRatingLabel(e.percentage);
+    html += `
+      <tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(e.studentName)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;font-weight:600;">${e.totalScore}/${PDP_CRITERIA.length * 10}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;">
+          <span style="background:${r.color};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;">${e.percentage}%</span>
+        </td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-size:12px;">${esc(e.comments || '-')}</td>
+      </tr>`;
+  });
+
+  html += `</tbody></table>`;
+
+  html += `
+        <div style="margin-top:16px;text-align:right;">
+          <button onclick="closeModal()" style="padding:8px 20px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;">Tutup</button>
+        </div>
+      </div>
+    </div>`;
+
+  modal.innerHTML = html;
+  modal.classList.remove('hidden');
 }
