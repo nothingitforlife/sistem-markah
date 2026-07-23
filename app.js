@@ -1140,7 +1140,8 @@ function optimizeData(data) {
       comments: e.comments || '',
       published: e.published || false,
       createdAt: e.createdAt || ''
-    }))
+    })),
+    examPaperAppointment: data.examPaperAppointment || { campus: '', teori: {}, amali: {} }
   };
   return optimized;
 }
@@ -1211,6 +1212,7 @@ async function loadFromFirebase() {
     data.semesters = remote.semesters || [];
     data.subjects = remote.subjects || [];
     data.pdpevaluations = remote.pdpevaluations || [];
+    data.examPaperAppointment = remote.examPaperAppointment || { campus: '', teori: {}, amali: {} };
     
   } else if (localBackup && localBackup.data) {
     // Firebase empty - use localStorage
@@ -1297,6 +1299,9 @@ function restoreFromBackup(backupData) {
   }
   if (backupData.pdpevaluations && backupData.pdpevaluations.length > 0) {
     data.pdpevaluations = backupData.pdpevaluations;
+  }
+  if (backupData.examPaperAppointment) {
+    data.examPaperAppointment = backupData.examPaperAppointment;
   }
   
   console.log('✅ Restore complete. Students:', data.students.length, 'Marks:', data.marks.length);
