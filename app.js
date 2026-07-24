@@ -14919,9 +14919,11 @@ function viewSessionDetail(sessionId) {
   const subj = data.subjects.find(s => s.id === session.subjectId);
   const records = (data.attendance.records || []).filter(r => r.sessionId === sessionId);
   const students = getStudentsForClass(session.classId).filter(s => isStudentEnrolledForAtt(s, session.subjectId));
+  const isOpen = session.status === SESSION_STATUS.OPEN;
+  const isTeacherOrAdmin = currentRole === 'teacher' || currentRole === 'admin';
 
   let html = `
-    <div class="modal-content" style="max-width:700px;max-height:85vh;overflow-y:auto;">
+    <div class="modal-content" style="max-width:750px;max-height:85vh;overflow-y:auto;">
       <div class="modal-header">
         <h3>Detail Sesi Kehadiran</h3>
         <button class="modal-close" onclick="closeModal()">&times;</button>
@@ -14937,9 +14939,30 @@ function viewSessionDetail(sessionId) {
           </div>
         </div>
 
-        <h4>Rekod Kehadiran (${records.length}/${students.length})</h4>
+        <h4>Rekod Kehadiran (${records.length}/${students.length})</h4>`;
+
+  // Tick All toolbar (only for teacher/admin on open sessions)
+  if (isTeacherOrAdmin) {
+    html += `
+        <div style="margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <label style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" id="tickAllCheck" onchange="toggleTickAll('${sessionId}')" style="width:16px;height:16px;cursor:pointer;">
+            Tick Semua
+          </label>
+          <button onclick="bulkTickPresent('${sessionId}')" style="padding:5px 12px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">✓ Hadir Semua</button>
+          <button onclick="bulkTickLate('${sessionId}')" style="padding:5px 12px;background:#f59e0b;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">⏰ Lewat Semua</button>
+          <button onclick="bulkTickAbsent('${sessionId}')" style="padding:5px 12px;background:#dc2626;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">✗ Absent Semua</button>
+        </div>`;
+  }
+
+  html += `
         <table class="data-table" style="width:100%;border-collapse:collapse;">
-          <thead><tr>
+          <thead><tr>`;
+
+  if (isTeacherOrAdmin) {
+    html += `<th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;width:40px;">☐</th>`;
+  }
+  html += `
             <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
             <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Nama</th>
             <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">ID</th>
@@ -14962,7 +14985,11 @@ function viewSessionDetail(sessionId) {
     };
     const sc = statusColors[status] || statusColors.absent;
 
-    html += `<tr>
+    html += `<tr id="attRow_${stu.id}">`;
+    if (isTeacherOrAdmin) {
+      html += `<td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;"><input type="checkbox" class="att-tick-cb" data-student-id="${stu.id}" style="width:16px;height:16px;cursor:pointer;"></td>`;
+    }
+    html += `
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(stu.name)}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(stu.kod || stu.id)}</td>
@@ -14970,16 +14997,21 @@ function viewSessionDetail(sessionId) {
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;">
         <span style="background:${sc.bg};color:${sc.fg};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${status.toUpperCase()}</span>
       </td>
-      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;">
-        ${currentRole === 'teacher' || currentRole === 'admin' ? `<button onclick="editAttendanceRecord('${stu.id}', '${sessionId}')" style="padding:3px 8px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">Edit</button>` : ''}
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;white-space:nowrap;">
+        ${isTeacherOrAdmin ? `
+          <button onclick="quickTickStudent('${stu.id}', '${sessionId}', 'present')" style="padding:3px 8px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:10px;margin:1px;" title="Hadir">✓</button>
+          <button onclick="quickTickStudent('${stu.id}', '${sessionId}', 'late')" style="padding:3px 8px;background:#f59e0b;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:10px;margin:1px;" title="Lewat">⏰</button>
+          <button onclick="quickTickStudent('${stu.id}', '${sessionId}', 'absent')" style="padding:3px 8px;background:#dc2626;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:10px;margin:1px;" title="Absent">✗</button>
+          <button onclick="editAttendanceRecord('${stu.id}', '${sessionId}')" style="padding:3px 8px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:10px;margin:1px;" title="Edit">✎</button>
+        ` : ''}
       </td>
     </tr>`;
   });
 
   html += `</tbody></table>`;
 
-  if (currentRole === 'teacher' || currentRole === 'admin') {
-    html += `<div style="margin-top:12px;display:flex;gap:8px;">
+  if (isTeacherOrAdmin) {
+    html += `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
       <button onclick="addManualAttendance('${sessionId}')" style="padding:8px 16px;background:#8b5cf6;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">+ Kehadiran Manual</button>
       <button onclick="exportSessionExcel('${sessionId}')" style="padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">📥 Export Excel</button>
     </div>`;
@@ -14989,6 +15021,87 @@ function viewSessionDetail(sessionId) {
   const modal = document.getElementById('modal');
   modal.innerHTML = html;
   modal.classList.remove('hidden');
+}
+
+// Quick tick single student
+function quickTickStudent(studentId, sessionId, status) {
+  const stu = data.students.find(s => s.id === studentId);
+  let rec = (data.attendance.records || []).find(r => r.sessionId === sessionId && r.studentId === studentId);
+  const oldStatus = rec ? rec.status : ATTENDANCE_STATUS.ABSENT;
+  const now = getMalaysiaHHMM();
+
+  if (!rec) {
+    rec = {
+      id: generateId('ATT'),
+      sessionId,
+      studentId,
+      studentName: stu ? stu.name : '',
+      clockIn: now,
+      ipAddress: '',
+      browser: '',
+      status: status === 'absent' ? ATTENDANCE_STATUS.ABSENT : ATTENDANCE_STATUS.MANUAL,
+      remarks: status === 'absent' ? 'Marked absent by lecturer' : 'Quick tick by lecturer',
+      approvedBy: '',
+      approvedAt: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    data.attendance.records.push(rec);
+  } else {
+    rec.status = status === 'absent' ? ATTENDANCE_STATUS.ABSENT : ATTENDANCE_STATUS.MANUAL;
+    rec.clockIn = rec.clockIn || now;
+    rec.remarks = status === 'absent' ? 'Marked absent by lecturer' : 'Quick tick by lecturer';
+    rec.updatedAt = new Date().toISOString();
+  }
+
+  // Log
+  data.attendance.logs.push({
+    id: generateId('ALOG'),
+    attendanceId: rec.id,
+    studentId,
+    studentName: stu ? stu.name : '',
+    sessionId,
+    oldStatus,
+    newStatus: rec.status,
+    editedBy: currentUser.name,
+    reason: 'Quick tick by lecturer',
+    editedAt: new Date().toISOString()
+  });
+
+  saveData();
+  viewSessionDetail(sessionId);
+}
+
+// Toggle tick all checkboxes
+function toggleTickAll(sessionId) {
+  const master = document.getElementById('tickAllCheck');
+  document.querySelectorAll('.att-tick-cb').forEach(cb => { cb.checked = master.checked; });
+}
+
+// Get selected student IDs from checkboxes
+function getSelectedStudentIds() {
+  return Array.from(document.querySelectorAll('.att-tick-cb:checked')).map(cb => cb.dataset.studentId);
+}
+
+// Bulk tick as Present
+function bulkTickPresent(sessionId) {
+  const ids = getSelectedStudentIds();
+  if (ids.length === 0) { alert('Pilih pelajar terlebih dahulu.'); return; }
+  ids.forEach(sid => quickTickStudent(sid, sessionId, 'present'));
+}
+
+// Bulk tick as Late
+function bulkTickLate(sessionId) {
+  const ids = getSelectedStudentIds();
+  if (ids.length === 0) { alert('Pilih pelajar terlebih dahulu.'); return; }
+  ids.forEach(sid => quickTickStudent(sid, sessionId, 'late'));
+}
+
+// Bulk tick as Absent
+function bulkTickAbsent(sessionId) {
+  const ids = getSelectedStudentIds();
+  if (ids.length === 0) { alert('Pilih pelajar terlebih dahulu.'); return; }
+  ids.forEach(sid => quickTickStudent(sid, sessionId, 'absent'));
 }
 
 // Edit attendance record
