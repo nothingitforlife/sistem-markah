@@ -274,12 +274,12 @@ function applyRoleRestrictions() {
   userInfo.textContent = (roleLabels[currentRole] || currentRole) + ': ' + (currentUser ? currentUser.name : '');
 
   if (currentRole === 'admin') {
-    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'graduation', 'fyp', 'carrymark', 'pdpeval', 'exampaper'];
+    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'graduation', 'fyp', 'carrymark', 'pdpeval', 'exampaper', 'attendance'];
     allTabs.forEach(t => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (t === 'dashboard' ? ' active' : '');
       btn.dataset.tab = t;
-      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark', pdpeval: 'Penilaian PDP', exampaper: 'Lantikan Kertas Soalan' };
+      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark', pdpeval: 'Penilaian PDP', exampaper: 'Lantikan Kertas Soalan', attendance: 'Kehadiran' };
       btn.textContent = labels[t];
       nav.appendChild(btn);
     });
@@ -294,12 +294,12 @@ function applyRoleRestrictions() {
     document.getElementById('deleteAllTimetableBtn').style.display = '';
     document.getElementById('deleteAllMemosBtn').style.display = '';
   } else if (currentRole === 'teacher') {
-    const t = ['students', 'marks', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'fyp', 'carrymark', 'pdpeval'];
+    const t = ['students', 'marks', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'fyp', 'carrymark', 'pdpeval', 'attendance'];
     t.forEach((tab, i) => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
       btn.dataset.tab = tab;
-      const labels = { students: 'Pelajar', marks: 'Markah', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', fyp: 'FYP', carrymark: 'Carrymark', pdpeval: 'Penilaian PDP' };
+      const labels = { students: 'Pelajar', marks: 'Markah', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', fyp: 'FYP', carrymark: 'Carrymark', pdpeval: 'Penilaian PDP', attendance: 'Kehadiran' };
       btn.textContent = labels[tab];
       nav.appendChild(btn);
     });
@@ -326,12 +326,12 @@ function applyRoleRestrictions() {
       });
     }
   } else if (currentRole === 'student') {
-    const t = ['results', 'timetable', 'memos', 'messages', 'assignments', 'pdpeval'];
+    const t = ['results', 'timetable', 'memos', 'messages', 'assignments', 'pdpeval', 'attendance'];
     t.forEach((tab, i) => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
       btn.dataset.tab = tab;
-      const labels = { results: 'Keputusan', timetable: 'Jadual Saya', memos: 'Memo', messages: 'Mesej', assignments: 'Tugasan', pdpeval: 'Penilaian PDP' };
+      const labels = { results: 'Keputusan', timetable: 'Jadual Saya', memos: 'Memo', messages: 'Mesej', assignments: 'Tugasan', pdpeval: 'Penilaian PDP', attendance: 'Kehadiran' };
       btn.textContent = labels[tab];
       nav.appendChild(btn);
     });
@@ -367,6 +367,7 @@ function applyRoleRestrictions() {
       if (this.dataset.tab === 'carrymark') renderCarrymark();
       if (this.dataset.tab === 'pdpeval') renderPDPEval();
       if (this.dataset.tab === 'exampaper') renderExamPaperAppointment();
+      if (this.dataset.tab === 'attendance') renderAttendance();
     });
   });
 
@@ -916,7 +917,12 @@ let data = {
   resultAuditLog: [],
   merit: [],
   pdpevaluations: [],
-  examPaperAppointment: { campus: '', teori: {}, amali: {} }
+  examPaperAppointment: { campus: '', teori: {}, amali: {} },
+  attendance: {
+    sessions: [],
+    records: [],
+    logs: []
+  }
 };
 
 // Clear all data from Firebase and localStorage
@@ -1141,7 +1147,12 @@ function optimizeData(data) {
       published: e.published || false,
       createdAt: e.createdAt || ''
     })),
-    examPaperAppointment: data.examPaperAppointment || { campus: '', teori: {}, amali: {} }
+    examPaperAppointment: data.examPaperAppointment || { campus: '', teori: {}, amali: {} },
+    attendance: {
+      sessions: (data.attendance && data.attendance.sessions) ? data.attendance.sessions : [],
+      records: (data.attendance && data.attendance.records) ? data.attendance.records : [],
+      logs: (data.attendance && data.attendance.logs) ? data.attendance.logs : []
+    }
   };
   return optimized;
 }
@@ -1213,6 +1224,7 @@ async function loadFromFirebase() {
     data.subjects = remote.subjects || [];
     data.pdpevaluations = remote.pdpevaluations || [];
     data.examPaperAppointment = remote.examPaperAppointment || { campus: '', teori: {}, amali: {} };
+    data.attendance = remote.attendance || { sessions: [], records: [], logs: [] };
     
   } else if (localBackup && localBackup.data) {
     // Firebase empty - use localStorage
@@ -1302,6 +1314,9 @@ function restoreFromBackup(backupData) {
   }
   if (backupData.examPaperAppointment) {
     data.examPaperAppointment = backupData.examPaperAppointment;
+  }
+  if (backupData.attendance) {
+    data.attendance = backupData.attendance;
   }
   
   console.log('✅ Restore complete. Students:', data.students.length, 'Marks:', data.marks.length);
@@ -14496,5 +14511,1128 @@ window.exportExamPaperAppointment = function() {
   } else {
     alert('XLSX library tidak tersedia. Sila muat turun semula.');
   }
+}
+
+// ============================================
+// STUDENT ATTENDANCE CLOCK-IN MODULE
+// ============================================
+
+// Attendance status constants
+const ATTENDANCE_STATUS = {
+  PENDING: 'pending',
+  PRESENT: 'present',
+  LATE: 'late',
+  ABSENT: 'absent',
+  MANUAL: 'manual',
+  REJECTED: 'rejected'
+};
+
+const SESSION_STATUS = {
+  DRAFT: 'draft',
+  OPEN: 'open',
+  CLOSED: 'closed'
+};
+
+// Initialize attendance data
+function initAttendance() {
+  if (!data.attendance) {
+    data.attendance = { sessions: [], records: [], logs: [] };
+  }
+  if (!data.attendance.sessions) data.attendance.sessions = [];
+  if (!data.attendance.records) data.attendance.records = [];
+  if (!data.attendance.logs) data.attendance.logs = [];
+}
+
+// Format time for display
+function formatAttTime(timeStr) {
+  if (!timeStr) return '-';
+  const [h, m] = timeStr.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+// Get Malaysia time string HH:MM
+function getMalaysiaTime() {
+  const now = new Date();
+  const msia = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kuala_Lumpur' }));
+  return msia.toISOString().replace('Z', '');
+}
+
+function getMalaysiaDate() {
+  const now = new Date();
+  const msia = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kuala_Lumpur' }));
+  return msia.toISOString().split('T')[0];
+}
+
+function getMalaysiaHHMM() {
+  const now = new Date();
+  const msia = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kuala_Lumpur' }));
+  return String(msia.getHours()).padStart(2, '0') + ':' + String(msia.getMinutes()).padStart(2, '0');
+}
+
+// Time helpers
+function timeToMinutes(t) {
+  if (!t) return 0;
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function minutesToTime(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+// Check if student is enrolled in subject
+function isStudentEnrolledForAtt(student, subjectId) {
+  return (student.subjects || []).includes(subjectId);
+}
+
+// Get students for a class
+function getStudentsForClass(className) {
+  return data.students.filter(s => s.class === className && s.track !== 'graduated');
+}
+
+// Main render function
+function renderAttendance() {
+  initAttendance();
+  const area = document.getElementById('attendanceArea');
+  if (!area) return;
+
+  if (currentRole === 'admin') {
+    renderAttendanceAdmin(area);
+  } else if (currentRole === 'teacher') {
+    renderAttendanceTeacher(area);
+  } else if (currentRole === 'student') {
+    renderAttendanceStudent(area);
+  }
+}
+
+// ============================================
+// TEACHER VIEW
+// ============================================
+function renderAttendanceTeacher(area) {
+  const teacherName = currentUser.name;
+  const teacherSubjects = data.subjects.filter(s => s.pengajar === teacherName);
+  const sessions = (data.attendance.sessions || []).filter(s => s.lecturerId === teacherName);
+
+  // Get unique classes from teacher's subjects
+  const teacherClasses = [...new Set(teacherSubjects.map(s => {
+    const sem = data.semesters.find(se => se.id === s.semester);
+    return sem ? sem.name : '';
+  }).filter(Boolean))];
+
+  let html = `
+    <div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <div>
+        <h3 style="margin:0;">Sesi Kehadiran</h3>
+        <p style="margin:0;color:#666;font-size:13px;">Urus sesi kehadiran untuk kelas anda.</p>
+      </div>
+      <button onclick="showCreateSessionForm()" style="padding:8px 20px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;">+ Sesi Baru</button>
+    </div>`;
+
+  // Stats
+  const openSessions = sessions.filter(s => s.status === SESSION_STATUS.OPEN).length;
+  const closedSessions = sessions.filter(s => s.status === SESSION_STATUS.CLOSED).length;
+  const totalRecords = (data.attendance.records || []).filter(r =>
+    sessions.some(s => s.id === r.sessionId)
+  ).length;
+
+  html += `
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 20px;min-width:120px;">
+        <div style="font-size:11px;color:#0369a1;">Jumlah Sesi</div>
+        <div style="font-size:24px;font-weight:700;color:#0c4a6e;">${sessions.length}</div>
+      </div>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 20px;min-width:120px;">
+        <div style="font-size:11px;color:#15803d;">Dibuka</div>
+        <div style="font-size:24px;font-weight:700;color:#166534;">${openSessions}</div>
+      </div>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 20px;min-width:120px;">
+        <div style="font-size:11px;color:#dc2626;">Ditutup</div>
+        <div style="font-size:24px;font-weight:700;color:#991b1b;">${closedSessions}</div>
+      </div>
+      <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:12px 20px;min-width:120px;">
+        <div style="font-size:11px;color:#7c3aed;">Rekod</div>
+        <div style="font-size:24px;font-weight:700;color:#5b21b6;">${totalRecords}</div>
+      </div>
+    </div>`;
+
+  // Session list
+  html += `<div class="individual-analysis-card"><h3>Senarai Sesi</h3>`;
+  if (sessions.length === 0) {
+    html += '<p class="empty-state">Tiada sesi lagi. Klik "+ Sesi Baru" untuk cipta.</p>';
+  } else {
+    html += `<table class="data-table" style="width:100%;border-collapse:collapse;">
+      <thead><tr>
+        <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
+        <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Tarikh</th>
+        <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Subjek</th>
+        <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Kelas</th>
+        <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Masa</th>
+        <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Status</th>
+        <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Hadir</th>
+        <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Tindakan</th>
+      </tr></thead><tbody>`;
+
+    sessions.sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach((sess, i) => {
+      const subj = data.subjects.find(s => s.id === sess.subjectId);
+      const records = (data.attendance.records || []).filter(r => r.sessionId === sess.id);
+      const presentCount = records.filter(r => r.status === ATTENDANCE_STATUS.PRESENT || r.status === ATTENDANCE_STATUS.LATE || r.status === ATTENDANCE_STATUS.MANUAL).length;
+      const totalStudents = getStudentsForClass(sess.classId).length;
+      const statusColor = sess.status === SESSION_STATUS.OPEN ? '#059669' : sess.status === SESSION_STATUS.CLOSED ? '#dc2626' : '#f59e0b';
+      const statusBg = sess.status === SESSION_STATUS.OPEN ? '#dcfce7' : sess.status === SESSION_STATUS.CLOSED ? '#fee2e2' : '#fef3c7';
+      const canReopen = sess.status === SESSION_STATUS.CLOSED && (Date.now() - new Date(sess.updatedAt || sess.date).getTime()) < 86400000;
+
+      html += `<tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${esc(sess.date || '-')}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;font-weight:600;">${esc(subj ? subj.name : '-')}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${esc(sess.classId || '-')}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">${formatAttTime(sess.startTime)} - ${formatAttTime(sess.endTime)}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
+          <span style="background:${statusBg};color:${statusColor};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">${sess.status.toUpperCase()}</span>
+        </td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">${presentCount}/${totalStudents}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
+          ${sess.status === SESSION_STATUS.DRAFT ? `<button onclick="openSession('${sess.id}')" style="padding:4px 10px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Buka</button>` : ''}
+          ${sess.status === SESSION_STATUS.OPEN ? `<button onclick="closeSession('${sess.id}')" style="padding:4px 10px;background:#dc2626;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Tutup</button>` : ''}
+          ${canReopen ? `<button onclick="reopenSession('${sess.id}')" style="padding:4px 10px;background:#f59e0b;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Buka Semula</button>` : ''}
+          <button onclick="viewSessionDetail('${sess.id}')" style="padding:4px 10px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Lihat</button>
+        </td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+  html += `</div>`;
+  area.innerHTML = html;
+}
+
+// Create session form
+function showCreateSessionForm() {
+  initAttendance();
+  const teacherName = currentUser.name;
+  const teacherSubjects = data.subjects.filter(s => s.pengajar === teacherName);
+
+  // Get unique semesters from teacher's subjects
+  const semIds = [...new Set(teacherSubjects.map(s => s.semester))];
+  const semesters = data.semesters.filter(s => semIds.includes(s.id));
+
+  let html = `
+    <div class="modal-content" style="max-width:500px;">
+      <div class="modal-header">
+        <h3>Cipta Sesi Kehadiran</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div style="padding:16px 20px;">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Semester</label>
+          <select id="attSemester" onchange="updateAttSubjects()" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+            <option value="">-- Pilih Semester --</option>
+            ${semesters.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Subjek</label>
+          <select id="attSubject" onchange="updateAttClass()" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+            <option value="">-- Pilih Subjek --</option>
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Kelas</label>
+          <select id="attClass" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+            <option value="">-- Pilih Kelas --</option>
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Tarikh</label>
+          <input type="date" id="attDate" value="${getMalaysiaDate()}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:12px;">
+          <div style="flex:1;">
+            <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Mula</label>
+            <input type="time" id="attStartTime" value="${getMalaysiaHHMM()}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Tamat</label>
+            <input type="time" id="attEndTime" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+          <button onclick="closeModal()" style="padding:8px 20px;background:#95a5a6;color:#fff;border:none;border-radius:4px;cursor:pointer;">Batal</button>
+          <button onclick="createAttendanceSession()" style="padding:8px 20px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;">Cipta Sesi</button>
+        </div>
+      </div>
+    </div>`;
+
+  const modal = document.getElementById('modal');
+  modal.innerHTML = html;
+  modal.classList.remove('hidden');
+}
+
+// Update subjects dropdown based on semester
+function updateAttSubjects() {
+  const semId = document.getElementById('attSemester').value;
+  const teacherName = currentUser.name;
+  const subjects = data.subjects.filter(s => s.semester === semId && s.pengajar === teacherName);
+  const sel = document.getElementById('attSubject');
+  sel.innerHTML = '<option value="">-- Pilih Subjek --</option>' +
+    subjects.map(s => `<option value="${esc(s.id)}">${esc(s.name)} (${esc(s.code || '-')})</option>`).join('');
+  document.getElementById('attClass').innerHTML = '<option value="">-- Pilih Kelas --</option>';
+}
+
+// Update class dropdown based on subject
+function updateAttClass() {
+  const subjId = document.getElementById('attSubject').value;
+  const subj = data.subjects.find(s => s.id === subjId);
+  if (!subj) return;
+  const sem = data.semesters.find(s => s.id === subj.semester);
+  if (!sem) return;
+  // Get students enrolled in this subject
+  const enrolled = data.students.filter(s => (s.subjects || []).includes(subjId) && s.track !== 'graduated');
+  const classes = [...new Set(enrolled.map(s => s.class).filter(Boolean))];
+  const sel = document.getElementById('attClass');
+  sel.innerHTML = '<option value="">-- Pilih Kelas --</option>' +
+    classes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+}
+
+// Create attendance session
+function createAttendanceSession() {
+  const subjectId = document.getElementById('attSubject').value;
+  const classId = document.getElementById('attClass').value;
+  const date = document.getElementById('attDate').value;
+  const startTime = document.getElementById('attStartTime').value;
+  const endTime = document.getElementById('attEndTime').value;
+
+  if (!subjectId || !classId || !date || !startTime || !endTime) {
+    alert('Sila isi semua medan.');
+    return;
+  }
+
+  const session = {
+    id: generateId('SESS'),
+    subjectId,
+    classId,
+    semesterId: data.subjects.find(s => s.id === subjectId)?.semester || '',
+    lecturerId: currentUser.name,
+    date,
+    startTime,
+    endTime,
+    status: SESSION_STATUS.DRAFT,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  data.attendance.sessions.push(session);
+  saveData();
+  closeModal();
+  renderAttendanceTeacher(document.getElementById('attendanceArea'));
+  showToast('Sesi berjaya dicipta.', 'success');
+}
+
+// Open session
+function openSession(sessionId) {
+  const session = data.attendance.sessions.find(s => s.id === sessionId);
+  if (!session) return;
+
+  // Check if there's already an open session for this class on this date
+  const existingOpen = data.attendance.sessions.find(s =>
+    s.id !== sessionId && s.classId === session.classId && s.date === session.date && s.status === SESSION_STATUS.OPEN
+  );
+  if (existingOpen) {
+    alert('Sudah ada sesi aktif untuk kelas ini pada tarikh ini. Tutup sesi terdahulu dahulu.');
+    return;
+  }
+
+  session.status = SESSION_STATUS.OPEN;
+  session.updatedAt = new Date().toISOString();
+  saveData();
+  renderAttendanceTeacher(document.getElementById('attendanceArea'));
+  showToast('Sesi telah dibuka.', 'success');
+}
+
+// Close session - auto mark absent
+function closeSession(sessionId) {
+  const session = data.attendance.sessions.find(s => s.id === sessionId);
+  if (!session) return;
+  if (!confirm('Tutup sesi ini? Pelajar yang belum clock in akan ditandakan sebagai absent.')) return;
+
+  session.status = SESSION_STATUS.CLOSED;
+  session.updatedAt = new Date().toISOString();
+
+  // Auto-mark absent for students who didn't clock in
+  const students = getStudentsForClass(session.classId);
+  const existingRecords = (data.attendance.records || []).filter(r => r.sessionId === sessionId);
+  const recordedStudentIds = new Set(existingRecords.map(r => r.studentId));
+
+  students.forEach(stu => {
+    if (!recordedStudentIds.has(stu.id) && isStudentEnrolledForAtt(stu, session.subjectId)) {
+      data.attendance.records.push({
+        id: generateId('ATT'),
+        sessionId,
+        studentId: stu.id,
+        studentName: stu.name,
+        clockIn: null,
+        ipAddress: '',
+        browser: '',
+        status: ATTENDANCE_STATUS.ABSENT,
+        remarks: 'Auto-marked absent (did not clock in)',
+        approvedBy: '',
+        approvedAt: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+  });
+
+  saveData();
+  renderAttendanceTeacher(document.getElementById('attendanceArea'));
+  showToast('Sesi ditutup. Rekod absent telah dijana.', 'success');
+}
+
+// Reopen session
+function reopenSession(sessionId) {
+  const session = data.attendance.sessions.find(s => s.id === sessionId);
+  if (!session) return;
+
+  const updatedAt = new Date(session.updatedAt || session.date).getTime();
+  const hoursSinceClose = (Date.now() - updatedAt) / 3600000;
+
+  if (hoursSinceClose > 24 && currentRole !== 'admin') {
+    alert('Melebihi 24 jam. Hanya admin boleh membuka semula.');
+    return;
+  }
+
+  session.status = SESSION_STATUS.OPEN;
+  session.updatedAt = new Date().toISOString();
+  saveData();
+  renderAttendanceTeacher(document.getElementById('attendanceArea'));
+  showToast('Sesi telah dibuka semula.', 'success');
+}
+
+// View session detail
+function viewSessionDetail(sessionId) {
+  const session = data.attendance.sessions.find(s => s.id === sessionId);
+  if (!session) return;
+
+  const subj = data.subjects.find(s => s.id === session.subjectId);
+  const records = (data.attendance.records || []).filter(r => r.sessionId === sessionId);
+  const students = getStudentsForClass(session.classId).filter(s => isStudentEnrolledForAtt(s, session.subjectId));
+
+  let html = `
+    <div class="modal-content" style="max-width:700px;max-height:85vh;overflow-y:auto;">
+      <div class="modal-header">
+        <h3>Detail Sesi Kehadiran</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div style="padding:16px 20px;">
+        <div style="background:#f8f9fa;border:1px solid #e0e0e0;border-radius:6px;padding:12px 16px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div><strong>Subjek:</strong> ${esc(subj ? subj.name : '-')}</div>
+            <div><strong>Kelas:</strong> ${esc(session.classId)}</div>
+            <div><strong>Tarikh:</strong> ${esc(session.date)}</div>
+            <div><strong>Masa:</strong> ${formatAttTime(session.startTime)} - ${formatAttTime(session.endTime)}</div>
+            <div><strong>Status:</strong> ${session.status.toUpperCase()}</div>
+          </div>
+        </div>
+
+        <h4>Rekod Kehadiran (${records.length}/${students.length})</h4>
+        <table class="data-table" style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Nama</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">ID</th>
+            <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">Clock In</th>
+            <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">Status</th>
+            <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">Tindakan</th>
+          </tr></thead><tbody>`;
+
+  students.forEach((stu, i) => {
+    const rec = records.find(r => r.studentId === stu.id);
+    const status = rec ? rec.status : ATTENDANCE_STATUS.ABSENT;
+    const clockIn = rec ? rec.clockIn : null;
+    const statusColors = {
+      present: { bg: '#dcfce7', fg: '#166534' },
+      late: { bg: '#fef3c7', fg: '#92400e' },
+      absent: { bg: '#fee2e2', fg: '#991b1b' },
+      manual: { bg: '#e0e7ff', fg: '#3730a3' },
+      pending: { bg: '#fef3c7', fg: '#92400e' },
+      rejected: { bg: '#f3f4f6', fg: '#374151' }
+    };
+    const sc = statusColors[status] || statusColors.absent;
+
+    html += `<tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(stu.name)}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(stu.kod || stu.id)}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;">${clockIn ? formatAttTime(clockIn) : '-'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;">
+        <span style="background:${sc.bg};color:${sc.fg};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${status.toUpperCase()}</span>
+      </td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;">
+        ${currentRole === 'teacher' || currentRole === 'admin' ? `<button onclick="editAttendanceRecord('${stu.id}', '${sessionId}')" style="padding:3px 8px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">Edit</button>` : ''}
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+
+  if (currentRole === 'teacher' || currentRole === 'admin') {
+    html += `<div style="margin-top:12px;display:flex;gap:8px;">
+      <button onclick="addManualAttendance('${sessionId}')" style="padding:8px 16px;background:#8b5cf6;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">+ Kehadiran Manual</button>
+      <button onclick="exportSessionExcel('${sessionId}')" style="padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">📥 Export Excel</button>
+    </div>`;
+  }
+
+  html += `</div></div>`;
+  const modal = document.getElementById('modal');
+  modal.innerHTML = html;
+  modal.classList.remove('hidden');
+}
+
+// Edit attendance record
+function editAttendanceRecord(studentId, sessionId) {
+  const rec = (data.attendance.records || []).find(r => r.sessionId === sessionId && r.studentId === studentId);
+  const stu = data.students.find(s => s.id === studentId);
+  const session = data.attendance.sessions.find(s => s.id === sessionId);
+  if (!stu || !session) return;
+
+  const currentStatus = rec ? rec.status : ATTENDANCE_STATUS.ABSENT;
+  const currentClockIn = rec ? (rec.clockIn || '') : '';
+  const currentRemarks = rec ? (rec.remarks || '') : '';
+
+  let html = `
+    <div class="modal-content" style="max-width:450px;">
+      <div class="modal-header">
+        <h3>Edit Kehadiran</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div style="padding:16px 20px;">
+        <div style="margin-bottom:12px;background:#f8f9fa;padding:10px 14px;border-radius:6px;">
+          <strong>${esc(stu.name)}</strong> (${esc(stu.kod || stu.id)})<br>
+          <span style="font-size:12px;color:#666;">${esc(session.date)} | ${formatAttTime(session.startTime)} - ${formatAttTime(session.endTime)}</span>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Status</label>
+          <select id="editAttStatus" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+            <option value="present" ${currentStatus === 'present' ? 'selected' : ''}>Present</option>
+            <option value="late" ${currentStatus === 'late' ? 'selected' : ''}>Late</option>
+            <option value="absent" ${currentStatus === 'absent' ? 'selected' : ''}>Absent</option>
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Masa Clock In</label>
+          <input type="time" id="editAttClockIn" value="${currentClockIn}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Sebab (wajib jika ubah status)</label>
+          <textarea id="editAttReason" rows="2" placeholder="Contoh: Student forgot to clock in, Technical issue..." style="width:100%;border:1px solid #ccc;border-radius:4px;padding:8px;font-size:13px;">${esc(currentRemarks)}</textarea>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+          <button onclick="closeModal()" style="padding:8px 20px;background:#95a5a6;color:#fff;border:none;border-radius:4px;cursor:pointer;">Batal</button>
+          <button onclick="saveEditAttendance('${studentId}', '${sessionId}')" style="padding:8px 20px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;">Simpan</button>
+        </div>
+      </div>
+    </div>`;
+
+  const modal = document.getElementById('modal');
+  modal.innerHTML = html;
+  modal.classList.remove('hidden');
+}
+
+// Save edited attendance
+function saveEditAttendance(studentId, sessionId) {
+  const newStatus = document.getElementById('editAttStatus').value;
+  const newClockIn = document.getElementById('editAttClockIn').value;
+  const reason = document.getElementById('editAttReason').value.trim();
+
+  if (!reason) {
+    alert('Sila isi sebab perubahan.');
+    return;
+  }
+
+  const stu = data.students.find(s => s.id === studentId);
+  let rec = (data.attendance.records || []).find(r => r.sessionId === sessionId && r.studentId === studentId);
+  const oldStatus = rec ? rec.status : ATTENDANCE_STATUS.ABSENT;
+
+  if (!rec) {
+    rec = {
+      id: generateId('ATT'),
+      sessionId,
+      studentId,
+      studentName: stu ? stu.name : '',
+      clockIn: newClockIn || null,
+      ipAddress: '',
+      browser: '',
+      status: newStatus,
+      remarks: reason,
+      approvedBy: '',
+      approvedAt: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    data.attendance.records.push(rec);
+  } else {
+    rec.status = newStatus;
+    rec.clockIn = newClockIn || rec.clockIn;
+    rec.remarks = reason;
+    rec.updatedAt = new Date().toISOString();
+  }
+
+  // Log the change
+  data.attendance.logs.push({
+    id: generateId('ALOG'),
+    attendanceId: rec.id,
+    studentId,
+    studentName: stu ? stu.name : '',
+    sessionId,
+    oldStatus,
+    newStatus,
+    editedBy: currentUser.name,
+    reason,
+    editedAt: new Date().toISOString()
+  });
+
+  saveData();
+  closeModal();
+  viewSessionDetail(sessionId);
+  showToast('Kehadiran dikemaskini.', 'success');
+}
+
+// Manual attendance
+function addManualAttendance(sessionId) {
+  const session = data.attendance.sessions.find(s => s.id === sessionId);
+  if (!session) return;
+
+  const students = getStudentsForClass(session.classId).filter(s => isStudentEnrolledForAtt(s, session.subjectId));
+  const existingRecords = (data.attendance.records || []).filter(r => r.sessionId === sessionId);
+  const recordedIds = new Set(existingRecords.map(r => r.studentId));
+  const unrecorded = students.filter(s => !recordedIds.has(s.id));
+
+  let html = `
+    <div class="modal-content" style="max-width:500px;">
+      <div class="modal-header">
+        <h3>Tambah Kehadiran Manual</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div style="padding:16px 20px;">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Pelajar</label>
+          <select id="manualAttStudent" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+            ${unrecorded.length > 0
+              ? unrecorded.map(s => `<option value="${esc(s.id)}">${esc(s.name)} (${esc(s.kod || s.id)})</option>`).join('')
+              : '<option value="">Semua pelajar sudah ada rekod</option>'}
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Status</label>
+          <select id="manualAttStatus" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+            <option value="present">Present</option>
+            <option value="late">Late</option>
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Masa Clock In</label>
+          <input type="time" id="manualAttClockIn" value="${getMalaysiaHHMM()}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Remarks</label>
+          <textarea id="manualAttRemarks" rows="2" placeholder="Sebab..." style="width:100%;border:1px solid #ccc;border-radius:4px;padding:8px;font-size:13px;"></textarea>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+          <button onclick="closeModal()" style="padding:8px 20px;background:#95a5a6;color:#fff;border:none;border-radius:4px;cursor:pointer;">Batal</button>
+          <button onclick="saveManualAttendance('${sessionId}')" style="padding:8px 20px;background:#8b5cf6;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;">Simpan</button>
+        </div>
+      </div>
+    </div>`;
+
+  const modal = document.getElementById('modal');
+  modal.innerHTML = html;
+  modal.classList.remove('hidden');
+}
+
+// Save manual attendance
+function saveManualAttendance(sessionId) {
+  const studentId = document.getElementById('manualAttStudent').value;
+  const status = document.getElementById('manualAttStatus').value;
+  const clockIn = document.getElementById('manualAttClockIn').value;
+  const remarks = document.getElementById('manualAttRemarks').value.trim();
+
+  if (!studentId) {
+    alert('Sila pilih pelajar.');
+    return;
+  }
+
+  const stu = data.students.find(s => s.id === studentId);
+  const rec = {
+    id: generateId('ATT'),
+    sessionId,
+    studentId,
+    studentName: stu ? stu.name : '',
+    clockIn: clockIn || null,
+    ipAddress: '',
+    browser: '',
+    status: ATTENDANCE_STATUS.MANUAL,
+    remarks: remarks || 'Manual entry by lecturer',
+    approvedBy: '',
+    approvedAt: '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  data.attendance.records.push(rec);
+
+  // Log
+  data.attendance.logs.push({
+    id: generateId('ALOG'),
+    attendanceId: rec.id,
+    studentId,
+    studentName: stu ? stu.name : '',
+    sessionId,
+    oldStatus: ATTENDANCE_STATUS.ABSENT,
+    newStatus: ATTENDANCE_STATUS.MANUAL,
+    editedBy: currentUser.name,
+    reason: remarks || 'Manual entry by lecturer',
+    editedAt: new Date().toISOString()
+  });
+
+  saveData();
+  closeModal();
+  viewSessionDetail(sessionId);
+  showToast('Kehadiran manual ditambah.', 'success');
+}
+
+// Export session to Excel
+function exportSessionExcel(sessionId) {
+  const session = data.attendance.sessions.find(s => s.id === sessionId);
+  if (!session) return;
+
+  const subj = data.subjects.find(s => s.id === session.subjectId);
+  const records = (data.attendance.records || []).filter(r => r.sessionId === sessionId);
+  const students = getStudentsForClass(session.classId).filter(s => isStudentEnrolledForAtt(s, session.subjectId));
+
+  const rows = [['Bil', 'Nama', 'ID', 'Kelas', 'Clock In', 'Status', 'Remarks']];
+  students.forEach((stu, i) => {
+    const rec = records.find(r => r.studentId === stu.id);
+    rows.push([
+      i + 1,
+      stu.name,
+      stu.kod || stu.id,
+      stu.class,
+      rec && rec.clockIn ? formatAttTime(rec.clockIn) : '-',
+      rec ? rec.status.toUpperCase() : 'ABSENT',
+      rec ? (rec.remarks || '-') : '-'
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Kehadiran');
+  XLSX.writeFile(wb, `kehadiran-${session.date}-${session.classId}.xlsx`);
+  showToast('Fail Excel dieksport.', 'success');
+}
+
+// ============================================
+// STUDENT VIEW
+// ============================================
+function renderAttendanceStudent(area) {
+  const student = data.students.find(s => s.id === currentUser.id);
+  if (!student) {
+    area.innerHTML = '<p>Pelajar tidak ditemui.</p>';
+    return;
+  }
+
+  const today = getMalaysiaDate();
+  const sessions = (data.attendance.sessions || []).filter(s =>
+    s.date === today && s.status === SESSION_STATUS.OPEN
+  );
+
+  // Filter sessions to only those for subjects the student is enrolled in
+  const mySessions = sessions.filter(s => isStudentEnrolledForAtt(student, s.subjectId));
+
+  let html = `
+    <div style="margin-bottom:16px;">
+      <h3 style="margin:0 0 4px 0;">Kehadiran Hari Ini</h3>
+      <p style="margin:0;color:#666;font-size:13px;">${esc(today)}</p>
+    </div>`;
+
+  if (mySessions.length === 0) {
+    html += '<div style="padding:40px;text-align:center;color:#666;background:#f9fafb;border-radius:8px;"><p style="font-size:16px;margin-bottom:8px;">Tiada sesi aktif hari ini.</p><p style="font-size:13px;">Sila semak semula kemudian.</p></div>';
+  } else {
+    mySessions.forEach(sess => {
+      const subj = data.subjects.find(s => s.id === sess.subjectId);
+      const existingRec = (data.attendance.records || []).find(r => r.sessionId === sess.id && r.studentId === student.id);
+      const hasClockedIn = !!existingRec;
+      const status = existingRec ? existingRec.status : null;
+
+      html += `
+        <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:16px 20px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+          <div>
+            <div style="font-weight:700;font-size:16px;">${esc(subj ? subj.name : '-')}</div>
+            <div style="color:#666;font-size:13px;">${formatAttTime(sess.startTime)} - ${formatAttTime(sess.endTime)}</div>
+          </div>
+          <div>
+            ${hasClockedIn
+              ? `<span style="display:inline-block;padding:6px 16px;border-radius:4px;font-weight:600;font-size:13px;background:${status === 'present' ? '#dcfce7' : status === 'late' ? '#fef3c7' : '#fee2e2'};color:${status === 'present' ? '#166534' : status === 'late' ? '#92400e' : '#991b1b'};">${status === 'present' ? '✓ Hadir' : status === 'late' ? '⏰ Lewat' : status}</span>`
+              : `<button onclick="clockIn('${sess.id}')" style="padding:10px 24px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;">⏰ CLOCK IN</button>`
+            }
+          </div>
+        </div>`;
+    });
+  }
+
+  // Attendance history
+  const myRecords = (data.attendance.records || []).filter(r => r.studentId === student.id);
+  if (myRecords.length > 0) {
+    html += `
+      <div style="margin-top:24px;">
+        <h3 style="margin:0 0 12px 0;">Sejarah Kehadiran</h3>
+        <table class="data-table" style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Tarikh</th>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Subjek</th>
+            <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Clock In</th>
+            <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Status</th>
+          </tr></thead><tbody>`;
+
+    myRecords.sort((a, b) => {
+      const sessA = data.attendance.sessions.find(s => s.id === a.sessionId);
+      const sessB = data.attendance.sessions.find(s => s.id === b.sessionId);
+      return (sessB?.date || '').localeCompare(sessA?.date || '');
+    }).forEach(rec => {
+      const sess = data.attendance.sessions.find(s => s.id === rec.sessionId);
+      const subj = sess ? data.subjects.find(s => s.id === sess.subjectId) : null;
+      const sc = {
+        present: { bg: '#dcfce7', fg: '#166534' },
+        late: { bg: '#fef3c7', fg: '#92400e' },
+        absent: { bg: '#fee2e2', fg: '#991b1b' },
+        manual: { bg: '#e0e7ff', fg: '#3730a3' },
+        pending: { bg: '#fef3c7', fg: '#92400e' },
+        rejected: { bg: '#f3f4f6', fg: '#374151' }
+      }[rec.status] || { bg: '#fee2e2', fg: '#991b1b' };
+
+      html += `<tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${sess ? sess.date : '-'}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${subj ? subj.name : '-'}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">${rec.clockIn ? formatAttTime(rec.clockIn) : '-'}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
+          <span style="background:${sc.bg};color:${sc.fg};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${rec.status.toUpperCase()}</span>
+        </td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  area.innerHTML = html;
+}
+
+// Student clock in
+function clockIn(sessionId) {
+  const session = data.attendance.sessions.find(s => s.id === sessionId);
+  if (!session) return;
+
+  if (session.status !== SESSION_STATUS.OPEN) {
+    alert('Sesi kehadiran tidak aktif.');
+    return;
+  }
+
+  const student = data.students.find(s => s.id === currentUser.id);
+  if (!student) return;
+
+  // Check if already clocked in
+  const existing = (data.attendance.records || []).find(r => r.sessionId === sessionId && r.studentId === student.id);
+  if (existing) {
+    alert('Anda sudah mencatat kehadiran.');
+    return;
+  }
+
+  // Determine if late
+  const now = getMalaysiaHHMM();
+  const isLate = timeToMinutes(now) > timeToMinutes(session.startTime) + 15;
+
+  const record = {
+    id: generateId('ATT'),
+    sessionId,
+    studentId: student.id,
+    studentName: student.name,
+    clockIn: now,
+    ipAddress: '',
+    browser: navigator.userAgent.substring(0, 50),
+    status: isLate ? ATTENDANCE_STATUS.LATE : ATTENDANCE_STATUS.PENDING,
+    remarks: '',
+    approvedBy: '',
+    approvedAt: '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  data.attendance.records.push(record);
+  saveData();
+  renderAttendanceStudent(document.getElementById('attendanceArea'));
+  showToast(isLate ? 'Kehadiran dicatat (LEWAT).' : 'Kehadiran dicatat!', 'success');
+}
+
+// ============================================
+// ADMIN VIEW
+// ============================================
+function renderAttendanceAdmin(area) {
+  initAttendance();
+  const sessions = data.attendance.sessions || [];
+  const records = data.attendance.records || [];
+  const today = getMalaysiaDate();
+
+  const todaySessions = sessions.filter(s => s.date === today);
+  const openSessions = sessions.filter(s => s.status === SESSION_STATUS.OPEN);
+  const closedSessions = sessions.filter(s => s.status === SESSION_STATUS.CLOSED);
+  const todayRecords = records.filter(r => {
+    const sess = sessions.find(s => s.id === r.sessionId);
+    return sess && sess.date === today;
+  });
+  const presentToday = todayRecords.filter(r => r.status === ATTENDANCE_STATUS.PRESENT || r.status === ATTENDANCE_STATUS.LATE || r.status === ATTENDANCE_STATUS.MANUAL).length;
+  const absentToday = todayRecords.filter(r => r.status === ATTENDANCE_STATUS.ABSENT).length;
+  const pendingApproval = records.filter(r => r.status === ATTENDANCE_STATUS.PENDING).length;
+  const manualEntries = records.filter(r => r.status === ATTENDANCE_STATUS.MANUAL).length;
+  const totalTodayStudents = todaySessions.reduce((sum, s) => sum + getStudentsForClass(s.classId).length, 0);
+  const attendanceRate = totalTodayStudents > 0 ? Math.round((presentToday / totalTodayStudents) * 100) : 0;
+
+  let html = `
+    <div style="margin-bottom:16px;">
+      <h3 style="margin:0 0 4px 0;">Dashboard Kehadiran</h3>
+      <p style="margin:0;color:#666;font-size:13px;">Ringkasan kehadiran hari ini.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
+      <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px 16px;">
+        <div style="font-size:11px;color:#0369a1;">Sesi Hari Ini</div>
+        <div style="font-size:28px;font-weight:700;color:#0c4a6e;">${todaySessions.length}</div>
+      </div>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 16px;">
+        <div style="font-size:11px;color:#15803d;">Sesi Dibuka</div>
+        <div style="font-size:28px;font-weight:700;color:#166534;">${openSessions.length}</div>
+      </div>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 16px;">
+        <div style="font-size:11px;color:#dc2626;">Sesi Ditutup</div>
+        <div style="font-size:28px;font-weight:700;color:#991b1b;">${closedSessions.length}</div>
+      </div>
+      <div style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:14px 16px;">
+        <div style="font-size:11px;color:#15803d;">Hadir Hari Ini</div>
+        <div style="font-size:28px;font-weight:700;color:#166534;">${presentToday}</div>
+      </div>
+      <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:14px 16px;">
+        <div style="font-size:11px;color:#dc2626;">Absent Hari Ini</div>
+        <div style="font-size:28px;font-weight:700;color:#991b1b;">${absentToday}</div>
+      </div>
+      <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:14px 16px;">
+        <div style="font-size:11px;color:#92400e;">Perlu Diluluskan</div>
+        <div style="font-size:28px;font-weight:700;color:#78350f;">${pendingApproval}</div>
+      </div>
+      <div style="background:#e0e7ff;border:1px solid #a5b4fc;border-radius:8px;padding:14px 16px;">
+        <div style="font-size:11px;color:#3730a3;">Manual Entry</div>
+        <div style="font-size:28px;font-weight:700;color:#312e81;">${manualEntries}</div>
+      </div>
+      <div style="background:#f5f3ff;border:1px solid #c4b5fd;border-radius:8px;padding:14px 16px;">
+        <div style="font-size:11px;color:#7c3aed;">Kadar Kehadiran</div>
+        <div style="font-size:28px;font-weight:700;color:#5b21b6;">${attendanceRate}%</div>
+      </div>
+    </div>`;
+
+  // Pending approval list
+  const pendingRecords = records.filter(r => r.status === ATTENDANCE_STATUS.PENDING);
+  if (pendingRecords.length > 0) {
+    html += `
+      <div class="individual-analysis-card" style="margin-bottom:16px;">
+        <h3>⏳ Perlu Diluluskan (${pendingRecords.length})</h3>
+        <table class="data-table" style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Pelajar</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Subjek</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Tarikh</th>
+            <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">Clock In</th>
+            <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">Tindakan</th>
+          </tr></thead><tbody>`;
+
+    pendingRecords.forEach(rec => {
+      const sess = sessions.find(s => s.id === rec.sessionId);
+      const subj = sess ? data.subjects.find(s => s.id === sess.subjectId) : null;
+      html += `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(rec.studentName)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${subj ? subj.name : '-'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${sess ? sess.date : '-'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;">${rec.clockIn ? formatAttTime(rec.clockIn) : '-'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;">
+          <button onclick="approveAttendance('${rec.id}', 'present')" style="padding:4px 10px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">✓ Lulus</button>
+          <button onclick="approveAttendance('${rec.id}', 'late')" style="padding:4px 10px;background:#f59e0b;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Lewat</button>
+          <button onclick="rejectAttendance('${rec.id}')" style="padding:4px 10px;background:#dc2626;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">✗ Tolak</button>
+        </td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  // Manual entries list
+  const manualRecs = records.filter(r => r.status === ATTENDANCE_STATUS.MANUAL);
+  if (manualRecs.length > 0) {
+    html += `
+      <div class="individual-analysis-card" style="margin-bottom:16px;">
+        <h3>📝 Manual Entry (${manualRecs.length})</h3>
+        <table class="data-table" style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Pelajar</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Subjek</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Tarikh</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Oleh</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Sebab</th>
+          </tr></thead><tbody>`;
+
+    manualRecs.forEach(rec => {
+      const sess = sessions.find(s => s.id === rec.sessionId);
+      const subj = sess ? data.subjects.find(s => s.id === sess.subjectId) : null;
+      const log = data.attendance.logs.find(l => l.attendanceId === rec.id);
+      html += `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(rec.studentName)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${subj ? subj.name : '-'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${sess ? sess.date : '-'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${log ? esc(log.editedBy) : '-'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-size:12px;">${esc(rec.remarks || '-')}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  // All sessions
+  html += `
+    <div class="individual-analysis-card" style="margin-bottom:16px;">
+      <h3>Semua Sesi</h3>
+      <table class="data-table" style="width:100%;border-collapse:collapse;">
+        <thead><tr>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Tarikh</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Subjek</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Kelas</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Pengajar</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Status</th>
+          <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Tindakan</th>
+        </tr></thead><tbody>`;
+
+  sessions.sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach((sess, i) => {
+    const subj = data.subjects.find(s => s.id === sess.subjectId);
+    const sc = sess.status === SESSION_STATUS.OPEN ? { bg: '#dcfce7', fg: '#166534' } : sess.status === SESSION_STATUS.CLOSED ? { bg: '#fee2e2', fg: '#991b1b' } : { bg: '#fef3c7', fg: '#92400e' };
+    html += `<tr>
+      <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${esc(sess.date || '-')}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${subj ? subj.name : '-'}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${esc(sess.classId || '-')}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #ddd;">${esc(sess.lecturerId || '-')}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
+        <span style="background:${sc.bg};color:${sc.fg};padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">${sess.status.toUpperCase()}</span>
+      </td>
+      <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
+        <button onclick="viewSessionDetail('${sess.id}')" style="padding:4px 10px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">Lihat</button>
+        ${sess.status === SESSION_STATUS.CLOSED ? `<button onclick="adminReopenSession('${sess.id}')" style="padding:4px 10px;background:#f59e0b;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin-left:4px;">Buka Semula</button>` : ''}
+      </td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+
+  // Audit log
+  const logs = (data.attendance.logs || []).sort((a, b) => (b.editedAt || '').localeCompare(a.editedAt || '')).slice(0, 50);
+  if (logs.length > 0) {
+    html += `
+      <div class="individual-analysis-card">
+        <h3>📜 Audit Log (50 terakhir)</h3>
+        <table class="data-table" style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Tarikh</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Pelajar</th>
+            <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">Sebelum</th>
+            <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">Selepas</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Oleh</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Sebab</th>
+          </tr></thead><tbody>`;
+
+    logs.forEach(log => {
+      html += `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-size:12px;">${log.editedAt ? new Date(log.editedAt).toLocaleString('ms-MY') : '-'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(log.studentName || '-')}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;"><span style="color:#dc2626;font-weight:600;">${(log.oldStatus || '').toUpperCase()}</span></td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;"><span style="color:#059669;font-weight:600;">${(log.newStatus || '').toUpperCase()}</span></td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(log.editedBy || '-')}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-size:12px;">${esc(log.reason || '-')}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  area.innerHTML = html;
+}
+
+// Admin approve attendance
+function approveAttendance(recordId, status) {
+  const rec = (data.attendance.records || []).find(r => r.id === recordId);
+  if (!rec) return;
+
+  const oldStatus = rec.status;
+  rec.status = status;
+  rec.approvedBy = currentUser.name;
+  rec.approvedAt = new Date().toISOString();
+  rec.updatedAt = new Date().toISOString();
+
+  data.attendance.logs.push({
+    id: generateId('ALOG'),
+    attendanceId: rec.id,
+    studentId: rec.studentId,
+    studentName: rec.studentName,
+    sessionId: rec.sessionId,
+    oldStatus,
+    newStatus: status,
+    editedBy: currentUser.name,
+    reason: 'Admin approval',
+    editedAt: new Date().toISOString()
+  });
+
+  saveData();
+  renderAttendanceAdmin(document.getElementById('attendanceArea'));
+  showToast('Kehadiran diluluskan.', 'success');
+}
+
+// Admin reject attendance
+function rejectAttendance(recordId) {
+  const rec = (data.attendance.records || []).find(r => r.id === recordId);
+  if (!rec) return;
+  if (!confirm('Tolak kehadiran ini?')) return;
+
+  const oldStatus = rec.status;
+  rec.status = ATTENDANCE_STATUS.REJECTED;
+  rec.approvedBy = currentUser.name;
+  rec.approvedAt = new Date().toISOString();
+  rec.updatedAt = new Date().toISOString();
+
+  data.attendance.logs.push({
+    id: generateId('ALOG'),
+    attendanceId: rec.id,
+    studentId: rec.studentId,
+    studentName: rec.studentName,
+    sessionId: rec.sessionId,
+    oldStatus,
+    newStatus: ATTENDANCE_STATUS.REJECTED,
+    editedBy: currentUser.name,
+    reason: 'Admin rejection',
+    editedAt: new Date().toISOString()
+  });
+
+  saveData();
+  renderAttendanceAdmin(document.getElementById('attendanceArea'));
+  showToast('Kehadiran ditolak.', 'warning');
+}
+
+// Admin reopen session (no 24h limit)
+function adminReopenSession(sessionId) {
+  const session = data.attendance.sessions.find(s => s.id === sessionId);
+  if (!session) return;
+  session.status = SESSION_STATUS.OPEN;
+  session.updatedAt = new Date().toISOString();
+  saveData();
+  renderAttendanceAdmin(document.getElementById('attendanceArea'));
+  showToast('Sesi dibuka semula oleh admin.', 'success');
 }
 
