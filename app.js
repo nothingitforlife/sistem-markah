@@ -14584,6 +14584,63 @@ function minutesToTime(mins) {
   return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
 }
 
+// Check if session should be auto-closed (30 min after end time)
+function isSessionExpired(session) {
+  if (!session || !session.date || !session.endTime) return false;
+  const endMinutes = timeToMinutes(session.endTime);
+  const endDateTime = new Date(session.date + 'T' + session.endTime + ':00');
+  const autoCloseTime = new Date(endDateTime.getTime() + 30 * 60 * 1000);
+  const now = new Date();
+  return now > autoCloseTime;
+}
+
+// Auto-close expired sessions
+function autoCloseExpiredSessions() {
+  const sessions = (data.attendance.sessions || []).filter(s => s.status === SESSION_STATUS.OPEN);
+  let changed = false;
+  sessions.forEach(session => {
+    if (isSessionExpired(session)) {
+      session.status = SESSION_STATUS.CLOSED;
+      session.updatedAt = new Date().toISOString();
+      changed = true;
+
+      // Auto-mark absent for students who didn't clock in
+      const students = getStudentsForClass(session.classId);
+      const existingRecords = (data.attendance.records || []).filter(r => r.sessionId === session.id);
+      const recordedStudentIds = new Set(existingRecords.map(r => r.studentId));
+      students.forEach(stu => {
+        if (!recordedStudentIds.has(stu.id) && isStudentEnrolledForAtt(stu, session.subjectId)) {
+          data.attendance.records.push({
+            id: generateId('ATT'),
+            sessionId: session.id,
+            studentId: stu.id,
+            studentName: stu.name,
+            clockIn: null,
+            ipAddress: '',
+            browser: '',
+            status: ATTENDANCE_STATUS.ABSENT,
+            remarks: 'Auto-closed: 30 min after class ended',
+            approvedBy: '',
+            approvedAt: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        }
+      });
+    }
+  });
+  if (changed) saveData();
+}
+
+// Check if student can still clock in (before auto-close)
+function canStudentClockIn(session) {
+  if (!session || session.status !== SESSION_STATUS.OPEN) return false;
+  if (!session.date || !session.endTime) return false;
+  const endDateTime = new Date(session.date + 'T' + session.endTime + ':00');
+  const now = new Date();
+  return now <= endDateTime;
+}
+
 // Check if student is enrolled in subject
 function isStudentEnrolledForAtt(student, subjectId) {
   return (student.subjects || []).includes(subjectId);
@@ -15356,6 +15413,9 @@ function renderAttendanceStudent(area) {
     return;
   }
 
+  // Auto-close any expired sessions first
+  autoCloseExpiredSessions();
+
   const today = getMalaysiaDate();
   const sessions = (data.attendance.sessions || []).filter(s =>
     s.date === today && s.status === SESSION_STATUS.OPEN
@@ -15364,20 +15424,27 @@ function renderAttendanceStudent(area) {
   // Filter sessions to only those for subjects the student is enrolled in
   const mySessions = sessions.filter(s => isStudentEnrolledForAtt(student, s.subjectId));
 
+  // Also get recently closed sessions today (for "session expired" message)
+  const closedToday = (data.attendance.sessions || []).filter(s =>
+    s.date === today && s.status === SESSION_STATUS.CLOSED && isStudentEnrolledForAtt(student, s.subjectId)
+  );
+
   let html = `
     <div style="margin-bottom:16px;">
       <h3 style="margin:0 0 4px 0;">Kehadiran Hari Ini</h3>
       <p style="margin:0;color:#666;font-size:13px;">${esc(today)}</p>
     </div>`;
 
-  if (mySessions.length === 0) {
-    html += '<div style="padding:40px;text-align:center;color:#666;background:#f9fafb;border-radius:8px;"><p style="font-size:16px;margin-bottom:8px;">Tiada sesi aktif hari ini.</p><p style="font-size:13px;">Sila semak semula kemudian.</p></div>';
+  if (mySessions.length === 0 && closedToday.length === 0) {
+    html += '<div style="padding:40px;text-align:center;color:#666;background:#f9fafb;border-radius:8px;"><p style="font-size:16px;margin-bottom:8px;">Tiada sesi hari ini.</p><p style="font-size:13px;">Sila semak semula kemudian.</p></div>';
   } else {
+    // Show open sessions
     mySessions.forEach(sess => {
       const subj = data.subjects.find(s => s.id === sess.subjectId);
       const existingRec = (data.attendance.records || []).find(r => r.sessionId === sess.id && r.studentId === student.id);
       const hasClockedIn = !!existingRec;
       const status = existingRec ? existingRec.status : null;
+      const canClock = canStudentClockIn(sess);
 
       html += `
         <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:16px 20px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
@@ -15388,7 +15455,31 @@ function renderAttendanceStudent(area) {
           <div>
             ${hasClockedIn
               ? `<span style="display:inline-block;padding:6px 16px;border-radius:4px;font-weight:600;font-size:13px;background:${status === 'present' ? '#dcfce7' : status === 'late' ? '#fef3c7' : '#fee2e2'};color:${status === 'present' ? '#166534' : status === 'late' ? '#92400e' : '#991b1b'};">${status === 'present' ? '✓ Hadir' : status === 'late' ? '⏰ Lewat' : status}</span>`
-              : `<button onclick="clockIn('${sess.id}')" style="padding:10px 24px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;">⏰ CLOCK IN</button>`
+              : canClock
+                ? `<button onclick="clockIn('${sess.id}')" style="padding:10px 24px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;">⏰ CLOCK IN</button>`
+                : `<span style="display:inline-block;padding:6px 16px;border-radius:4px;font-weight:600;font-size:13px;background:#fee2e2;color:#991b1b;">🔒 Tamat Tempoh</span>`
+            }
+          </div>
+        </div>`;
+    });
+
+    // Show recently closed sessions (expired)
+    closedToday.forEach(sess => {
+      if (mySessions.some(s => s.id === sess.id)) return; // skip if already shown as open
+      const subj = data.subjects.find(s => s.id === sess.subjectId);
+      const existingRec = (data.attendance.records || []).find(r => r.sessionId === sess.id && r.studentId === student.id);
+      const status = existingRec ? existingRec.status : 'absent';
+
+      html += `
+        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;opacity:0.8;">
+          <div>
+            <div style="font-weight:700;font-size:16px;color:#6b7280;">${esc(subj ? subj.name : '-')}</div>
+            <div style="color:#9ca3af;font-size:13px;">${formatAttTime(sess.startTime)} - ${formatAttTime(sess.endTime)}</div>
+          </div>
+          <div>
+            ${existingRec
+              ? `<span style="display:inline-block;padding:6px 16px;border-radius:4px;font-weight:600;font-size:13px;background:${status === 'present' ? '#dcfce7' : status === 'late' ? '#fef3c7' : '#fee2e2'};color:${status === 'present' ? '#166534' : status === 'late' ? '#92400e' : '#991b1b'};">${status === 'present' ? '✓ Hadir' : status === 'late' ? '⏰ Lewat' : '✗ Absent'}</span>`
+              : `<span style="display:inline-block;padding:6px 16px;border-radius:4px;font-weight:600;font-size:13px;background:#fee2e2;color:#991b1b;">✗ Absent (Tamat Tempoh)</span>`
             }
           </div>
         </div>`;
@@ -15450,6 +15541,12 @@ function clockIn(sessionId) {
     return;
   }
 
+  // Check if past end time (30 min window closed)
+  if (!canStudentClockIn(session)) {
+    alert('Tempoh clock in telah tamat. Sila hubungi pengajar untuk kehadiran manual.');
+    return;
+  }
+
   const student = data.students.find(s => s.id === currentUser.id);
   if (!student) return;
 
@@ -15460,7 +15557,7 @@ function clockIn(sessionId) {
     return;
   }
 
-  // Determine if late
+  // Determine if late (>15 min after start)
   const now = getMalaysiaHHMM();
   const isLate = timeToMinutes(now) > timeToMinutes(session.startTime) + 15;
 
