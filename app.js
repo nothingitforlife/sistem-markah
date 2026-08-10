@@ -272,6 +272,20 @@ function applyRoleRestrictions() {
   const userInfo = document.getElementById('userInfo');
   const roleLabels = { admin: 'Admin', teacher: 'Pengajar', student: 'Pelajar' };
   userInfo.textContent = (roleLabels[currentRole] || currentRole) + ': ' + (currentUser ? currentUser.name : '');
+  
+  // Update backend badge
+  const backendBadge = document.getElementById('backendBadge');
+  if (backendBadge) {
+    if (typeof useGoogleSheets === 'function' && useGoogleSheets()) {
+      backendBadge.textContent = 'Google Sheets';
+      backendBadge.style.background = 'rgba(34,197,94,0.2)';
+      backendBadge.style.color = '#86efac';
+    } else {
+      backendBadge.textContent = 'Firebase';
+      backendBadge.style.background = 'rgba(255,255,255,0.1)';
+      backendBadge.style.color = '';
+    }
+  }
 
   if (currentRole === 'admin') {
     const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'graduation', 'fyp', 'carrymark', 'pdpeval', 'exampaper', 'attendance'];
@@ -615,13 +629,16 @@ let data = {
     { id: 'SUBJ029', code: 'PI3031', name: 'Islamic Studies 3', pengajar: '', semester: 'SEM003', credit: 1 },
     { id: 'SUBJ029M', code: 'PM3031', name: 'Moral Studies 3', pengajar: '', semester: 'SEM003', credit: 1 },
 
-    // SEMESTER 4
-    { id: 'SUBJ030', code: 'G02-34-11', name: 'Server Configuration', pengajar: '', semester: 'SEM004', credit: 3 },
-    { id: 'SUBJ031', code: 'G02-34-12', name: 'Computer Network Security Deployment', pengajar: '', semester: 'SEM004', credit: 3 },
-    { id: 'SUBJ032', code: 'G02-34-15', name: 'Open Source Administration', pengajar: '', semester: 'SEM004', credit: 3 },
-    { id: 'SUBJ033', code: 'G02-44-13', name: 'Computer Network Maintenance Management', pengajar: '', semester: 'SEM004', credit: 4 },
-    { id: 'SUBJ034', code: 'G02-44-14', name: 'Router and Routing Configuration', pengajar: '', semester: 'SEM004', credit: 4 },
-    { id: 'SUBJ035', code: 'PTA4011', name: 'Final Year Project 1', pengajar: '', semester: 'SEM004', credit: 1 },
+    // SEMESTER 3 (continued)
+    { id: 'SUBJ030', code: 'G02-34-11', name: 'Server Configuration', pengajar: '', semester: 'SEM003', credit: 3 },
+    { id: 'SUBJ031', code: 'G02-34-12', name: 'Computer Network Security Deployment', pengajar: '', semester: 'SEM003', credit: 3 },
+    { id: 'SUBJ032', code: 'G02-34-15', name: 'Open Source Administration', pengajar: '', semester: 'SEM003', credit: 3 },
+    { id: 'SUBJ033', code: 'G02-44-13', name: 'Computer Network Maintenance Management', pengajar: '', semester: 'SEM003', credit: 4 },
+    { id: 'SUBJ034', code: 'G02-44-14', name: 'Router and Routing Configuration', pengajar: '', semester: 'SEM003', credit: 4 },
+    { id: 'SUBJ035', code: 'PTA4011', name: 'Final Year Project 1', pengajar: '', semester: 'SEM003', credit: 1 },
+
+    // SEMESTER 4 (Latihan Industri)
+    { id: 'SUBJ042', code: 'LI6026', name: 'Industrial Training', pengajar: '', semester: 'SEM004', credit: 6 },
 
     // SEMESTER 5
     { id: 'SUBJ036', code: 'ENT4131', name: 'eEntrepreneurship', pengajar: '', semester: 'SEM005', credit: 1 },
@@ -630,9 +647,6 @@ let data = {
     { id: 'SUBJ039', code: 'G02-35-11', name: 'Server Maintenance Administration', pengajar: '', semester: 'SEM005', credit: 3 },
     { id: 'SUBJ040', code: 'HAK5141', name: 'Hak Pekerja', pengajar: '', semester: 'SEM005', credit: 1 },
     { id: 'SUBJ041', code: 'PTA5025', name: 'Final Year Project 2', pengajar: '', semester: 'SEM005', credit: 5 },
-
-    // SEMESTER 6
-    { id: 'SUBJ042', code: 'LI6026', name: 'Industrial Training', pengajar: '', semester: 'SEM006', credit: 6 },
   ],
   semesters: [
     { id: 'SEM001', name: 'Semester 1', penyelia: '', publishDate: null },
@@ -707,6 +721,16 @@ let data = {
     { id: 'STU044', kod: 'ILP3-008', name: 'Lau Pei Wen', class: 'Semester 3', subjects: [] },
     { id: 'STU045', kod: 'ILP3-009', name: 'Kishen a/l Kumaravel', class: 'Semester 3', subjects: [] },
     { id: 'STU046', kod: 'ILP3-010', name: 'Pavithra a/p Nadarajan', class: 'Semester 3', subjects: [] },
+    { id: 'STU046A', kod: 'ILP3-011', name: 'Muhammad Danish Hakim bin Abdullah', class: 'Semester 3', subjects: [], religion: 'Islam' },
+    { id: 'STU046B', kod: 'ILP3-012', name: 'Nur Aisyah Sofea binti Rahman', class: 'Semester 3', subjects: [], religion: 'Islam' },
+    { id: 'STU046C', kod: 'ILP3-013', name: 'Tan Wei Jian', class: 'Semester 3', subjects: [], religion: 'Buddha' },
+    { id: 'STU046D', kod: 'ILP3-014', name: 'Lim Jia Hui', class: 'Semester 3', subjects: [], religion: 'Buddha' },
+    { id: 'STU046E', kod: 'ILP3-015', name: 'Arjun Kumar a/l Rajendran', class: 'Semester 3', subjects: [], religion: 'Hindu' },
+    { id: 'STU046F', kod: 'ILP3-016', name: 'Kavitha Devi a/p Muthu', class: 'Semester 3', subjects: [], religion: 'Hindu' },
+    { id: 'STU046G', kod: 'ILP3-017', name: 'Adam Irfan Zulkifli bin Ahmad', class: 'Semester 3', subjects: [], religion: 'Islam' },
+    { id: 'STU046H', kod: 'ILP3-018', name: 'Siti Nur Amirah binti Hassan', class: 'Semester 3', subjects: [], religion: 'Islam' },
+    { id: 'STU046I', kod: 'ILP3-019', name: 'Ong Zi Xuan', class: 'Semester 3', subjects: [], religion: 'Buddha' },
+    { id: 'STU046J', kod: 'ILP3-020', name: 'Vishal Raj a/l Krishnan', class: 'Semester 3', subjects: [], religion: 'Hindu' },
 
     // Semester 3 Latihan Industri
     { id: 'STU047', kod: 'ILPLI-001', name: 'Muhammad Afiq bin Kamarulzaman', class: 'Semester 3 (Latihan Industri)', subjects: [] },
@@ -822,7 +846,7 @@ let data = {
     { id: 'GRD015', kod: 'ILP-015', name: 'Muhammad Aqil bin Shukri', class: 'Semester 6', subjects: [], track: 'graduated' },
   ],
   marks: [
-    // Marks for Graduated Students - Sem 4, 5, 6 - CGPA 3.00-4.00
+    // Marks for Graduated Students - Sem 3, 4, 5 - CGPA 3.00-4.00
     // GRD001 - Muhammad Aiman bin Rahman
     { studentId: 'GRD001', semesterId: 'SEM004', scores: { 'SUBJ030': 78, 'SUBJ031': 82, 'SUBJ032': 75, 'SUBJ033': 80, 'SUBJ034': 77, 'SUBJ035': 85 }, remarks: '' },
     { studentId: 'GRD001', semesterId: 'SEM005', scores: { 'SUBJ036': 80, 'SUBJ037': 76, 'SUBJ038': 83, 'SUBJ039': 78, 'SUBJ040': 82, 'SUBJ041': 79 }, remarks: '' },
@@ -931,25 +955,36 @@ async function clearAllData() {
     // Stop auto-sync first
     stopAutoSync();
     
+    // Clear Google Sheets if enabled
+    if (typeof useGoogleSheets === 'function' && useGoogleSheets()) {
+      try {
+        await sheetsAPI.deleteAll();
+        console.log('✅ Google Sheets data cleared');
+      } catch (e) {
+        console.warn('Google Sheets clear error:', e);
+      }
+    }
     
-    // Delete from Firebase and wait for confirmation
-    const docRef = db.collection('app_data').doc('sistem-markah-1');
-    await docRef.delete();
+    // Delete from Firebase (backup backend)
+    if (db) {
+      const docRef = db.collection('app_data').doc('sistem-markah-1');
+      await docRef.delete();
     
-    // Verify deletion
-    const verifyDoc = await docRef.get();
-    if (verifyDoc.exists) {
-      console.warn('Document still exists after delete, forcing empty write...');
-      await docRef.set({
-        students: [],
-        subjects: [],
-        semesters: [],
-        marks: [],
-        timetable: [],
-        memos: [],
-        deleted: true,
-        deletedAt: new Date().toISOString()
-      });
+      // Verify deletion
+      const verifyDoc = await docRef.get();
+      if (verifyDoc.exists) {
+        console.warn('Document still exists after delete, forcing empty write...');
+        await docRef.set({
+          students: [],
+          subjects: [],
+          semesters: [],
+          marks: [],
+          timetable: [],
+          memos: [],
+          deleted: true,
+          deletedAt: new Date().toISOString()
+        });
+      }
     }
     
     
@@ -1006,6 +1041,7 @@ function optimizeData(data) {
       kod: s.kod || '',
       ic: s.ic || '',
       class: s.class || '',
+      religion: s.religion || '',
       subjects: s.subjects || [],
       track: s.track || '',
       createdAt: s.createdAt || ''
@@ -1043,8 +1079,8 @@ function optimizeData(data) {
       id: t.id,
       semester: t.semester || '',
       day: t.day || 0,
-      startTime: t.startTime || '',
-      endTime: t.endTime || '',
+      startTime: normalizeTime(t.startTime),
+      endTime: normalizeTime(t.endTime),
       subjectId: t.subjectId || '',
       room: t.room || ''
     })),
@@ -1150,11 +1186,114 @@ function optimizeData(data) {
     examPaperAppointment: data.examPaperAppointment || { campus: '', teori: {}, amali: {} },
     attendance: {
       sessions: (data.attendance && data.attendance.sessions) ? data.attendance.sessions : [],
-      records: (data.attendance && data.attendance.records) ? data.attendance.records : [],
+      records: (data.attendance && data.attendance.records) ? data.attendance.records.map(r => ({
+        id: r.id,
+        sessionId: r.sessionId,
+        studentId: r.studentId,
+        studentName: r.studentName || '',
+        clockIn: r.clockIn || null,
+        ipAddress: r.ipAddress || '',
+        browser: r.browser || '',
+        status: r.status || '',
+        remarks: r.remarks || '',
+        excuse: r.excuse || '',
+        excuseFile: r.excuseFile || null,
+        excuseAt: r.excuseAt || '',
+        approvedBy: r.approvedBy || '',
+        approvedAt: r.approvedAt || '',
+        createdAt: r.createdAt || '',
+        updatedAt: r.updatedAt || ''
+      })) : [],
       logs: (data.attendance && data.attendance.logs) ? data.attendance.logs : []
     }
   };
   return optimized;
+}
+
+// ============================================
+// DATA LOADING - Google Sheets or Firebase
+// ============================================
+
+// Google Sheets load function
+async function loadFromGoogleSheets() {
+  console.log('📥 Loading data from Google Sheets...');
+  
+  try {
+    const remote = await sheetsAPI.loadData();
+    const studentCount = (remote.students||[]).length;
+    console.log('📊 Google Sheets data loaded. Students:', studentCount, 'Marks:', (remote.marks||[]).length, 'Teachers:', (remote.teachers||[]).length);
+    
+    // If Google Sheets is empty, fallback to localStorage backup
+    if (studentCount === 0) {
+      console.warn('⚠️ Google Sheets is empty. Falling back to localStorage backup...');
+      restoreFromBackup(null);
+      return;
+    }
+    
+    // Map all fields (same structure as Firebase)
+    data.students = remote.students || [];
+    data.subjects = remote.subjects || [];
+    data.semesters = remote.semesters || [];
+    data.teachers = remote.teachers || [];
+    data.marks = remote.marks || [];
+    data.timetable = remote.timetable || [];
+    data.memos = remote.memos || [];
+    data.examSchedule = remote.examSchedule || [];
+    data.messages = remote.messages || [];
+    data.assignments = remote.assignments || [];
+    data.assignmentSubmissions = remote.assignmentSubmissions || [];
+    data.fyp = remote.fyp || { assessments: [], auditLog: [] };
+    data.carrymark = remote.carrymark || { templates: [], marks: [], gradeConfig: [], auditLog: [] };
+    data.calculatedResults = remote.calculatedResults || [];
+    data.resultAuditLog = remote.resultAuditLog || [];
+    data.merit = remote.merit || [];
+    data.pdpevaluations = remote.pdpevaluations || [];
+    data.examPaperAppointment = remote.examPaperAppointment || { campus: '', teori: {}, amali: {} };
+    data.attendance = remote.attendance || { sessions: [], records: [], logs: [] };
+    
+    // Normalize timetable time values (Google Sheets converts "08:00" to Date objects)
+    if (data.timetable && data.timetable.length > 0) {
+      data.timetable.forEach(t => {
+        t.startTime = normalizeTime(t.startTime);
+        t.endTime = normalizeTime(t.endTime);
+      });
+    }
+    // Normalize attendance session times too
+    if (data.attendance && data.attendance.sessions) {
+      data.attendance.sessions.forEach(s => {
+        s.startTime = normalizeTime(s.startTime);
+        s.endTime = normalizeTime(s.endTime);
+      });
+    }
+    
+    // Save backup to localStorage ONLY if we have real data
+    if (studentCount > 0) {
+      try {
+        const existingBackup = JSON.parse(localStorage.getItem('sistemMarkahBackup') || '{}');
+        const existingStudents = ((existingBackup || {}).data || {}).students || [];
+        if (studentCount >= existingStudents.length) {
+          localStorage.setItem('sistemMarkahBackup', JSON.stringify({
+            data: data,
+            backedUpAt: new Date().toISOString()
+          }));
+          console.log('💾 Saved backup to localStorage');
+        } else {
+          console.log('💾 Skipping localStorage backup — existing backup has more data');
+        }
+      } catch(e) { console.warn('localStorage backup failed:', e); }
+    }
+    
+    lastDataSnapshot = JSON.stringify(data);
+    
+    console.log('✅ Data loaded from Google Sheets. Students:', data.students.length, 'Marks:', data.marks.length);
+    
+    fixSemesterNames();
+    autoAssignPengajar();
+  } catch (e) {
+    console.error('❌ Google Sheets load error:', e);
+    console.warn('⚠️ Falling back to localStorage backup...');
+    restoreFromBackup(null);
+  }
 }
 
 // Firebase Firestore functions
@@ -1250,10 +1389,12 @@ async function loadFromFirebase() {
   
   // Set snapshot so autoSync doesn't overwrite Firebase with same data
   lastDataSnapshot = JSON.stringify(data);
+  lastRemoteSnapshot = JSON.stringify(data);
   
   console.log('✅ Data loaded. Students:', data.students.length, 'Marks:', data.marks.length, 'Teachers:', data.teachers.length);
   
-  // STEP 6: Auto-assign pengajar ke subjek dari carrymark templates + auto-create teacher
+  // STEP 6: Fix semester names + auto-assign pengajar
+  fixSemesterNames();
   autoAssignPengajar();
 }
 
@@ -1322,6 +1463,123 @@ function restoreFromBackup(backupData) {
   console.log('✅ Restore complete. Students:', data.students.length, 'Marks:', data.marks.length);
 }
 
+// Fix incorrect semester IDs and names to match standard format
+function fixSemesterNames() {
+  // Standard semester format
+  const STANDARD = [
+    { id: 'SEM001', name: 'Semester 1', patterns: ['semester 1', 'sem 1', 'sem1'] },
+    { id: 'SEM002', name: 'Semester 2', patterns: ['semester 2', 'sem 2', 'sem2'] },
+    { id: 'SEM003', name: 'Semester 3', patterns: ['semester 3', 'sem 3', 'sem3'] },
+    { id: 'SEM004', name: 'Semester 3 (Latihan Industri)', patterns: ['latihan industri', 'semester 3.1', 'sem 3.1', 'sem 3 li'] },
+    { id: 'SEM005', name: 'Semester 4', patterns: ['semester 4', 'sem 4', 'sem4'] },
+    { id: 'SEM006', name: 'Semester 5', patterns: ['semester 5', 'sem 5', 'sem5'] },
+    { id: 'SEM007', name: 'Semester 6', patterns: ['semester 6', 'sem 6', 'sem6'] }
+  ];
+
+  // Step 1: Build ID remap by matching names
+  const idRemap = {};
+  const validIds = new Set(STANDARD.map(s => s.id));
+  let fixed = false;
+
+  data.semesters.forEach(sem => {
+    // If ID is already standard, just fix name
+    if (validIds.has(sem.id)) {
+      const std = STANDARD.find(s => s.id === sem.id);
+      if (std && sem.name !== std.name) {
+        console.log(`🔧 Fixing semester name: ${sem.id} "${sem.name}" → "${std.name}"`);
+        sem.name = std.name;
+        fixed = true;
+      }
+      return;
+    }
+
+    // Non-standard ID — find matching standard by name
+    const lowerName = (sem.name || '').toLowerCase();
+    const match = STANDARD.find(s => s.patterns.some(p => lowerName.includes(p)));
+    if (match) {
+      console.log(`🔧 Remapping semester: ${sem.id} "${sem.name}" → ${match.id} "${match.name}"`);
+      idRemap[sem.id] = match.id;
+      sem.id = match.id;
+      sem.name = match.name;
+      fixed = true;
+    }
+  });
+
+  // Remove duplicates (keep first of each ID)
+  const seen = new Set();
+  data.semesters = data.semesters.filter(sem => {
+    if (seen.has(sem.id)) {
+      console.log(`🔧 Removing duplicate semester: ${sem.id}`);
+      return false;
+    }
+    seen.add(sem.id);
+    return true;
+  });
+
+  // Step 2: Remap all references in subjects, timetable, marks, carrymark, fyp, attendance, etc.
+  if (Object.keys(idRemap).length > 0) {
+    console.log('🔧 Remapping semester references...', idRemap);
+
+    // Subjects
+    data.subjects.forEach(s => {
+      if (idRemap[s.semester]) s.semester = idRemap[s.semester];
+    });
+
+    // Timetable
+    data.timetable.forEach(t => {
+      if (idRemap[t.semester]) t.semester = idRemap[t.semester];
+    });
+
+    // Marks
+    data.marks.forEach(m => {
+      if (idRemap[m.semesterId]) m.semesterId = idRemap[m.semesterId];
+    });
+
+    // Carrymark templates & marks
+    if (data.carrymark) {
+      (data.carrymark.templates || []).forEach(t => {
+        if (idRemap[t.semester]) t.semester = idRemap[t.semester];
+      });
+      (data.carrymark.marks || []).forEach(m => {
+        if (idRemap[m.semester]) m.semester = idRemap[m.semester];
+      });
+    }
+
+    // FYP
+    if (data.fyp) {
+      (data.fyp.assessments || []).forEach(a => {
+        if (idRemap[a.semester]) a.semester = idRemap[a.semester];
+      });
+    }
+
+    // Attendance
+    if (data.attendance) {
+      (data.attendance.sessions || []).forEach(s => {
+        if (idRemap[s.semester]) s.semester = idRemap[s.semester];
+      });
+    }
+
+    // calculatedResults
+    (data.calculatedResults || []).forEach(r => {
+      if (idRemap[r.semesterId]) r.semesterId = idRemap[r.semesterId];
+    });
+
+    // merit
+    (data.merit || []).forEach(m => {
+      if (idRemap[m.semester]) m.semester = idRemap[m.semester];
+    });
+
+    // pdpevaluations
+    (data.pdpevaluations || []).forEach(p => {
+      if (idRemap[p.semester]) p.semester = idRemap[p.semester];
+    });
+  }
+
+  if (fixed) {
+    console.log('✅ Semesters fixed. IDs remapped:', idRemap);
+  }
+}
+
 function autoAssignPengajar() {
   const templates = (data.carrymark && data.carrymark.templates) || [];
   if (!templates.length || !data.subjects.length) return;
@@ -1369,7 +1627,26 @@ function autoAssignPengajar() {
 }
 
 async function saveData() {
+  // Use Google Sheets if enabled
+  if (typeof useGoogleSheets === 'function' && useGoogleSheets()) {
+    try {
+      const optimizedData = optimizeData(data);
+      await sheetsAPI.saveData(optimizedData);
+      updateSyncStatus('synced');
+      showSaveToast('✅ Data berjaya disimpan ke Google Sheets');
+    } catch (e) {
+      console.error('❌ Google Sheets save error:', e);
+      updateSyncStatus('error');
+      showSaveToast('❌ Gagal simpan: ' + (e.message || 'Unknown error'), true);
+      // Fallback: save to localStorage
+      try {
+        localStorage.setItem('sistemMarkahBackup', JSON.stringify({ data: data, backedUpAt: new Date().toISOString() }));
+      } catch(le) { console.warn('localStorage backup failed:', le); }
+    }
+    return;
+  }
   
+  // Firebase backend (default/backup)
   if (!db) {
     console.error('❌ db (Firebase) tidak wujud!');
     showSaveToast('❌ Firebase tidak connected', true);
@@ -1474,8 +1751,13 @@ function resetData() {
     timetable: [],
     memos: [],
   };
-  // Clear from Firebase
-  db.collection('app_data').doc('sistem-markah-1').delete().catch(e => console.warn('Firebase delete error:', e));
+  // Clear from backend
+  if (typeof useGoogleSheets === 'function' && useGoogleSheets()) {
+    sheetsAPI.deleteAll().catch(e => console.warn('Google Sheets delete error:', e));
+  }
+  if (db) {
+    db.collection('app_data').doc('sistem-markah-1').delete().catch(e => console.warn('Firebase delete error:', e));
+  }
   // Clear from localStorage
   localStorage.removeItem('sistemMarkahData');
   saveData();
@@ -1491,6 +1773,46 @@ function resetData() {
 function generateId(prefix) {
   const n = Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 5).toUpperCase();
   return prefix + n;
+}
+
+// Auto-generate student kod based on semester number
+// Format: ILP{semNum}-{3 digit number} e.g. ILP1-001, ILP2-001, ILP3-001
+function autoGenerateStudentKod(semesterName) {
+  // Get semester name from dropdown if not provided
+  if (!semesterName) {
+    const sel = document.getElementById('fStudentClass');
+    semesterName = sel ? sel.value : '';
+  }
+
+  // Extract semester number
+  let semNum = '1';
+  if (semesterName) {
+    const match = semesterName.match(/\d+/);
+    if (match) semNum = match[0];
+  }
+
+  // Find highest existing kod for this semester
+  const prefix = 'ILP' + semNum + '-';
+  let maxNum = 0;
+  data.students.forEach(s => {
+    if (s.kod && s.kod.startsWith(prefix)) {
+      const num = parseInt(s.kod.replace(prefix, ''), 10);
+      if (!isNaN(num) && num > maxNum) maxNum = num;
+    }
+  });
+
+  // Also check graduated students
+  if (data.students) {
+    data.students.forEach(s => {
+      if (s.kod && s.kod.startsWith(prefix)) {
+        const num = parseInt(s.kod.replace(prefix, ''), 10);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
+      }
+    });
+  }
+
+  const nextNum = maxNum + 1;
+  return prefix + String(nextNum).padStart(3, '0');
 }
 
 // Backup all data to JSON file
@@ -1999,7 +2321,7 @@ window.promoteStudent = function(studentId, track = null) {
   const semNum = parseInt(currentSem.name.replace(/\D/g, '')) || 0;
   
   if (track === 'internship' && semNum === 3) {
-    // Cari semester "Sem 3 (Latihan Industri Sijil)"
+    // Cari semester "Semester 3.1"
     const liSemester = data.semesters.find(s => s.name.includes('Latihan Industri') && s.name.includes('3'));
     if (!liSemester) {
       alert('Semester "Sem 3 (Latihan Industri Sijil)" tidak dijumpai. Sila cipta semester ini terlebih dahulu.');
@@ -2125,7 +2447,7 @@ document.getElementById('bulkPromoteBtn').onclick = function() {
     const action = options[student.class];
     
     if (action === 'internship' && semNum === 3) {
-      // Cari semester "Sem 3 (Latihan Industri Sijil)"
+      // Cari semester "Semester 3.1"
       const liSemester = data.semesters.find(s => s.name.includes('Latihan Industri') && s.name.includes('3'));
       if (!liSemester) {
         alert('Semester "Sem 3 (Latihan Industri Sijil)" tidak dijumpai. Sila cipta semester ini terlebih dahulu.');
@@ -2226,14 +2548,17 @@ function attachSelectAllSubjectsHandler() {
 }
 
 document.getElementById('addStudentBtn').onclick = function () {
+  // Auto-generate next kod based on semester
+  const nextKod = autoGenerateStudentKod();
+
   openModal('Tambah Pelajar', `
     <div class="form-group">
       <label>Nama Pelajar</label>
       <input type="text" id="fStudentName" required>
     </div>
     <div class="form-group">
-      <label>Kod ID Pelajar (untuk login)</label>
-      <input type="text" id="fStudentKod" placeholder="Contoh: S001" required>
+      <label>Kod ID Pelajar (auto-jana)</label>
+      <input type="text" id="fStudentKod" value="${nextKod}" readonly style="background:#f0f2f5;cursor:not-allowed;">
     </div>
     <div class="form-group">
       <label>Agama</label>
@@ -2272,6 +2597,8 @@ document.getElementById('addStudentBtn').onclick = function () {
     closeModal();
   });
   document.getElementById('fStudentClass').onchange = function () {
+    // Re-generate kod when semester changes
+    document.getElementById('fStudentKod').value = autoGenerateStudentKod(this.value);
     document.getElementById('fStudentSubjects').innerHTML = subjectCheckboxHtml(this.value);
     attachSelectAllSubjectsHandler();
   };
@@ -4008,20 +4335,34 @@ document.getElementById('importFile').onchange = function (e) {
   reader.onload = function (ev) {
     try {
       const imported = JSON.parse(ev.target.result);
-      if (imported.students && imported.subjects && imported.semesters) {
-        data = imported;
+      // Handle both raw data and wrapped backup format { data: {...} }
+      const importData = imported.data || imported;
+      if (importData.students && importData.subjects && importData.semesters) {
+        data = importData;
         if (!data.organization) data.organization = [];
+        
+        // CRITICAL: Set snapshot to prevent auto-refresh from overwriting imported data
+        lastRemoteSnapshot = JSON.stringify(data);
+        lastDataSnapshot = JSON.stringify(data);
+        
+        // Fix semester IDs and names immediately after import
+        fixSemesterNames();
+        
         saveData();
-        alert('Data berjaya diimport!');
+        alert('Data berjaya diimport! Students: ' + (data.students||[]).length);
         rebuildLoginDropdowns();
         rebuildSemesterFilter();
+        rebuildTimetableSemesterFilter();
+        rebuildSubjectSemesterFilter();
         renderStudents();
         renderSubjects();
         renderSemesters();
         renderDashboard();
-        renderOrganization();
+        renderTimetable();
+        renderMemos();
+        renderTeachers();
       } else {
-        alert('Format data tidak sah.');
+        alert('Format data tidak sah. Pastikan fail adalah backup dari sistem ini.');
       }
     } catch (err) {
       alert('Ralat membaca fail: ' + err.message);
@@ -4061,8 +4402,45 @@ function getTeacherSemesters() {
 }
 
 function timeToMinutes(timeStr) {
-  const parts = timeStr.split(':');
+  const t = normalizeTime(timeStr);
+  const parts = t.split(':');
   return parseInt(parts[0]) * 60 + parseInt(parts[1] || 0);
+}
+
+// Normalize time values: handles "08:00", ISO strings from Google Sheets, and Date objects
+function normalizeTime(t) {
+  if (!t) return '';
+  if (typeof t === 'number') t = String(t);
+  if (typeof t !== 'string') return '';
+  // Already in HH:MM format
+  if (/^\d{1,2}:\d{2}$/.test(t)) return t.length === 4 ? '0' + t : t;
+  // ISO datetime from Google Sheets (e.g., "1899-12-30T01:04:35.000Z")
+  // Google Sheets stores time values as Date objects with year=1899
+  // The spreadsheet timezone is UTC+7, so we add 7 hours to UTC hours
+  // Floating point artifacts add ~4:35, so we subtract it and round
+  if (t.includes('T') && t.includes('-')) {
+    try {
+      const d = new Date(t);
+      // Check if this is a time-only value (year 1899)
+      if (d.getUTCFullYear() === 1899) {
+        let totalMin = d.getUTCHours() * 60 + d.getUTCMinutes();
+        totalMin += 7 * 60; // Spreadsheet timezone UTC+7
+        totalMin -= 5; // Subtract floating point artifact (~4:35)
+        totalMin = Math.round(totalMin / 5) * 5; // Round to nearest 5 minutes
+        totalMin = ((totalMin % 1440) + 1440) % 1440; // Wrap around 24h
+        const h = Math.floor(totalMin / 60);
+        const m = totalMin % 60;
+        return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+      }
+      // Real datetime
+      const h = String(d.getHours()).padStart(2, '0');
+      const m = String(d.getMinutes()).padStart(2, '0');
+      return h + ':' + m;
+    } catch (e) { return ''; }
+  }
+  // Fallback: extract first number
+  const m = t.match(/(\d{1,2})/);
+  return m ? m[1] + ':00' : '';
 }
 
 function checkTeacherConflict(teacherName, day, startTime, endTime, excludeId) {
@@ -4222,8 +4600,8 @@ function renderTimetableView(container, semesterId, readOnly) {
 
   entries.forEach(entry => {
     const di = parseInt(entry.day) - 1;
-    const startH = parseInt(entry.startTime);
-    const endH = parseInt(entry.endTime);
+    const startH = parseInt(normalizeTime(entry.startTime));
+    const endH = parseInt(normalizeTime(entry.endTime));
     if (di < 0 || di >= DAYS.length) return;
     for (let h = startH; h < endH && h <= 17; h++) {
       if (hours.includes(h)) {
@@ -4565,11 +4943,11 @@ window.editTimetable = function (id) {
     </div>
     <div class="form-group">
       <label>Masa Mula</label>
-      <input type="time" id="fTtStart" value="${e.startTime}" required>
+      <input type="time" id="fTtStart" value="${normalizeTime(e.startTime)}" required>
     </div>
     <div class="form-group">
       <label>Masa Tamat</label>
-      <input type="time" id="fTtEnd" value="${e.endTime}" required>
+      <input type="time" id="fTtEnd" value="${normalizeTime(e.endTime)}" required>
     </div>
     <div class="form-group">
       <label>Subjek</label>
@@ -5326,12 +5704,40 @@ let lastDataSnapshot = '';
 let lastBackupTime = null;
 
 async function autoSyncToFirebase() {
+  if (isSyncing) return; // Prevent overlapping syncs
   try {
     const currentSnapshot = JSON.stringify(data);
     if (currentSnapshot === lastDataSnapshot) {
       return; // No changes, skip sync
     }
     
+    isSyncing = true;
+    
+    // Use Google Sheets if enabled
+    if (typeof useGoogleSheets === 'function' && useGoogleSheets()) {
+      console.log('🔄 Auto-save: data changed, saving to Google Sheets...');
+      updateSyncStatus('syncing');
+      
+      const optimizedData = optimizeData(data);
+      await sheetsAPI.saveData(optimizedData);
+      lastDataSnapshot = currentSnapshot;
+      lastBackupTime = new Date();
+      updateSyncStatus('synced');
+      updateLastBackupDisplay();
+      
+      // Also backup to localStorage
+      try {
+        localStorage.setItem('sistemMarkahBackup', JSON.stringify({
+          data: data,
+          backedUpAt: lastBackupTime.toISOString()
+        }));
+      } catch(le) { console.warn('localStorage backup failed:', le); }
+      
+      isSyncing = false;
+      return;
+    }
+    
+    // Firebase backend
     console.log('🔄 Auto-sync: data changed, saving to Firebase...');
     updateSyncStatus('syncing');
     
@@ -5354,8 +5760,20 @@ async function autoSyncToFirebase() {
       const existingStudents = ((existingBackup || {}).data || {}).students || [];
       const currentStudents = data.students || [];
       
-      // Only save to localStorage if current data has more students than backup
-      if (currentStudents.length >= existingStudents.length) {
+      // Check ALL critical data types before overwriting localStorage
+      const existingTimetable = (((existingBackup || {}).data || {}).timetable || []).length;
+      const currentTimetable = (data.timetable || []).length;
+      const existingAttendance = ((((existingBackup || {}).data || {}).attendance || {}).sessions || []).length;
+      const currentAttendance = ((data.attendance || {}).sessions || []).length;
+      const existingCarrymark = ((((existingBackup || {}).data || {}).carrymark || {}).templates || []).length;
+      const currentCarrymark = ((data.carrymark || {}).templates || []).length;
+      
+      const shouldBackup = currentStudents.length >= existingStudents.length
+        && currentTimetable >= existingTimetable
+        && currentAttendance >= existingAttendance
+        && currentCarrymark >= existingCarrymark;
+      
+      if (shouldBackup) {
         localStorage.setItem('sistemMarkahBackup', JSON.stringify({
           data: data,
           backedUpAt: lastBackupTime.toISOString()
@@ -5371,13 +5789,14 @@ async function autoSyncToFirebase() {
   } catch (e) {
     console.warn('Auto-sync error:', e);
     updateSyncStatus('error');
+    isSyncing = false;
     
-    // Fallback: save to localStorage if Firebase fails
+    // Fallback: save to localStorage if backend fails
     try {
       localStorage.setItem('sistemMarkahBackup', JSON.stringify({
         data: data,
         backedUpAt: new Date().toISOString(),
-        firebaseError: e.message
+        error: e.message
       }));
     } catch(le) {
       console.warn('localStorage fallback also failed:', le);
@@ -5390,10 +5809,10 @@ function updateSyncStatus(status) {
   if (!el) return;
   if (status === 'synced') {
     el.textContent = '🟢';
-    el.title = 'Data sudah disimpan ke Firebase';
+    el.title = 'Data sudah disimpan ke Google Sheets';
   } else if (status === 'syncing') {
     el.textContent = '🟡';
-    el.title = 'Sedang menyimpan...';
+    el.title = 'Sedang menyimpan ke Google Sheets...';
   } else if (status === 'error') {
     el.textContent = '🔴';
     el.title = 'Ralat sync - data mungkin tidak tersimpan. Buka F12 > Console untuk lihat error.';
@@ -5414,11 +5833,134 @@ async function manualSync() {
 
 function startAutoSync() {
   if (autoSyncInterval) return;
-  // Auto-sync every 3 seconds (not too frequent to avoid performance issues)
-  autoSyncInterval = setInterval(autoSyncToFirebase, 3000);
+  // Auto-save every 5 seconds if data changed
+  autoSyncInterval = setInterval(autoSyncToFirebase, 5000);
   // Also sync immediately
   autoSyncToFirebase();
 }
+
+let autoRefreshInterval = null;
+let isSyncing = false;
+let isRefreshing = false;
+
+// Auto-refresh from Google Sheets every 30 seconds
+function startAutoRefresh() {
+  if (autoRefreshInterval) return;
+  autoRefreshInterval = setInterval(async () => {
+    // Only refresh if NOT currently editing (avoid overwriting user input)
+    if (isSyncing || isRefreshing) return;
+    if (document.querySelector('input:focus, textarea:focus, select:focus')) return; // User typing
+    if (document.querySelector('.modal:not(.hidden)')) return; // Modal open
+    
+    if (typeof useGoogleSheets !== 'function' || !useGoogleSheets()) return;
+    
+    isRefreshing = true;
+    try {
+      const remote = await sheetsAPI.loadData();
+      const remoteStudents = (remote.students || []).length;
+      
+      // Only update if data changed on server
+      const remoteSnapshot = JSON.stringify(remote);
+      if (remoteSnapshot === lastRemoteSnapshot) {
+        isRefreshing = false;
+        return;
+      }
+      lastRemoteSnapshot = remoteSnapshot;
+      
+      // Check if remote has more/different data
+      // Protect ALL data types: only overwrite if remote has MORE entries than local
+      const localTimetable = (data.timetable || []).length;
+      const localAssignments = (data.assignments || []).length;
+      const localAttendance = ((data.attendance || {}).sessions || []).length;
+      const localCarrymarkTemplates = ((data.carrymark || {}).templates || []).length;
+      const localFYPAssessments = ((data.fyp || {}).assessments || []).length;
+      const localMarks = (data.marks || []).length;
+      
+      if (remoteStudents > 0 && remoteStudents >= (data.students || []).length) {
+        data.students = remote.students || [];
+        data.subjects = remote.subjects || [];
+        data.semesters = remote.semesters || [];
+        data.teachers = remote.teachers || [];
+        data.marks = remote.marks || [];
+        data.memos = remote.memos || [];
+        data.examSchedule = remote.examSchedule || [];
+        data.messages = remote.messages || [];
+        data.assignmentSubmissions = remote.assignmentSubmissions || [];
+        data.calculatedResults = remote.calculatedResults || [];
+        data.resultAuditLog = remote.resultAuditLog || [];
+        data.merit = remote.merit || [];
+        data.pdpevaluations = remote.pdpevaluations || [];
+        data.examPaperAppointment = remote.examPaperAppointment || { campus: '', teori: {}, amali: {} };
+        
+        // ONLY overwrite timetable if remote has more entries (protect against Google Sheets lag)
+        const remoteTimetable = (remote.timetable || []).length;
+        if (remoteTimetable >= localTimetable) {
+          data.timetable = remote.timetable || [];
+        }
+        
+        // ONLY overwrite assignments if remote has more entries
+        const remoteAssignments = (remote.assignments || []).length;
+        if (remoteAssignments >= localAssignments) {
+          data.assignments = remote.assignments || [];
+        }
+        
+        // ONLY overwrite attendance if remote has more sessions
+        const remoteAttendance = ((remote.attendance || {}).sessions || []).length;
+        if (remoteAttendance >= localAttendance) {
+          data.attendance = remote.attendance || { sessions: [], records: [], logs: [] };
+        }
+        
+        // ONLY overwrite carrymark if remote has more templates
+        const remoteCarrymark = ((remote.carrymark || {}).templates || []).length;
+        if (remoteCarrymark >= localCarrymarkTemplates) {
+          data.carrymark = remote.carrymark || { templates: [], marks: [], gradeConfig: [], auditLog: [] };
+        }
+        
+        // ONLY overwrite FYP if remote has more assessments
+        const remoteFYPAssessments = ((remote.fyp || {}).assessments || []).length;
+        if (remoteFYPAssessments >= localFYPAssessments) {
+          data.fyp = remote.fyp || { assessments: [], auditLog: [] };
+        }
+        
+        // Normalize timetable time values (Google Sheets converts "08:00" to Date objects)
+        if (data.timetable && data.timetable.length > 0) {
+          data.timetable.forEach(t => {
+            t.startTime = normalizeTime(t.startTime);
+            t.endTime = normalizeTime(t.endTime);
+          });
+        }
+        if (data.attendance && data.attendance.sessions) {
+          data.attendance.sessions.forEach(s => {
+            s.startTime = normalizeTime(s.startTime);
+            s.endTime = normalizeTime(s.endTime);
+          });
+        }
+        
+        lastDataSnapshot = JSON.stringify(data);
+        
+        // Re-render current tab
+        const activeTab = document.querySelector('.tab-content.active');
+        if (activeTab) {
+          const tabId = activeTab.id;
+          if (tabId === 'tab-dashboard') renderDashboard();
+          else if (tabId === 'tab-students') renderStudents();
+          else if (tabId === 'tab-subjects') renderSubjects();
+          else if (tabId === 'tab-teachers') renderTeachers();
+          else if (tabId === 'tab-timetable') renderTimetable();
+          else if (tabId === 'tab-marks') renderMarks();
+          else if (tabId === 'tab-attendance') renderAttendance();
+        }
+        
+        console.log('🔄 Auto-refresh: data updated from Google Sheets');
+      }
+    } catch (e) {
+      console.warn('Auto-refresh error:', e);
+    }
+    isRefreshing = false;
+  }, 30000); // 30 seconds
+}
+
+let lastRemoteSnapshot = '';
 
 function stopAutoSync() {
   if (autoSyncInterval) {
@@ -11258,9 +11800,13 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
     console.warn('Login check error:', e);
   }
   
-  // Then load data from Firebase in background
+  // Then load data (Google Sheets or Firebase)
   try {
-    await loadFromFirebase();
+    if (typeof useGoogleSheets === 'function' && useGoogleSheets()) {
+      await loadFromGoogleSheets();
+    } else {
+      await loadFromFirebase();
+    }
   } catch (e) {
     console.warn('Error loading data:', e);
   }
@@ -11281,8 +11827,9 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
     renderMemos();
     renderTeachers();
     setSyncStatus('');
-    // Start auto-sync
+    // Start auto-save and auto-refresh
     startAutoSync();
+    startAutoRefresh();
     
     // Initialize new features
     initScrollToTop();
@@ -11290,6 +11837,14 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
     initMemoBadge();
     initDatePickers();
     initTableSorting();
+
+    // Auto-create draft attendance sessions from timetable
+    try {
+      autoCreateDraftSessionsFromTimetable();
+    } catch (e) {
+      console.warn('Auto-create attendance error:', e);
+    }
+    
     hideLoading();
   } catch (e) {
     console.warn('Init render error:', e);
@@ -14546,7 +15101,8 @@ function initAttendance() {
 // Format time for display
 function formatAttTime(timeStr) {
   if (!timeStr) return '-';
-  const [h, m] = timeStr.split(':').map(Number);
+  const t = normalizeTime(timeStr);
+  const [h, m] = t.split(':').map(Number);
   const ampm = h >= 12 ? 'PM' : 'AM';
   const hour = h % 12 || 12;
   return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
@@ -14571,10 +15127,36 @@ function getMalaysiaHHMM() {
   return String(msia.getHours()).padStart(2, '0') + ':' + String(msia.getMinutes()).padStart(2, '0');
 }
 
+// Convert date + time strings to a Malaysia timezone Date object
+function toMalaysiaDateTime(dateStr, timeStr) {
+  const t = normalizeTime(timeStr) || '00:00';
+  const str = dateStr + 'T' + t + ':00+08:00';
+  return new Date(str);
+}
+
+// Get current time as Malaysia Date object
+function getMalaysiaNow() {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kuala_Lumpur' }));
+}
+
+// Get Malaysia day of week (1=Mon, 7=Sun)
+function getMalaysiaDayOfWeek() {
+  const msia = getMalaysiaNow();
+  const day = msia.getDay(); // 0=Sun, 1=Mon...
+  return day === 0 ? 7 : day;
+}
+
+// Get Malaysia date as Date object (midnight)
+function getMalaysiaDateObj() {
+  const str = getMalaysiaDate() + 'T00:00:00+08:00';
+  return new Date(str);
+}
+
 // Time helpers
 function timeToMinutes(t) {
   if (!t) return 0;
-  const [h, m] = t.split(':').map(Number);
+  const normalized = normalizeTime(t);
+  const [h, m] = normalized.split(':').map(Number);
   return h * 60 + m;
 }
 
@@ -14584,13 +15166,12 @@ function minutesToTime(mins) {
   return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
 }
 
-// Check if session should be auto-closed (30 min after end time)
+// Check if session should be auto-closed (30 min after end time, Malaysia time)
 function isSessionExpired(session) {
   if (!session || !session.date || !session.endTime) return false;
-  const endMinutes = timeToMinutes(session.endTime);
-  const endDateTime = new Date(session.date + 'T' + session.endTime + ':00');
+  const endDateTime = toMalaysiaDateTime(session.date, session.endTime);
   const autoCloseTime = new Date(endDateTime.getTime() + 30 * 60 * 1000);
-  const now = new Date();
+  const now = getMalaysiaNow();
   return now > autoCloseTime;
 }
 
@@ -14598,6 +15179,7 @@ function isSessionExpired(session) {
 function autoCloseExpiredSessions() {
   const sessions = (data.attendance.sessions || []).filter(s => s.status === SESSION_STATUS.OPEN);
   let changed = false;
+
   sessions.forEach(session => {
     if (isSessionExpired(session)) {
       session.status = SESSION_STATUS.CLOSED;
@@ -14629,21 +15211,128 @@ function autoCloseExpiredSessions() {
       });
     }
   });
+
   if (changed) saveData();
 }
 
-// Check if student can still clock in (before auto-close)
+// Auto-create DRAFT sessions from timetable for current week
+function autoCreateDraftSessionsFromTimetable() {
+  if (!data.timetable || data.timetable.length === 0) return;
+  if (!data.subjects || data.subjects.length === 0) return;
+  if (!data.students || data.students.length === 0) return;
+  if (!data.attendance) data.attendance = { sessions: [], records: [], logs: [] };
+  if (!data.attendance.sessions) data.attendance.sessions = [];
+
+  const existingSessions = data.attendance.sessions || [];
+  const newSessions = [];
+  const dayOfWeek = getMalaysiaDayOfWeek(); // 1=Mon..7=Sun (Malaysia time)
+  const mondayOffset = dayOfWeek - 1; // days since Monday
+  const mondayMsia = getMalaysiaDateObj(); // midnight Malaysia time
+  mondayMsia.setDate(mondayMsia.getDate() - mondayOffset);
+
+  // Day number mapping: 1=Isnin..5=Jumaat
+  const dayNames = ['Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat'];
+
+  data.timetable.forEach(entry => {
+    if (!entry.day || !entry.subjectId || !entry.startTime || !entry.endTime) return;
+
+    const dayNum = entry.day;
+    if (dayNum < 1 || dayNum > 5) return;
+
+    // Calculate date for this day in current week (Malaysia time)
+    const sessDate = new Date(mondayMsia);
+    sessDate.setDate(mondayMsia.getDate() + (dayNum - 1));
+    const dateStr = sessDate.toISOString().split('T')[0];
+
+    // Find subject
+    const subj = data.subjects.find(s => s.id === entry.subjectId);
+    if (!subj) return;
+
+    // Get classes for this subject's semester
+    // First try: students whose class matches the semester name
+    const sem = data.semesters.find(s => s.id === subj.semester);
+    let classes = [];
+    if (sem) {
+      const semNum = sem.name.replace(/\D/g, '');
+      const semStudents = data.students.filter(s => s.track !== 'graduated' && s.class && s.class.includes(semNum));
+      classes = [...new Set(semStudents.map(s => s.class).filter(Boolean))];
+    }
+    // Fallback: try student.subjects array
+    if (classes.length === 0) {
+      const enrolled = data.students.filter(s => (s.subjects || []).includes(subj.id) && s.track !== 'graduated');
+      classes = [...new Set(enrolled.map(s => s.class).filter(Boolean))];
+    }
+
+    if (classes.length === 0) return;
+
+    classes.forEach(cls => {
+      // Check if session already exists for this date + subject + class
+      const exists = existingSessions.some(s =>
+        s.date === dateStr && s.subjectId === subj.id && s.classId === cls
+      ) || newSessions.some(s =>
+        s.date === dateStr && s.subjectId === subj.id && s.classId === cls
+      );
+
+      if (!exists) {
+        newSessions.push({
+          id: generateId('SESS'),
+          subjectId: subj.id,
+          classId: cls,
+          semesterId: subj.semester || '',
+          lecturerId: subj.pengajar || '',
+          date: dateStr,
+          startTime: normalizeTime(entry.startTime),
+          endTime: normalizeTime(entry.endTime),
+          status: SESSION_STATUS.DRAFT,
+          autoCreated: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+    });
+  });
+
+  if (newSessions.length > 0) {
+    data.attendance.sessions = [...existingSessions, ...newSessions];
+    saveData();
+  }
+}
+
+// Check if student can still clock in (30 min grace period after end time, Malaysia time)
 function canStudentClockIn(session) {
   if (!session || session.status !== SESSION_STATUS.OPEN) return false;
   if (!session.date || !session.endTime) return false;
-  const endDateTime = new Date(session.date + 'T' + session.endTime + ':00');
-  const now = new Date();
-  return now <= endDateTime;
+  const endDateTime = toMalaysiaDateTime(session.date, session.endTime);
+  const graceEnd = new Date(endDateTime.getTime() + 30 * 60 * 1000);
+  const now = getMalaysiaNow();
+  return now <= graceEnd;
 }
 
 // Check if student is enrolled in subject
 function isStudentEnrolledForAtt(student, subjectId) {
-  return (student.subjects || []).includes(subjectId);
+  const islamicIds = ['SUBJ008', 'SUBJ018', 'SUBJ029'];
+  const moralIds = ['SUBJ008M', 'SUBJ018M', 'SUBJ029M'];
+  const isIslamic = islamicIds.includes(subjectId);
+  const isMoral = moralIds.includes(subjectId);
+
+  // Check student.subjects array first
+  if ((student.subjects || []).includes(subjectId)) return true;
+
+  // If subject is Islamic/Moral and student has empty subjects, cannot determine — exclude
+  if ((isIslamic || isMoral) && (!student.subjects || student.subjects.length === 0)) return false;
+
+  // Mutual exclusion: if student has Moral, exclude from Islamic and vice versa
+  if (isIslamic && student.subjects && student.subjects.some(sid => moralIds.includes(sid))) return false;
+  if (isMoral && student.subjects && student.subjects.some(sid => islamicIds.includes(sid))) return false;
+
+  // Fallback: check by semester name match (non-Islamic/Moral subjects only)
+  if (isIslamic || isMoral) return false;
+  const subj = data.subjects.find(s => s.id === subjectId);
+  if (!subj) return false;
+  const sem = data.semesters.find(s => s.id === subj.semester);
+  if (!sem) return false;
+  const semNum = sem.name.replace(/\D/g, '');
+  return student.class && student.class.includes(semNum);
 }
 
 // Get students for a class
@@ -14733,7 +15422,7 @@ function renderAttendanceTeacher(area) {
         <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Tindakan</th>
       </tr></thead><tbody>`;
 
-    sessions.sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach((sess, i) => {
+  sessions.sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach((sess, i) => {
       const subj = data.subjects.find(s => s.id === sess.subjectId);
       const records = (data.attendance.records || []).filter(r => r.sessionId === sess.id);
       const presentCount = records.filter(r => r.status === ATTENDANCE_STATUS.PRESENT || r.status === ATTENDANCE_STATUS.LATE || r.status === ATTENDANCE_STATUS.MANUAL).length;
@@ -14757,6 +15446,7 @@ function renderAttendanceTeacher(area) {
           ${sess.status === SESSION_STATUS.OPEN ? `<button onclick="closeSession('${sess.id}')" style="padding:4px 10px;background:#dc2626;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Tutup</button>` : ''}
           ${canReopen ? `<button onclick="reopenSession('${sess.id}')" style="padding:4px 10px;background:#f59e0b;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Buka Semula</button>` : ''}
           <button onclick="viewSessionDetail('${sess.id}')" style="padding:4px 10px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Lihat</button>
+          <button onclick="deleteSession('${sess.id}')" style="padding:4px 10px;background:#9ca3af;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">🗑</button>
         </td>
       </tr>`;
     });
@@ -14845,10 +15535,19 @@ function updateAttClass() {
   const subj = data.subjects.find(s => s.id === subjId);
   if (!subj) return;
   const sem = data.semesters.find(s => s.id === subj.semester);
-  if (!sem) return;
-  // Get students enrolled in this subject
-  const enrolled = data.students.filter(s => (s.subjects || []).includes(subjId) && s.track !== 'graduated');
-  const classes = [...new Set(enrolled.map(s => s.class).filter(Boolean))];
+  
+  // Get classes: first try semester name match, then student.subjects
+  let classes = [];
+  if (sem) {
+    const semNum = sem.name.replace(/\D/g, '');
+    const semStudents = data.students.filter(s => s.track !== 'graduated' && s.class && s.class.includes(semNum));
+    classes = [...new Set(semStudents.map(s => s.class).filter(Boolean))];
+  }
+  if (classes.length === 0) {
+    const enrolled = data.students.filter(s => (s.subjects || []).includes(subjId) && s.track !== 'graduated');
+    classes = [...new Set(enrolled.map(s => s.class).filter(Boolean))];
+  }
+  
   const sel = document.getElementById('attClass');
   sel.innerHTML = '<option value="">-- Pilih Kelas --</option>' +
     classes.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
@@ -14893,12 +15592,12 @@ function openSession(sessionId) {
   const session = data.attendance.sessions.find(s => s.id === sessionId);
   if (!session) return;
 
-  // Check if there's already an open session for this class on this date
+  // Check if there's already an open session for the SAME SUBJECT + class + date
   const existingOpen = data.attendance.sessions.find(s =>
-    s.id !== sessionId && s.classId === session.classId && s.date === session.date && s.status === SESSION_STATUS.OPEN
+    s.id !== sessionId && s.subjectId === session.subjectId && s.classId === session.classId && s.date === session.date && s.status === SESSION_STATUS.OPEN
   );
   if (existingOpen) {
-    alert('Sudah ada sesi aktif untuk kelas ini pada tarikh ini. Tutup sesi terdahulu dahulu.');
+    alert('Sudah ada sesi aktif untuk subjek ini pada tarikh ini. Tutup sesi terdahulu dahulu.');
     return;
   }
 
@@ -14966,6 +15665,25 @@ function reopenSession(sessionId) {
   saveData();
   renderAttendanceTeacher(document.getElementById('attendanceArea'));
   showToast('Sesi telah dibuka semula.', 'success');
+}
+
+// Delete session
+function deleteSession(sessionId) {
+  const session = data.attendance.sessions.find(s => s.id === sessionId);
+  if (!session) return;
+
+  if (!confirm('Padam sesi ini? Semua rekod kehadiran berkaitan akan turut dipadam. Tindakan ini tidak boleh dibatalkan.')) return;
+
+  // Remove session
+  data.attendance.sessions = data.attendance.sessions.filter(s => s.id !== sessionId);
+  // Remove related records
+  data.attendance.records = data.attendance.records.filter(r => r.sessionId !== sessionId);
+  // Remove related logs
+  data.attendance.logs = data.attendance.logs.filter(l => l.sessionId !== sessionId);
+
+  saveData();
+  renderAttendanceTeacher(document.getElementById('attendanceArea'));
+  showToast('Sesi berjaya dipadam.', 'success');
 }
 
 // View session detail
@@ -15048,11 +15766,15 @@ function viewSessionDetail(sessionId) {
     }
     html += `
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${i + 1}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(stu.name)}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;">
+        ${esc(stu.name)}
+        ${(rec && rec.excuse) ? `<div style="font-size:10px;color:#f59e0b;margin-top:2px;">📝 ${esc(rec.excuse.substring(0, 40))}${rec.excuse.length > 40 ? '...' : ''}</div>` : ''}
+      </td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(stu.kod || stu.id)}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;">${clockIn ? formatAttTime(clockIn) : '-'}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;">
         <span style="background:${sc.bg};color:${sc.fg};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${status.toUpperCase()}</span>
+        ${(rec && rec.excuse) ? `<div style="margin-top:3px;"><button onclick="viewExcuse('${stu.id}', '${sessionId}')" style="padding:2px 6px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:3px;cursor:pointer;font-size:9px;">Lihat Alasan</button></div>` : ''}
       </td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;white-space:nowrap;">
         ${isTeacherOrAdmin ? `
@@ -15087,6 +15809,11 @@ function quickTickStudent(studentId, sessionId, status) {
   const oldStatus = rec ? rec.status : ATTENDANCE_STATUS.ABSENT;
   const now = getMalaysiaHHMM();
 
+  let recStatus;
+  if (status === 'absent') recStatus = ATTENDANCE_STATUS.ABSENT;
+  else if (status === 'late') recStatus = ATTENDANCE_STATUS.LATE;
+  else recStatus = ATTENDANCE_STATUS.PRESENT;
+
   if (!rec) {
     rec = {
       id: generateId('ATT'),
@@ -15096,7 +15823,7 @@ function quickTickStudent(studentId, sessionId, status) {
       clockIn: now,
       ipAddress: '',
       browser: '',
-      status: status === 'absent' ? ATTENDANCE_STATUS.ABSENT : ATTENDANCE_STATUS.MANUAL,
+      status: recStatus,
       remarks: status === 'absent' ? 'Marked absent by lecturer' : 'Quick tick by lecturer',
       approvedBy: '',
       approvedAt: '',
@@ -15105,7 +15832,7 @@ function quickTickStudent(studentId, sessionId, status) {
     };
     data.attendance.records.push(rec);
   } else {
-    rec.status = status === 'absent' ? ATTENDANCE_STATUS.ABSENT : ATTENDANCE_STATUS.MANUAL;
+    rec.status = recStatus;
     rec.clockIn = rec.clockIn || now;
     rec.remarks = status === 'absent' ? 'Marked absent by lecturer' : 'Quick tick by lecturer';
     rec.updatedAt = new Date().toISOString();
@@ -15159,6 +15886,56 @@ function bulkTickAbsent(sessionId) {
   const ids = getSelectedStudentIds();
   if (ids.length === 0) { alert('Pilih pelajar terlebih dahulu.'); return; }
   ids.forEach(sid => quickTickStudent(sid, sessionId, 'absent'));
+}
+
+// View excuse modal
+function viewExcuse(studentId, sessionId) {
+  const rec = (data.attendance.records || []).find(r => r.sessionId === sessionId && r.studentId === studentId);
+  if (!rec || !rec.excuse) return;
+
+  let html = `
+    <div class="modal-content" style="max-width:500px;">
+      <div class="modal-header">
+        <h3>📝 Alasan Ketidakhadiran</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div style="padding:16px 20px;">
+        <div style="margin-bottom:12px;">
+          <div style="font-size:13px;color:#666;">Pelajar</div>
+          <div style="font-weight:600;">${esc(rec.studentName)}</div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:13px;color:#666;">Tarikh Dikemukakan</div>
+          <div style="font-weight:600;">${rec.excuseAt ? new Date(rec.excuseAt).toLocaleString('ms-MY') : '-'}</div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:13px;color:#666;">Sebab / Alasan</div>
+          <div style="background:#f8f9fa;border:1px solid #e0e0e0;border-radius:6px;padding:12px;margin-top:4px;white-space:pre-wrap;">${esc(rec.excuse)}</div>
+        </div>`;
+
+  if (rec.excuseFile) {
+    html += `
+        <div style="margin-bottom:12px;">
+          <div style="font-size:13px;color:#666;">Lampiran</div>
+          <div style="margin-top:4px;">`;
+    if (rec.excuseFile.type && rec.excuseFile.type.startsWith('image/')) {
+      html += `<img src="${rec.excuseFile.data}" style="max-width:100%;max-height:300px;border-radius:4px;border:1px solid #ddd;">`;
+    } else {
+      html += `<a href="${rec.excuseFile.data}" target="_blank" download="${rec.excuseFile.name}" style="color:#3498db;">📄 ${esc(rec.excuseFile.name)}</a>`;
+    }
+    html += `</div></div>`;
+  }
+
+  html += `
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+          <button onclick="closeModal()" style="padding:8px 20px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;">Tutup</button>
+        </div>
+      </div>
+    </div>`;
+
+  const modal = document.getElementById('modal');
+  modal.innerHTML = html;
+  modal.classList.remove('hidden');
 }
 
 // Edit attendance record
@@ -15469,6 +16246,7 @@ function renderAttendanceStudent(area) {
       const subj = data.subjects.find(s => s.id === sess.subjectId);
       const existingRec = (data.attendance.records || []).find(r => r.sessionId === sess.id && r.studentId === student.id);
       const status = existingRec ? existingRec.status : 'absent';
+      const hasExcuse = existingRec && existingRec.excuse;
 
       html += `
         <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;opacity:0.8;">
@@ -15476,10 +16254,18 @@ function renderAttendanceStudent(area) {
             <div style="font-weight:700;font-size:16px;color:#6b7280;">${esc(subj ? subj.name : '-')}</div>
             <div style="color:#9ca3af;font-size:13px;">${formatAttTime(sess.startTime)} - ${formatAttTime(sess.endTime)}</div>
           </div>
-          <div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             ${existingRec
               ? `<span style="display:inline-block;padding:6px 16px;border-radius:4px;font-weight:600;font-size:13px;background:${status === 'present' ? '#dcfce7' : status === 'late' ? '#fef3c7' : '#fee2e2'};color:${status === 'present' ? '#166534' : status === 'late' ? '#92400e' : '#991b1b'};">${status === 'present' ? '✓ Hadir' : status === 'late' ? '⏰ Lewat' : '✗ Absent'}</span>`
-              : `<span style="display:inline-block;padding:6px 16px;border-radius:4px;font-weight:600;font-size:13px;background:#fee2e2;color:#991b1b;">✗ Absent (Tamat Tempoh)</span>`
+              : `<span style="display:inline-block;padding:6px 16px;border-radius:4px;font-weight:600;font-size:13px;background:#fee2e2;color:#991b1b;">✗ Absent</span>`
+            }
+            ${(status === 'absent' && !hasExcuse)
+              ? `<button onclick="submitExcuse('${sess.id}')" style="padding:6px 14px;background:#f59e0b;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;">📝 Kemukakan Alasan</button>`
+              : ''
+            }
+            ${(status === 'absent' && hasExcuse)
+              ? `<span style="font-size:11px;color:#059669;font-weight:600;">✓ Alasan dikemukakan</span>`
+              : ''
             }
           </div>
         </div>`;
@@ -15557,9 +16343,7 @@ function clockIn(sessionId) {
     return;
   }
 
-  // Determine if late (>15 min after start)
   const now = getMalaysiaHHMM();
-  const isLate = timeToMinutes(now) > timeToMinutes(session.startTime) + 15;
 
   const record = {
     id: generateId('ATT'),
@@ -15569,7 +16353,7 @@ function clockIn(sessionId) {
     clockIn: now,
     ipAddress: '',
     browser: navigator.userAgent.substring(0, 50),
-    status: isLate ? ATTENDANCE_STATUS.LATE : ATTENDANCE_STATUS.PENDING,
+    status: ATTENDANCE_STATUS.PRESENT,
     remarks: '',
     approvedBy: '',
     approvedAt: '',
@@ -15580,7 +16364,117 @@ function clockIn(sessionId) {
   data.attendance.records.push(record);
   saveData();
   renderAttendanceStudent(document.getElementById('attendanceArea'));
-  showToast(isLate ? 'Kehadiran dicatat (LEWAT).' : 'Kehadiran dicatat!', 'success');
+  showToast('Kehadiran dicatat!', 'success');
+}
+
+// Submit excuse for absence
+function submitExcuse(sessionId) {
+  const session = data.attendance.sessions.find(s => s.id === sessionId);
+  if (!session) return;
+  const subj = data.subjects.find(s => s.id === session.subjectId);
+
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width:500px;">
+      <div class="modal-header">
+        <h3>📝 Kemukakan Alasan Ketidakhadiran</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div style="padding:16px 20px;">
+        <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#92400e;">
+          Sila nyatakan sebab ketidakhadiran anda. Pengajar akan menyemak alasan anda.
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:13px;color:#666;">Subjek</div>
+          <div style="font-weight:600;">${esc(subj ? subj.name : '-')} | ${esc(session.date)}</div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Sebab / Alasan *</label>
+          <textarea id="excuseReason" rows="4" placeholder="Nyatakan sebab ketidakhadiran anda..." 
+            style="width:100%;border:1px solid #ccc;border-radius:4px;padding:8px;font-size:13px;resize:vertical;"></textarea>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Lampiran (pilihan)</label>
+          <input type="file" id="excuseFile" accept="image/*,.pdf,.doc,.docx" 
+            style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+          <div style="font-size:11px;color:#888;margin-top:4px;">Format: Gambar, PDF, DOC (Max 5MB)</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+          <button onclick="closeModal()" style="padding:8px 20px;background:#95a5a6;color:#fff;border:none;border-radius:4px;cursor:pointer;">Batal</button>
+          <button onclick="saveExcuse('${sessionId}')" style="padding:8px 20px;background:#f59e0b;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;">Hantar Alasan</button>
+        </div>
+      </div>
+    </div>`;
+  modal.classList.remove('hidden');
+}
+
+// Save excuse to attendance record
+function saveExcuse(sessionId) {
+  const reason = document.getElementById('excuseReason').value.trim();
+  if (!reason) {
+    alert('Sila isi sebab ketidakhadiran.');
+    return;
+  }
+
+  const student = data.students.find(s => s.id === currentUser.id);
+  if (!student) return;
+
+  let rec = (data.attendance.records || []).find(r => r.sessionId === sessionId && r.studentId === student.id);
+
+  if (!rec) {
+    // Create absent record with excuse
+    rec = {
+      id: generateId('ATT'),
+      sessionId,
+      studentId: student.id,
+      studentName: student.name,
+      clockIn: null,
+      ipAddress: '',
+      browser: '',
+      status: ATTENDANCE_STATUS.ABSENT,
+      remarks: 'Auto-closed: did not clock in',
+      excuse: reason,
+      excuseFile: null,
+      excuseAt: new Date().toISOString(),
+      approvedBy: '',
+      approvedAt: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    data.attendance.records.push(rec);
+  } else {
+    rec.excuse = reason;
+    rec.excuseAt = new Date().toISOString();
+    rec.updatedAt = new Date().toISOString();
+  }
+
+  // Handle file attachment (store as base64 if small enough)
+  const fileInput = document.getElementById('excuseFile');
+  if (fileInput && fileInput.files.length > 0) {
+    const file = fileInput.files[0];
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Saiz fail melebihi 5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      rec.excuseFile = {
+        name: file.name,
+        type: file.type,
+        data: e.target.result
+      };
+      saveData();
+      closeModal();
+      renderAttendanceStudent(document.getElementById('attendanceArea'));
+      showToast('Alasan berjaya dihantar.', 'success');
+    };
+    reader.readAsDataURL(file);
+  } else {
+    saveData();
+    closeModal();
+    renderAttendanceStudent(document.getElementById('attendanceArea'));
+    showToast('Alasan berjaya dihantar.', 'success');
+  }
 }
 
 // ============================================
@@ -15602,7 +16496,6 @@ function renderAttendanceAdmin(area) {
   const presentToday = todayRecords.filter(r => r.status === ATTENDANCE_STATUS.PRESENT || r.status === ATTENDANCE_STATUS.LATE || r.status === ATTENDANCE_STATUS.MANUAL).length;
   const absentToday = todayRecords.filter(r => r.status === ATTENDANCE_STATUS.ABSENT).length;
   const pendingApproval = records.filter(r => r.status === ATTENDANCE_STATUS.PENDING).length;
-  const manualEntries = records.filter(r => r.status === ATTENDANCE_STATUS.MANUAL).length;
   const totalTodayStudents = todaySessions.reduce((sum, s) => sum + getStudentsForClass(s.classId).length, 0);
   const attendanceRate = totalTodayStudents > 0 ? Math.round((presentToday / totalTodayStudents) * 100) : 0;
 
@@ -15635,10 +16528,6 @@ function renderAttendanceAdmin(area) {
       <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:14px 16px;">
         <div style="font-size:11px;color:#92400e;">Perlu Diluluskan</div>
         <div style="font-size:28px;font-weight:700;color:#78350f;">${pendingApproval}</div>
-      </div>
-      <div style="background:#e0e7ff;border:1px solid #a5b4fc;border-radius:8px;padding:14px 16px;">
-        <div style="font-size:11px;color:#3730a3;">Manual Entry</div>
-        <div style="font-size:28px;font-weight:700;color:#312e81;">${manualEntries}</div>
       </div>
       <div style="background:#f5f3ff;border:1px solid #c4b5fd;border-radius:8px;padding:14px 16px;">
         <div style="font-size:11px;color:#7c3aed;">Kadar Kehadiran</div>
@@ -15679,40 +16568,10 @@ function renderAttendanceAdmin(area) {
     html += `</tbody></table></div>`;
   }
 
-  // Manual entries list
-  const manualRecs = records.filter(r => r.status === ATTENDANCE_STATUS.MANUAL);
-  if (manualRecs.length > 0) {
-    html += `
-      <div class="individual-analysis-card" style="margin-bottom:16px;">
-        <h3>📝 Manual Entry (${manualRecs.length})</h3>
-        <table class="data-table" style="width:100%;border-collapse:collapse;">
-          <thead><tr>
-            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Pelajar</th>
-            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Subjek</th>
-            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Tarikh</th>
-            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Oleh</th>
-            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Sebab</th>
-          </tr></thead><tbody>`;
-
-    manualRecs.forEach(rec => {
-      const sess = sessions.find(s => s.id === rec.sessionId);
-      const subj = sess ? data.subjects.find(s => s.id === sess.subjectId) : null;
-      const log = data.attendance.logs.find(l => l.attendanceId === rec.id);
-      html += `<tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(rec.studentName)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${subj ? subj.name : '-'}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${sess ? sess.date : '-'}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${log ? esc(log.editedBy) : '-'}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-size:12px;">${esc(rec.remarks || '-')}</td>
-      </tr>`;
-    });
-    html += `</tbody></table></div>`;
-  }
-
   // All sessions
   html += `
     <div class="individual-analysis-card" style="margin-bottom:16px;">
-      <h3>Semua Sesi</h3>
+      <h3>Sesi Lengkap (Ditutup)</h3>
       <table class="data-table" style="width:100%;border-collapse:collapse;">
         <thead><tr>
           <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #333;">Bil</th>
@@ -15724,7 +16583,7 @@ function renderAttendanceAdmin(area) {
           <th style="padding:10px 12px;text-align:center;border-bottom:2px solid #333;">Tindakan</th>
         </tr></thead><tbody>`;
 
-  sessions.sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach((sess, i) => {
+  sessions.filter(s => s.status !== SESSION_STATUS.DRAFT).sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach((sess, i) => {
     const subj = data.subjects.find(s => s.id === sess.subjectId);
     const sc = sess.status === SESSION_STATUS.OPEN ? { bg: '#dcfce7', fg: '#166534' } : sess.status === SESSION_STATUS.CLOSED ? { bg: '#fee2e2', fg: '#991b1b' } : { bg: '#fef3c7', fg: '#92400e' };
     html += `<tr>
@@ -15739,39 +16598,11 @@ function renderAttendanceAdmin(area) {
       <td style="padding:10px 12px;border-bottom:1px solid #ddd;text-align:center;">
         <button onclick="viewSessionDetail('${sess.id}')" style="padding:4px 10px;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">Lihat</button>
         ${sess.status === SESSION_STATUS.CLOSED ? `<button onclick="adminReopenSession('${sess.id}')" style="padding:4px 10px;background:#f59e0b;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin-left:4px;">Buka Semula</button>` : ''}
+        <button onclick="deleteSession('${sess.id}')" style="padding:4px 10px;background:#9ca3af;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin-left:4px;">🗑</button>
       </td>
     </tr>`;
   });
   html += `</tbody></table></div>`;
-
-  // Audit log
-  const logs = (data.attendance.logs || []).sort((a, b) => (b.editedAt || '').localeCompare(a.editedAt || '')).slice(0, 50);
-  if (logs.length > 0) {
-    html += `
-      <div class="individual-analysis-card">
-        <h3>📜 Audit Log (50 terakhir)</h3>
-        <table class="data-table" style="width:100%;border-collapse:collapse;">
-          <thead><tr>
-            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Tarikh</th>
-            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Pelajar</th>
-            <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">Sebelum</th>
-            <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #333;">Selepas</th>
-            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Oleh</th>
-            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #333;">Sebab</th>
-          </tr></thead><tbody>`;
-
-    logs.forEach(log => {
-      html += `<tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-size:12px;">${log.editedAt ? new Date(log.editedAt).toLocaleString('ms-MY') : '-'}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(log.studentName || '-')}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;"><span style="color:#dc2626;font-weight:600;">${(log.oldStatus || '').toUpperCase()}</span></td>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center;"><span style="color:#059669;font-weight:600;">${(log.newStatus || '').toUpperCase()}</span></td>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;">${esc(log.editedBy || '-')}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-size:12px;">${esc(log.reason || '-')}</td>
-      </tr>`;
-    });
-    html += `</tbody></table></div>`;
-  }
 
   area.innerHTML = html;
 }

@@ -76,9 +76,11 @@
       <button id="exportBtn" class="btn btn-sm btn-outline" title="Eksport JSON">Eksport</button>
       <button id="importBtn" class="btn btn-sm btn-outline" title="Import JSON">Import</button>
       <input type="file" id="importFile" accept=".json" hidden>
-      <button id="manualSyncBtn" class="btn btn-sm btn-outline" title="Sync ke Firebase" style="color:#2ecc71;border-color:#2ecc71;">🔄 Sync</button>
+      <button id="manualSyncBtn" class="btn btn-sm btn-outline" title="Sync" style="color:#2ecc71;border-color:#2ecc71;">🔄 Sync</button>
+      <a href="/migrate.html" id="migrateBtn" class="btn btn-sm btn-outline" title="Migrate ke Google Sheets" style="color:#f59e0b;border-color:#f59e0b;text-decoration:none;">🔄 Migrate</a>
       <span id="syncStatusDot" class="sync-status" title="Status sync">⚪</span>
       <span id="lastBackupTime" style="font-size:0.75rem;color:rgba(255,255,255,0.6);"></span>
+      <span id="backendBadge" style="font-size:0.7rem;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.1);">Firebase</span>
       <button id="clearAllBtn" class="btn btn-sm btn-outline" title="Padam Semua Data" style="color:#dc2626;border-color:#dc2626;">Padam Semua</button>
       <button id="logoutBtn" class="btn btn-sm btn-outline" title="Log Keluar" style="color:#e74c3c;border-color:#e74c3c;">Log Keluar</button>
     </div>
@@ -148,9 +150,10 @@
         <button class="semester-tab" data-sem="SEM001">Sem 1</button>
         <button class="semester-tab" data-sem="SEM002">Sem 2</button>
         <button class="semester-tab" data-sem="SEM003">Sem 3</button>
-        <button class="semester-tab" data-sem="SEM004">Sem 4</button>
-        <button class="semester-tab" data-sem="SEM005">Sem 5</button>
-        <button class="semester-tab" data-sem="SEM006">Sem 6</button>
+        <button class="semester-tab" data-sem="SEM004">Sem 3 LI</button>
+        <button class="semester-tab" data-sem="SEM005">Sem 4</button>
+        <button class="semester-tab" data-sem="SEM006">Sem 5</button>
+        <button class="semester-tab" data-sem="SEM007">Sem 6</button>
       </div>
 
       <!-- Credit Hours Summary -->
@@ -386,8 +389,10 @@
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <!-- Firebase Config -->
+  <!-- Firebase Config (backup backend) -->
   <script src="firebase-config.js"></script>
+  <!-- Google Sheets Config (new backend) -->
+  <script src="google-sheets-config.js"></script>
   <!-- App Scripts -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
