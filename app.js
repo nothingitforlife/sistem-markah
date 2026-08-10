@@ -6000,7 +6000,7 @@ function startAutoRefresh() {
       console.warn('Auto-refresh error:', e);
     }
     isRefreshing = false;
-  }, 30000); // 30 seconds
+  }, 5000); // 5 seconds
 }
 
 let lastRemoteSnapshot = '';
