@@ -1284,10 +1284,44 @@ async function loadFromGoogleSheets() {
     }
     
     lastDataSnapshot = JSON.stringify(data);
+    lastRemoteSnapshot = JSON.stringify(data);
     
     console.log('✅ Data loaded from Google Sheets. Students:', data.students.length, 'Marks:', data.marks.length);
     
     fixSemesterNames();
+    
+    // Restore carrymark & FYP from localStorage backup if Google Sheets stripped fields
+    try {
+      const cmBackup = JSON.parse(localStorage.getItem('cm_fyp_backup') || '{}');
+      if (cmBackup && cmBackup.carrymark) {
+        const backupTemplates = cmBackup.carrymark.templates || [];
+        const remoteTemplates = (data.carrymark || {}).templates || [];
+        // Check if remote templates lost the 'components' field
+        const needsRestore = remoteTemplates.length > 0 && !remoteTemplates[0].components 
+          && backupTemplates.length > 0 && backupTemplates[0].components;
+        if (needsRestore) {
+          console.log('🔧 Restoring carrymark templates from localStorage (components field missing)');
+          data.carrymark.templates = backupTemplates;
+          if (cmBackup.carrymark.marks && cmBackup.carrymark.marks.length > 0) {
+            data.carrymark.marks = cmBackup.carrymark.marks;
+          }
+          if (cmBackup.carrymark.gradeConfig && cmBackup.carrymark.gradeConfig.length > 0) {
+            data.carrymark.gradeConfig = cmBackup.carrymark.gradeConfig;
+          }
+        }
+      }
+      if (cmBackup && cmBackup.fyp) {
+        const backupFYP = cmBackup.fyp.assessments || [];
+        const remoteFYP = ((data.fyp || {}).assessments || []);
+        const needsRestoreFYP = remoteFYP.length > 0 && !remoteFYP[0].scores 
+          && backupFYP.length > 0 && backupFYP[0].scores;
+        if (needsRestoreFYP) {
+          console.log('🔧 Restoring FYP assessments from localStorage (scores field missing)');
+          data.fyp.assessments = backupFYP;
+        }
+      }
+    } catch(e) { console.warn('cm_fyp restore failed:', e); }
+    
     autoAssignPengajar();
   } catch (e) {
     console.error('❌ Google Sheets load error:', e);
@@ -1627,6 +1661,15 @@ function autoAssignPengajar() {
 }
 
 async function saveData() {
+  // Always backup carrymark and FYP to localStorage (in case Google Sheets strips fields)
+  try {
+    localStorage.setItem('cm_fyp_backup', JSON.stringify({ 
+      fyp: data.fyp, 
+      carrymark: data.carrymark,
+      savedAt: new Date().toISOString()
+    }));
+  } catch(le) { console.warn('cm_fyp_backup failed:', le); }
+
   // Use Google Sheets if enabled
   if (typeof useGoogleSheets === 'function' && useGoogleSheets()) {
     try {
