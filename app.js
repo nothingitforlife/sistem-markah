@@ -5889,6 +5889,7 @@ let isRefreshing = false;
 // Auto-refresh from Google Sheets every 30 seconds
 function startAutoRefresh() {
   if (autoRefreshInterval) return;
+  let lastCounts = '';
   autoRefreshInterval = setInterval(async () => {
     // Only refresh if NOT currently editing (avoid overwriting user input)
     if (isSyncing || isRefreshing) return;
@@ -5899,6 +5900,26 @@ function startAutoRefresh() {
     
     isRefreshing = true;
     try {
+      // Step 1: Check counts first (lightweight request) to avoid fetching 330KB every 5s
+      const countsUrl = GOOGLE_SHEETS_API_URL + '?action=count';
+      let countsChanged = true;
+      try {
+        const countResp = await fetch(countsUrl);
+        const countData = await countResp.json();
+        if (countData.success && countData.counts) {
+          const countsStr = JSON.stringify(countData.counts);
+          if (countsStr === lastCounts) {
+            // Counts unchanged — skip full data fetch
+            isRefreshing = false;
+            return;
+          }
+          lastCounts = countsStr;
+        }
+      } catch (ce) { 
+        // Count check failed — proceed with full fetch as fallback
+      }
+      
+      // Step 2: Only fetch full data if counts changed
       const remote = await sheetsAPI.loadData();
       const remoteStudents = (remote.students || []).length;
       
