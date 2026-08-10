@@ -39,9 +39,9 @@ var COLUMNS = {
   messages: ['id', 'subjectId', 'subjectName', 'sender', 'senderRole', 'recipient', 'text', 'attachment', 'timestamp', 'read'],
   assignments: ['id', 'subjectId', 'subjectName', 'subjectCode', 'teacher', 'title', 'description', 'link', 'linkText', 'dueDate', 'createdAt'],
   assignmentSubmissions: ['id', 'assignmentId', 'studentId', 'studentName', 'link', 'notes', 'submittedAt'],
-  fypAssessments: ['id', 'studentId', 'studentName', 'semesterId', 'supervisorName', 'panelName', 'assessmentType', 'criteria', 'totalScore', 'percentage', 'grade', 'comments', 'assessedBy', 'assessedAt', 'createdAt'],
+  fypAssessments: ['id', 'studentId', 'semesterId', 'semesterName', 'supervisor', 'fypType', 'projectTitle', 'groupName', 'scores', 'totalMarks', 'percentage', 'grade', 'result', 'status', 'approvalStatus', 'approvalComments', 'approvedAt', 'supervisorComments', 'submittedAt', 'releasedAt', 'createdAt'],
   fypAuditLog: ['id', 'action', 'details', 'studentId', 'user', 'timestamp'],
-  carrymarkTemplates: ['id', 'semesterId', 'courseCode', 'course', 'lecturer', 'assessments', 'createdAt'],
+  carrymarkTemplates: ['id', 'semester', 'courseCode', 'course', 'lecturer', 'components', 'status', 'section', 'class', 'programme', 'academicSession', 'requestedBy', 'requestedAt', 'approvedBy', 'approvedAt', 'copiedFrom', 'createdAt', 'updatedAt'],
   carrymarkMarks: ['id', 'studentId', 'studentName', 'semesterId', 'subjectId', 'subjectCode', 'subjectName', 'lecturer', 'assessmentMarks', 'totalCarrymark', 'finalExamMark', 'finalTotal', 'grade', 'updatedAt', 'createdAt'],
   carrymarkGradeConfig: ['id', 'grade', 'minMark', 'maxMark', 'gradePoint', 'status'],
   carrymarkAuditLog: ['id', 'action', 'details', 'studentId', 'user', 'timestamp'],
@@ -169,6 +169,8 @@ function loadAllData() {
   data.pdpevaluations.forEach(function(ev) { ev.criteria = parseJSON(ev.criteria, {}); });
   data.calculatedResults.forEach(function(r) { r.semesterGPA = parseJSON(r.semesterGPA, []); });
   data.attendance.records.forEach(function(r) { r.excuseFile = parseJSON(r.excuseFile, null); });
+  data.carrymark.templates.forEach(function(t) { t.components = parseJSON(t.components, []); });
+  data.fyp.assessments.forEach(function(a) { a.scores = parseJSON(a.scores, {}); });
   return data;
 }
 
