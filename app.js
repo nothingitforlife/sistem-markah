@@ -12083,7 +12083,7 @@ function initDatePickers() {
   // Add type="date" to all date inputs if not already set
   document.querySelectorAll('input[type="date"]').forEach(input => {
     if (!input.value) {
-      input.value = new Date().toISOString().split('T')[0];
+      input.value = getMalaysiaDate();
     }
   });
 }
@@ -15160,8 +15160,7 @@ function getMalaysiaTime() {
 
 function getMalaysiaDate() {
   const now = new Date();
-  const msia = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kuala_Lumpur' }));
-  return msia.toISOString().split('T')[0];
+  return now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
 }
 
 function getMalaysiaHHMM() {
@@ -15285,7 +15284,8 @@ function autoCreateDraftSessionsFromTimetable() {
     // Calculate date for this day in current week (Malaysia time)
     const sessDate = new Date(mondayMsia);
     sessDate.setDate(mondayMsia.getDate() + (dayNum - 1));
-    const dateStr = sessDate.toISOString().split('T')[0];
+    // Use Malaysia timezone to get correct date string (toISOString returns UTC which shifts the date)
+    const dateStr = sessDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
 
     // Find subject
     const subj = data.subjects.find(s => s.id === entry.subjectId);
