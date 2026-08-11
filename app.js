@@ -7963,7 +7963,7 @@ function renderCarrymarkAdmin(area) {
   // Dashboard: Status Assessment Mengikut Subjek
   const subjects = data.subjects || [];
   const semesters = data.semesters || [];
-  const excludedSubjects = ['co-curriculum', 'co kurikulum', 'kokurikulum'];
+  const excludedSubjects = ['co-curriculum', 'co kurikulum', 'kokurikulum', 'industrial training', 'latihan industri'];
   
   const activeSubjects = subjects.filter(s => {
     const nameLower = (s.name || '').toLowerCase();
@@ -8200,7 +8200,7 @@ function renderCarrymarkTeacher(area) {
   
   // Auto-detect subjek yang belum submit assessment
   const mySubjects = data.subjects.filter(s => s.pengajar === teacherName);
-  const excludedLower = ['co-curriculum', 'co kurikulum', 'kokurikulum'];
+  const excludedLower = ['co-curriculum', 'co kurikulum', 'kokurikulum', 'industrial training', 'latihan industri'];
   const myActiveSubjects = mySubjects.filter(s => !excludedLower.some(ex => (s.name || '').toLowerCase().includes(ex)));
   
   const missingSubjects = myActiveSubjects.filter(subj => {
@@ -8341,6 +8341,13 @@ window.onCourseChange = function(select) {
 window.carrymarkCreateTemplateForSubject = function(subjectId) {
   const subj = data.subjects.find(s => s.id === subjectId);
   if (!subj) return;
+  // Exclude Industrial Training subjects
+  const nameLower = (subj.name || '').toLowerCase();
+  const code = (subj.code || '').toUpperCase();
+  if (nameLower.includes('industrial training') || nameLower.includes('latihan industri') || code === 'LI3026' || code === 'LI6026') {
+    showToast('Subjek Industrial Training tidak memerlukan assessment carrymark.', 'warning');
+    return;
+  }
   const sem = data.semesters.find(s => s.id === subj.semester);
   const fakeTemplate = {
     course: subj.name,
