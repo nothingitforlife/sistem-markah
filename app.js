@@ -16889,18 +16889,54 @@ function renderLI() {
   }
 }
 
+// Helper: Get all LI semester IDs (SEM004 = Sem 3 LI, SEM007 = Sem 6 LI)
+function getLISemesterIds() {
+  return ['SEM004', 'SEM007'];
+}
+
+// Helper: Get all LI students across both semesters
+function getLIStudents(onlySupervisedBy) {
+  const liSemIds = getLISemesterIds();
+  const liSems = data.semesters.filter(s => liSemIds.includes(s.id));
+  const semNames = liSems.map(s => s.name);
+  
+  let students = data.students.filter(s => 
+    s.track !== 'graduated' && 
+    (semNames.includes(s.class) || s.class.includes('Latihan Industri') || s.class === 'Semester 6')
+  );
+  
+  if (onlySupervisedBy) {
+    // Filter by FYP supervisor or LI subject pengajar
+    const fypAssessments = (data.fyp.assessments || []).filter(a => 
+      liSemIds.includes(a.semesterId) && a.supervisor === onlySupervisedBy
+    );
+    const supervisedIds = new Set(fypAssessments.map(a => a.studentId));
+    // Also check LI subjects taught by this teacher
+    const liSubjectIds = data.subjects.filter(s => 
+      liSemIds.includes(s.semester) && s.pengajar === onlySupervisedBy
+    ).map(s => s.id);
+    const enrolledIds = data.students
+      .filter(s => (s.subjects || []).some(sid => liSubjectIds.includes(sid)))
+      .map(s => s.id);
+    const allSupervised = new Set([...supervisedIds, ...enrolledIds]);
+    students = students.filter(s => allSupervised.has(s.id));
+  }
+  
+  return students;
+}
+
 // Admin: Full dashboard for LI evaluations
 function renderLIAdmin(area) {
-  const liSem = data.semesters.find(s => s.id === 'SEM004' || s.name.includes('Latihan Industri'));
-  if (!liSem) {
+  const liSemIds = getLISemesterIds();
+  const liSems = data.semesters.filter(s => liSemIds.includes(s.id));
+  
+  if (liSems.length === 0) {
     area.innerHTML = '<p class="empty-state">Semester Latihan Industri tidak dijumpai.</p>';
     return;
   }
 
-  const liStudents = data.students.filter(s => s.class === liSem.name && s.track !== 'graduated');
+  const liStudents = getLIStudents();
   const evaluations = data.li.evaluations || [];
-  const criteria = data.li.criteria || [];
-  const liSubject = data.subjects.find(s => s.semester === 'SEM004');
 
   let html = '';
 
@@ -16908,8 +16944,8 @@ function renderLIAdmin(area) {
   const totalStudents = liStudents.length;
   const evaluatedCount = liStudents.filter(s => evaluations.some(e => e.studentId === s.id)).length;
   const pendingCount = totalStudents - evaluatedCount;
-  const approvedCount = evaluations.filter(e => e.status === 'approved').length;
-  const draftCount = evaluations.filter(e => e.status === 'draft').length;
+  const approvedCount = evaluations.filter(e => liSemIds.includes(e.semesterId) && e.status === 'approved').length;
+  const draftCount = evaluations.filter(e => liSemIds.includes(e.semesterId) && e.status === 'draft').length;
 
   html += '<div class="credit-summary" style="margin-bottom:1.5rem;">';
   html += '<div class="credit-card" style="border-top:3px solid #0f3460;"><div class="credit-card-value">' + totalStudents + '</div><div class="credit-card-label">Pelajar LI</div></div>';
@@ -16921,23 +16957,24 @@ function renderLIAdmin(area) {
   // Toolbar
   html += '<div class="toolbar" style="margin-bottom:1.5rem;">';
   html += '<button class="btn btn-primary" onclick="liConfigCriteria()">⚙️ Kriteria Penilaian</button>';
-  if (liSubject) {
-    html += '<button class="btn btn-sm btn-outline" onclick="liAssignSupervisors()" style="color:#0f3460;border-color:#0f3460;">👥 Tetapkan Penyelia</button>';
-  }
   html += '</div>';
 
-  // Student table
-  html += '<div class="subject-table-wrapper">';
-  html += '<table class="subject-table"><thead><tr>';
-  html += '<th>No</th><th>Nama Pelajar</th><th>Kod</th><th>Penyelia</th><th>Status</th><th>Jumlah Markah</th><th>Gred</th><th>Tindakan</th>';
-  html += '</tr></thead><tbody>';
+  // Render table for each LI semester separately
+  liSems.forEach(sem => {
+    const semStudents = liStudents.filter(s => s.class === sem.name);
+    if (semStudents.length === 0) return;
 
-  if (liStudents.length === 0) {
-    html += '<tr><td colspan="8" style="text-align:center;padding:2rem;">Tiada pelajar Latihan Industri</td></tr>';
-  } else {
-    liStudents.forEach((student, i) => {
+    html += '<h3 style="margin:1.5rem 0 0.5rem;color:#0f3460;">' + esc(sem.name) + ' (' + semStudents.length + ' pelajar)</h3>';
+    
+    html += '<div class="subject-table-wrapper">';
+    html += '<table class="subject-table"><thead><tr>';
+    html += '<th>No</th><th>Nama Pelajar</th><th>Kod</th><th>Penyelia</th><th>Status</th><th>Jumlah</th><th>Gred</th><th>Tindakan</th>';
+    html += '</tr></thead><tbody>';
+
+    semStudents.forEach((student, i) => {
       const eval_ = evaluations.find(e => e.studentId === student.id);
-      const supervisor = eval_ ? (eval_.supervisorName || '-') : (data.fyp.assessments || []).find(a => a.studentId === student.id && a.semesterId === 'SEM004')?.supervisor || '-';
+      const fypAssessment = (data.fyp.assessments || []).find(a => a.studentId === student.id && a.semesterId === sem.id);
+      const supervisor = eval_ ? (eval_.supervisorName || '-') : (fypAssessment ? fypAssessment.supervisor : '-') || '-';
       let status = 'Belum Dinilai';
       let statusColor = '#6b7280';
       let totalMark = '-';
@@ -16975,27 +17012,25 @@ function renderLIAdmin(area) {
       html += '</td>';
       html += '</tr>';
     });
-  }
 
-  html += '</tbody></table>';
-  html += '</div>';
+    html += '</tbody></table>';
+    html += '</div>';
+  });
 
   area.innerHTML = html;
 }
 
 // Supervisor/Teacher: See only their LI students
 function renderLISupervisor(area) {
-  const liSem = data.semesters.find(s => s.id === 'SEM004' || s.name.includes('Latihan Industri'));
-  if (!liSem) {
+  const liSemIds = getLISemesterIds();
+  const liSems = data.semesters.filter(s => liSemIds.includes(s.id));
+  
+  if (liSems.length === 0) {
     area.innerHTML = '<p class="empty-state">Anda tidak mempunyai pelajar Latihan Industri.</p>';
     return;
   }
 
-  // Find students supervised by this teacher
-  const fypAssessments = (data.fyp.assessments || []).filter(a => a.semesterId === 'SEM004' && a.supervisor === currentUser.name);
-  const supervisedIds = new Set(fypAssessments.map(a => a.studentId));
-  const liStudents = data.students.filter(s => s.class === liSem.name && s.track !== 'graduated' && supervisedIds.has(s.id));
-
+  const liStudents = getLIStudents(currentUser.name);
   const evaluations = data.li.evaluations || [];
 
   let html = '';
@@ -17016,52 +17051,60 @@ function renderLISupervisor(area) {
   html += '<div class="credit-card" style="border-top:3px solid #059669;"><div class="credit-card-value" style="color:#059669;">' + evaluatedCount + '</div><div class="credit-card-label">Dinilai</div></div>';
   html += '</div>';
 
-  html += '<div class="subject-table-wrapper">';
-  html += '<table class="subject-table"><thead><tr>';
-  html += '<th>No</th><th>Nama Pelajar</th><th>Kod</th><th>Status</th><th>Jumlah</th><th>Gred</th><th>Tindakan</th>';
-  html += '</tr></thead><tbody>';
+  // Render per semester
+  liSems.forEach(sem => {
+    const semStudents = liStudents.filter(s => s.class === sem.name);
+    if (semStudents.length === 0) return;
 
-  liStudents.forEach((student, i) => {
-    const eval_ = evaluations.find(e => e.studentId === student.id);
-    let status = 'Belum Dinilai';
-    let statusColor = '#6b7280';
-    let totalMark = '-';
-    let grade = '-';
+    html += '<h3 style="margin:1.5rem 0 0.5rem;color:#0f3460;">' + esc(sem.name) + ' (' + semStudents.length + ' pelajar)</h3>';
+    
+    html += '<div class="subject-table-wrapper">';
+    html += '<table class="subject-table"><thead><tr>';
+    html += '<th>No</th><th>Nama Pelajar</th><th>Kod</th><th>Status</th><th>Jumlah</th><th>Gred</th><th>Tindakan</th>';
+    html += '</tr></thead><tbody>';
 
-    if (eval_) {
-      switch (eval_.status) {
-        case 'draft': status = 'Draft'; statusColor = '#3b82f6'; break;
-        case 'submitted': status = 'Hantar'; statusColor = '#f59e0b'; break;
-        case 'approved': status = 'Lulus'; statusColor = '#059669'; break;
-        case 'rejected': status = 'Tolak'; statusColor = '#dc2626'; break;
+    semStudents.forEach((student, i) => {
+      const eval_ = evaluations.find(e => e.studentId === student.id);
+      let status = 'Belum Dinilai';
+      let statusColor = '#6b7280';
+      let totalMark = '-';
+      let grade = '-';
+
+      if (eval_) {
+        switch (eval_.status) {
+          case 'draft': status = 'Draft'; statusColor = '#3b82f6'; break;
+          case 'submitted': status = 'Hantar'; statusColor = '#f59e0b'; break;
+          case 'approved': status = 'Lulus'; statusColor = '#059669'; break;
+          case 'rejected': status = 'Tolak'; statusColor = '#dc2626'; break;
+        }
+        totalMark = eval_.totalMark !== undefined ? eval_.totalMark.toFixed(1) : '-';
+        grade = eval_.grade || '-';
       }
-      totalMark = eval_.totalMark !== undefined ? eval_.totalMark.toFixed(1) : '-';
-      grade = eval_.grade || '-';
-    }
 
-    html += '<tr>';
-    html += '<td>' + (i + 1) + '</td>';
-    html += '<td>' + esc(student.name) + '</td>';
-    html += '<td>' + esc(student.kod || '') + '</td>';
-    html += '<td><span style="color:' + statusColor + ';font-weight:600;">' + status + '</span></td>';
-    html += '<td>' + totalMark + '</td>';
-    html += '<td>' + grade + '</td>';
-    html += '<td>';
-    if (eval_) {
-      html += '<button class="btn btn-sm btn-outline" onclick="liViewEval(\'' + student.id + '\')" style="color:#0f3460;border-color:#0f3460;">Lihat</button> ';
-      if (eval_.status !== 'approved') {
-        html += '<button class="btn btn-sm btn-warning" onclick="liEditEval(\'' + student.id + '\')">Edit</button> ';
-        html += '<button class="btn btn-sm btn-success" onclick="liSubmitEval(\'' + student.id + '\')">Hantar</button>';
+      html += '<tr>';
+      html += '<td>' + (i + 1) + '</td>';
+      html += '<td>' + esc(student.name) + '</td>';
+      html += '<td>' + esc(student.kod || '') + '</td>';
+      html += '<td><span style="color:' + statusColor + ';font-weight:600;">' + status + '</span></td>';
+      html += '<td>' + totalMark + '</td>';
+      html += '<td>' + grade + '</td>';
+      html += '<td>';
+      if (eval_) {
+        html += '<button class="btn btn-sm btn-outline" onclick="liViewEval(\'' + student.id + '\')" style="color:#0f3460;border-color:#0f3460;">Lihat</button> ';
+        if (eval_.status !== 'approved') {
+          html += '<button class="btn btn-sm btn-warning" onclick="liEditEval(\'' + student.id + '\')">Edit</button> ';
+          html += '<button class="btn btn-sm btn-success" onclick="liSubmitEval(\'' + student.id + '\')">Hantar</button>';
+        }
+      } else {
+        html += '<button class="btn btn-sm btn-primary" onclick="liCreateEval(\'' + student.id + '\')">+ Nilai</button>';
       }
-    } else {
-      html += '<button class="btn btn-sm btn-primary" onclick="liCreateEval(\'' + student.id + '\')">+ Nilai</button>';
-    }
-    html += '</td>';
-    html += '</tr>';
+      html += '</td>';
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    html += '</div>';
   });
-
-  html += '</tbody></table>';
-  html += '</div>';
 
   area.innerHTML = html;
 }
@@ -17130,7 +17173,8 @@ function liOpenEvalModal(studentId, existingEval) {
   if (!student) return;
   const criteria = data.li.criteria || [];
 
-  const fypAssessment = (data.fyp.assessments || []).find(a => a.studentId === studentId && a.semesterId === 'SEM004');
+  const liSemIds = getLISemesterIds();
+  const fypAssessment = (data.fyp.assessments || []).find(a => a.studentId === studentId && liSemIds.includes(a.semesterId));
   const supervisor = existingEval ? existingEval.supervisorName : (fypAssessment ? fypAssessment.supervisor : currentUser.name);
 
   let formHtml = '<div class="form-group"><label>Nama Pelajar</label><input type="text" value="' + esc(student.name) + '" readonly></div>';
@@ -17169,12 +17213,16 @@ function liOpenEvalModal(studentId, existingEval) {
       existingEval.comments = document.getElementById('liComments').value;
       existingEval.updatedAt = new Date().toISOString();
     } else {
+      // Auto-detect semester from student class
+      const liSemIds = getLISemesterIds();
+      const studentSem = data.semesters.find(s => liSemIds.includes(s.id) && student.class === s.name);
+      const semId = studentSem ? studentSem.id : (student.class.includes('Latihan Industri') ? 'SEM004' : 'SEM007');
       data.li.evaluations.push({
         id: generateId('LIEVAL'),
         studentId: studentId,
         studentName: student.name,
         supervisorName: supervisorName,
-        semesterId: 'SEM004',
+        semesterId: semId,
         scores: scores,
         totalMark: totalMark,
         grade: grade,
