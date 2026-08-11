@@ -25,6 +25,7 @@ const SHEETS = {
   attendanceRecords: 'attendance_records',
   attendanceLogs: 'attendance_logs',
   liEvaluations: 'li_evaluations',
+  liEvaluators: 'li_evaluators',
   liCriteria: 'li_criteria',
   liAuditLog: 'li_auditlog',
   metadata: 'metadata'
@@ -57,6 +58,7 @@ var COLUMNS = {
   attendanceRecords: ['id', 'sessionId', 'studentId', 'studentName', 'clockIn', 'ipAddress', 'browser', 'status', 'remarks', 'excuse', 'excuseFile', 'excuseAt', 'approvedBy', 'approvedAt', 'createdAt', 'updatedAt'],
   attendanceLogs: ['id', 'sessionId', 'studentId', 'studentName', 'oldStatus', 'newStatus', 'editedBy', 'reason', 'editedAt'],
   liEvaluations: ['id', 'studentId', 'studentName', 'supervisorName', 'semesterId', 'scores', 'totalMark', 'grade', 'comments', 'status', 'approvedBy', 'approvedAt', 'createdAt', 'updatedAt'],
+  liEvaluators: ['studentId', 'evaluator', 'note'],
   liCriteria: ['id', 'name', 'weight', 'maxMark'],
   liAuditLog: ['id', 'action', 'studentId', 'user', 'timestamp'],
   metadata: ['key', 'value']
@@ -174,6 +176,13 @@ function loadAllData() {
   data.li.evaluations = loadSheet(SHEETS.liEvaluations, COLUMNS.liEvaluations);
   data.li.criteria = loadSheet(SHEETS.liCriteria, COLUMNS.liCriteria);
   data.li.auditLog = loadSheet(SHEETS.liAuditLog, COLUMNS.liAuditLog);
+  // Load evaluators as a key-value map
+  var evaluatorRows = loadSheet(SHEETS.liEvaluators, COLUMNS.liEvaluators);
+  data.li.evaluators = {};
+  evaluatorRows.forEach(function(r) {
+    if (r.studentId) data.li.evaluators[r.studentId] = r.evaluator || '';
+    if (r.studentId && r.note) data.li.evaluators[r.studentId + '_note'] = r.note;
+  });
   data.students.forEach(function(s) { s.subjects = parseJSON(s.subjects, []); });
   data.marks.forEach(function(m) { m.scores = parseJSON(m.scores, {}); });
   data.pdpevaluations.forEach(function(ev) { ev.criteria = parseJSON(ev.criteria, {}); });
@@ -223,6 +232,19 @@ function saveAllData(data) {
   saveSheet(SHEETS.liEvaluations, COLUMNS.liEvaluations, li.evaluations || []);
   saveSheet(SHEETS.liCriteria, COLUMNS.liCriteria, li.criteria || []);
   saveSheet(SHEETS.liAuditLog, COLUMNS.liAuditLog, li.auditLog || []);
+  // Save evaluators as rows: { studentId, evaluator, note }
+  var evaluatorRows = [];
+  if (li.evaluators) {
+    Object.keys(li.evaluators).forEach(function(sid) {
+      if (sid.endsWith('_note')) return;
+      evaluatorRows.push({
+        studentId: sid,
+        evaluator: li.evaluators[sid] || '',
+        note: li.evaluators[sid + '_note'] || ''
+      });
+    });
+  }
+  saveSheet(SHEETS.liEvaluators, COLUMNS.liEvaluators, evaluatorRows);
   saveMetadata('updatedAt', new Date().toISOString());
 }
 

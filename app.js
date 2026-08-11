@@ -1501,6 +1501,18 @@ async function loadFromGoogleSheets() {
           data.fyp.assessments = backupFYP;
         }
       }
+      // Restore LI evaluators from cm_fyp_backup (Google Sheets doesn't have li_evaluators sheet yet)
+      if (cmBackup && cmBackup.li && cmBackup.li.evaluators) {
+        const backupEval = cmBackup.li.evaluators;
+        const remoteEval = (data.li || {}).evaluators || {};
+        const backupKeys = Object.keys(backupEval).filter(k => !k.endsWith('_note'));
+        const remoteKeys = Object.keys(remoteEval).filter(k => !k.endsWith('_note'));
+        if (backupKeys.length > remoteKeys.length) {
+          console.log('🔧 Restoring LI evaluators from localStorage (' + backupKeys.length + ' > ' + remoteKeys.length + ')');
+          if (!data.li) data.li = { evaluations: [], evaluators: {}, criteria: [], auditLog: [] };
+          data.li.evaluators = backupEval;
+        }
+      }
     } catch(e) { console.warn('cm_fyp restore failed:', e); }
     
     autoAssignPengajar();
@@ -1861,6 +1873,7 @@ async function saveData() {
     localStorage.setItem('cm_fyp_backup', JSON.stringify({ 
       fyp: data.fyp, 
       carrymark: data.carrymark,
+      li: data.li,
       savedAt: new Date().toISOString()
     }));
   } catch(le) { console.warn('localStorage save failed:', le); }
@@ -6276,6 +6289,17 @@ function startAutoRefresh() {
                 const b = bf[i] || {};
                 FYPF.forEach(f => { if (!r[f] && b[f]) r[f] = b[f]; });
               });
+            }
+          }
+          // Restore LI evaluators from cm_fyp_backup
+          if (cmBackup && cmBackup.li && cmBackup.li.evaluators) {
+            const backupEval = cmBackup.li.evaluators;
+            const backupKeys = Object.keys(backupEval).filter(k => !k.endsWith('_note'));
+            const remoteEval = (data.li || {}).evaluators || {};
+            const remoteKeys = Object.keys(remoteEval).filter(k => !k.endsWith('_note'));
+            if (backupKeys.length > remoteKeys.length) {
+              if (!data.li) data.li = { evaluations: [], evaluators: {}, criteria: [], auditLog: [] };
+              data.li.evaluators = backupEval;
             }
           }
         } catch(e) {}
@@ -10840,8 +10864,8 @@ function renderFYPAdmin(area) {
   
   // Get assessments
   const assessments = data.fyp.assessments || [];
-  const fyp1Assessments = assessments.filter(a => a.fypType === 'FYP1');
-  const fyp2Assessments = assessments.filter(a => a.fypType === 'FYP2');
+  const fyp1Assessments = assessments.filter(a => (a.fypType || a.assessmentType) === 'FYP1');
+  const fyp2Assessments = assessments.filter(a => (a.fypType || a.assessmentType) === 'FYP2');
   
   const draftCount = assessments.filter(a => a.status === 'draft').length;
   const submittedCount = assessments.filter(a => a.status === 'submitted').length;
@@ -10887,7 +10911,7 @@ function renderFYPAdmin(area) {
     fyp1Assessments.forEach((a, i) => {
       const student = data.students.find(s => s.id === a.studentId);
       const statusBadge = getFYPStatusBadge(a.status);
-      const totalMarks = a.totalMarks || '-';
+      const totalMarks = (a.totalMarks !== undefined ? a.totalMarks : a.totalScore) || '-';
       const grade = a.grade || '-';
       
       html += '<tr>';
@@ -10934,7 +10958,7 @@ function renderFYPAdmin(area) {
     fyp2Assessments.forEach((a, i) => {
       const student = data.students.find(s => s.id === a.studentId);
       const statusBadge = getFYPStatusBadge(a.status);
-      const totalMarks = a.totalMarks || '-';
+      const totalMarks = (a.totalMarks !== undefined ? a.totalMarks : a.totalScore) || '-';
       const grade = a.grade || '-';
       
       html += '<tr>';
@@ -11149,9 +11173,18 @@ function renderFYPSupervisor(area) {
   
   // My students as supervisor (only Sem 4 & 5)
   const myAssessments = (data.fyp.assessments || []).filter(a => {
-    if (a.supervisor !== teacherName) return false;
-    // Teacher hanya nampak Sem 4 & 5 - guna semesterName
+    // Check both supervisor and supervisorName (compatibility)
+    const sup = a.supervisor || a.supervisorName || '';
+    if (sup !== teacherName) return false;
+    // Teacher hanya nampak Sem 4 & 5 - guna semesterName or semesterId
     const semName = a.semesterName || '';
+    const semId = a.semesterId || '';
+    // Fallback: find semester name from ID
+    if (!semName && semId) {
+      const sem = data.semesters.find(s => s.id === semId);
+      if (sem) { a.semesterName = sem.name; return sem.name.startsWith(fypSem4) || sem.name.startsWith(fypSem5); }
+      return false;
+    }
     return semName.startsWith(fypSem4) || semName.startsWith(fypSem5);
   });
   
@@ -11214,7 +11247,7 @@ function renderFYPSupervisor(area) {
         t += '<td>' + (a.groupName || '-') + '</td>';
         t += '<td>' + (a.projectTitle || '-') + '</td>';
         t += '<td>' + statusBadge + '</td>';
-        t += '<td>' + (a.totalMarks || '-') + ' (' + (a.grade || '-') + ')</td>';
+        t += '<td>' + ((a.totalMarks !== undefined ? a.totalMarks : a.totalScore) || '-') + ' (' + (a.grade || '-') + ')</td>';
         t += '<td>';
         if (a.status === 'draft' || a.status === 'rejected') {
           t += '<button class="btn btn-sm btn-primary" onclick="fypFillAssessment(\'' + a.id + '\')">Isi Markah</button> ';
@@ -11268,7 +11301,7 @@ function renderFYPSupervisor(area) {
         html += '<td>' + (a.semesterName || '-') + '</td>';
         html += '<td>' + (a.projectTitle || '-') + '</td>';
         html += '<td>' + (a.supervisor || '-') + '</td>';
-        html += '<td>' + (a.totalMarks || '-') + ' (' + (a.grade || '-') + ')</td>';
+        html += '<td>' + ((a.totalMarks !== undefined ? a.totalMarks : a.totalScore) || '-') + ' (' + (a.grade || '-') + ')</td>';
         html += '<td>';
         html += '<button class="btn btn-sm btn-primary" onclick="fypViewAssessment(\'' + a.id + '\')">Semak & Luluskan</button> ';
         html += '</td>';
@@ -13605,7 +13638,7 @@ function exportFYPToWord(supervisorName, exportAll) {
         <td style="padding:6px;border:1px solid #dee2e6;">${a.groupName || '-'}</td>
         <td style="padding:6px;border:1px solid #dee2e6;">${a.projectTitle || '-'}</td>
         ${scoreRows}
-        <td style="padding:6px;border:1px solid #dee2e6;text-align:center;font-weight:bold;">${a.totalMarks || '-'}</td>
+        <td style="padding:6px;border:1px solid #dee2e6;text-align:center;font-weight:bold;">${(a.totalMarks !== undefined ? a.totalMarks : a.totalScore) || '-'}</td>
         <td style="padding:6px;border:1px solid #dee2e6;text-align:center;">${a.percentage || '-'}%</td>
         <td style="padding:6px;border:1px solid #dee2e6;text-align:center;">${gradeInfo ? gradeInfo.grade : '-'}</td>
         <td style="padding:6px;border:1px solid #dee2e6;">${a.supervisorComments || '-'}</td>
