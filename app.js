@@ -1155,11 +1155,51 @@ function optimizeData(data) {
       submittedAt: s.submittedAt || ''
     })),
     fyp: {
-      assessments: (data.fyp && data.fyp.assessments) ? data.fyp.assessments : [],
+      assessments: (data.fyp && data.fyp.assessments) ? data.fyp.assessments.map(a => {
+        const mapped = {
+          id: a.id,
+          studentId: a.studentId,
+          semesterId: a.semesterId || '',
+          semesterName: a.semesterName || '',
+          supervisor: a.supervisor || a.supervisorName || '',
+          supervisorName: a.supervisor || a.supervisorName || '',
+          fypType: a.fypType || a.assessmentType || '',
+          assessmentType: a.fypType || a.assessmentType || '',
+          projectTitle: a.projectTitle || '',
+          groupName: a.groupName || '',
+          scores: a.scores || {},
+          criteria: a.scores ? JSON.stringify(a.scores) : (a.criteria || ''),
+          totalMarks: a.totalMarks !== undefined ? a.totalMarks : (a.totalScore || 0),
+          totalScore: a.totalMarks !== undefined ? a.totalMarks : (a.totalScore || 0),
+          percentage: a.percentage || 0,
+          grade: a.grade || '',
+          result: a.result || a.comments || '',
+          comments: a.result || a.comments || '',
+          status: a.status || 'draft',
+          approvalStatus: a.approvalStatus || '',
+          approvalComments: a.approvalComments || '',
+          approvedAt: a.approvedAt || null,
+          supervisorComments: a.supervisorComments || '',
+          submittedAt: a.submittedAt || null,
+          releasedAt: a.releasedAt || null,
+          createdAt: a.createdAt || ''
+        };
+        return mapped;
+      }) : [],
       auditLog: (data.fyp && data.fyp.auditLog) ? data.fyp.auditLog : []
     },
     carrymark: {
-      templates: (data.carrymark && data.carrymark.templates) ? data.carrymark.templates : [],
+      templates: (data.carrymark && data.carrymark.templates) ? data.carrymark.templates.map(t => {
+        const mapped = { ...t };
+        // Save both field names for compatibility
+        if (t.components && !t.assessments) mapped.assessments = JSON.stringify(t.components);
+        if (!t.components && t.assessments) {
+          try { mapped.components = typeof t.assessments === 'string' ? JSON.parse(t.assessments) : t.assessments; } catch(e) { mapped.components = []; }
+        }
+        if (t.semester && !t.semesterId) mapped.semesterId = t.semester;
+        if (!t.semester && t.semesterId) mapped.semester = t.semesterId;
+        return mapped;
+      }) : [],
       marks: (data.carrymark && data.carrymark.marks) ? data.carrymark.marks : [],
       gradeConfig: (data.carrymark && data.carrymark.gradeConfig) ? data.carrymark.gradeConfig : [],
       auditLog: (data.carrymark && data.carrymark.auditLog) ? data.carrymark.auditLog : []
@@ -1336,6 +1376,39 @@ async function loadFromGoogleSheets() {
     console.log('✅ Data loaded from Google Sheets. Students:', data.students.length, 'Marks:', data.marks.length);
     
     fixSemesterNames();
+    
+    // Normalize FYP assessments: map old Code.gs field names to new
+    if (data.fyp && data.fyp.assessments) {
+      data.fyp.assessments.forEach(a => {
+        // Old Code.gs uses: supervisorName, assessmentType, criteria, totalScore, comments
+        // New format uses:    supervisor,    fypType,         scores,   totalMarks,  result
+        if (!a.supervisor && a.supervisorName) a.supervisor = a.supervisorName;
+        if (!a.fypType && a.assessmentType) a.fypType = a.assessmentType;
+        if (!a.totalMarks && a.totalScore !== undefined) a.totalMarks = a.totalScore;
+        if (!a.scores && a.criteria) {
+          try { a.scores = typeof a.criteria === 'string' ? JSON.parse(a.criteria) : a.criteria; } catch(e) { a.scores = {}; }
+        }
+        if (!a.scores) a.scores = {};
+        if (!a.status) a.status = 'draft';
+        if (!a.result && a.comments) a.result = a.comments;
+        if (!a.semesterName) {
+          const sem = data.semesters.find(s => s.id === a.semesterId);
+          if (sem) a.semesterName = sem.name;
+        }
+      });
+    }
+    
+    // Normalize carrymark templates: map old field names to new
+    if (data.carrymark && data.carrymark.templates) {
+      data.carrymark.templates.forEach(t => {
+        if (!t.components && t.assessments) {
+          try { t.components = typeof t.assessments === 'string' ? JSON.parse(t.assessments) : t.assessments; } catch(e) { t.components = []; }
+        }
+        if (!t.components) t.components = [];
+        if (!t.semester && t.semesterId) t.semester = t.semesterId;
+        if (!t.status) t.status = 'draft';
+      });
+    }
     
     // Restore carrymark & FYP from localStorage backup if Google Sheets stripped fields
     try {
@@ -11966,6 +12039,38 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
       });
       
       fixSemesterNames();
+      
+      // Normalize FYP assessments: map old Code.gs field names to new
+      if (data.fyp && data.fyp.assessments) {
+        data.fyp.assessments.forEach(a => {
+          if (!a.supervisor && a.supervisorName) a.supervisor = a.supervisorName;
+          if (!a.fypType && a.assessmentType) a.fypType = a.assessmentType;
+          if (!a.totalMarks && a.totalScore !== undefined) a.totalMarks = a.totalScore;
+          if (!a.scores && a.criteria) {
+            try { a.scores = typeof a.criteria === 'string' ? JSON.parse(a.criteria) : a.criteria; } catch(e) { a.scores = {}; }
+          }
+          if (!a.scores) a.scores = {};
+          if (!a.status) a.status = 'draft';
+          if (!a.result && a.comments) a.result = a.comments;
+          if (!a.semesterName) {
+            const sem = data.semesters.find(s => s.id === a.semesterId);
+            if (sem) a.semesterName = sem.name;
+          }
+        });
+      }
+      
+      // Normalize carrymark templates
+      if (data.carrymark && data.carrymark.templates) {
+        data.carrymark.templates.forEach(t => {
+          if (!t.components && t.assessments) {
+            try { t.components = typeof t.assessments === 'string' ? JSON.parse(t.assessments) : t.assessments; } catch(e) { t.components = []; }
+          }
+          if (!t.components) t.components = [];
+          if (!t.semester && t.semesterId) t.semester = t.semesterId;
+          if (!t.status) t.status = 'draft';
+        });
+      }
+      
       autoAssignPengajar();
       lastDataSnapshot = JSON.stringify(data);
       lastRemoteSnapshot = JSON.stringify(data);
