@@ -288,12 +288,12 @@ function applyRoleRestrictions() {
   }
 
   if (currentRole === 'admin') {
-    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'graduation', 'fyp', 'carrymark', 'pdpeval', 'exampaper', 'attendance'];
+    const allTabs = ['dashboard', 'students', 'subjects', 'teachers', 'semesters', 'marks', 'results', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'graduation', 'fyp', 'carrymark', 'pdpeval', 'exampaper', 'attendance', 'li'];
     allTabs.forEach(t => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (t === 'dashboard' ? ' active' : '');
       btn.dataset.tab = t;
-      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark', pdpeval: 'Penilaian PDP', exampaper: 'Lantikan Kertas Soalan', attendance: 'Kehadiran' };
+      const labels = { dashboard: 'Dashboard', students: 'Pelajar', subjects: 'Subjek', teachers: 'Pengajar', semesters: 'Semester', marks: 'Markah', results: 'Keputusan', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', graduation: 'Graduasi', fyp: 'FYP', carrymark: 'Carrymark', pdpeval: 'Penilaian PDP', exampaper: 'Lantikan Kertas Soalan', attendance: 'Kehadiran', li: 'Latihan Industri' };
       btn.textContent = labels[t];
       nav.appendChild(btn);
     });
@@ -308,12 +308,12 @@ function applyRoleRestrictions() {
     document.getElementById('deleteAllTimetableBtn').style.display = '';
     document.getElementById('deleteAllMemosBtn').style.display = '';
   } else if (currentRole === 'teacher') {
-    const t = ['students', 'marks', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'fyp', 'carrymark', 'pdpeval', 'attendance'];
+    const t = ['students', 'marks', 'timetable', 'memos', 'exam', 'messages', 'assignments', 'fyp', 'carrymark', 'pdpeval', 'attendance', 'li'];
     t.forEach((tab, i) => {
       const btn = document.createElement('button');
       btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
       btn.dataset.tab = tab;
-      const labels = { students: 'Pelajar', marks: 'Markah', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', fyp: 'FYP', carrymark: 'Carrymark', pdpeval: 'Penilaian PDP', attendance: 'Kehadiran' };
+      const labels = { students: 'Pelajar', marks: 'Markah', timetable: 'Jadual', memos: 'Memo', exam: 'Peperiksaan', messages: 'Mesej', assignments: 'Tugasan', fyp: 'FYP', carrymark: 'Carrymark', pdpeval: 'Penilaian PDP', attendance: 'Kehadiran', li: 'Latihan Industri' };
       btn.textContent = labels[tab];
       nav.appendChild(btn);
     });
@@ -382,6 +382,7 @@ function applyRoleRestrictions() {
       if (this.dataset.tab === 'pdpeval') renderPDPEval();
       if (this.dataset.tab === 'exampaper') renderExamPaperAppointment();
       if (this.dataset.tab === 'attendance') renderAttendance();
+      if (this.dataset.tab === 'li') renderLI();
     });
   });
 
@@ -946,6 +947,18 @@ let data = {
     sessions: [],
     records: [],
     logs: []
+  },
+  li: {
+    evaluations: [],
+    criteria: [
+      { id: 'LI-C1', name: 'Disiplin & Etika Kerja', weight: 20, maxMark: 100 },
+      { id: 'LI-C2', name: 'Kemahiran Teknikal', weight: 20, maxMark: 100 },
+      { id: 'LI-C3', name: 'Kualiti Kerja', weight: 20, maxMark: 100 },
+      { id: 'LI-C4', name: 'Kerjasama & Komunikasi', weight: 15, maxMark: 100 },
+      { id: 'LI-C5', name: 'Inisiatif & Tanggungjawab', weight: 15, maxMark: 100 },
+      { id: 'LI-C6', name: 'Logbook & Laporan', weight: 10, maxMark: 100 }
+    ],
+    auditLog: []
   }
 };
 
@@ -1205,6 +1218,26 @@ function optimizeData(data) {
         updatedAt: r.updatedAt || ''
       })) : [],
       logs: (data.attendance && data.attendance.logs) ? data.attendance.logs : []
+    },
+    li: {
+      evaluations: (data.li && data.li.evaluations) ? data.li.evaluations.map(e => ({
+        id: e.id,
+        studentId: e.studentId,
+        studentName: e.studentName || '',
+        supervisorName: e.supervisorName || '',
+        semesterId: e.semesterId || '',
+        scores: e.scores || {},
+        totalMark: e.totalMark || 0,
+        grade: e.grade || '',
+        comments: e.comments || '',
+        status: e.status || 'draft',
+        approvedBy: e.approvedBy || '',
+        approvedAt: e.approvedAt || '',
+        createdAt: e.createdAt || '',
+        updatedAt: e.updatedAt || ''
+      })) : [],
+      criteria: (data.li && data.li.criteria) ? data.li.criteria : [],
+      auditLog: (data.li && data.li.auditLog) ? data.li.auditLog : []
     }
   };
   return optimized;
@@ -1250,6 +1283,17 @@ async function loadFromGoogleSheets() {
     data.pdpevaluations = remote.pdpevaluations || [];
     data.examPaperAppointment = remote.examPaperAppointment || { campus: '', teori: {}, amali: {} };
     data.attendance = remote.attendance || { sessions: [], records: [], logs: [] };
+    data.li = remote.li || { evaluations: [], criteria: data.li ? data.li.criteria : [], auditLog: [] };
+    if (!data.li.criteria || data.li.criteria.length === 0) {
+      data.li.criteria = [
+        { id: 'LI-C1', name: 'Disiplin & Etika Kerja', weight: 20, maxMark: 100 },
+        { id: 'LI-C2', name: 'Kemahiran Teknikal', weight: 20, maxMark: 100 },
+        { id: 'LI-C3', name: 'Kualiti Kerja', weight: 20, maxMark: 100 },
+        { id: 'LI-C4', name: 'Kerjasama & Komunikasi', weight: 15, maxMark: 100 },
+        { id: 'LI-C5', name: 'Inisiatif & Tanggungjawab', weight: 15, maxMark: 100 },
+        { id: 'LI-C6', name: 'Logbook & Laporan', weight: 10, maxMark: 100 }
+      ];
+    }
     
     // Normalize timetable time values (Google Sheets converts "08:00" to Date objects)
     if (data.timetable && data.timetable.length > 0) {
@@ -1492,6 +1536,9 @@ function restoreFromBackup(backupData) {
   }
   if (backupData.attendance) {
     data.attendance = backupData.attendance;
+  }
+  if (backupData.li) {
+    data.li = backupData.li;
   }
   
   console.log('✅ Restore complete. Students:', data.students.length, 'Marks:', data.marks.length);
@@ -6002,6 +6049,7 @@ function startAutoRefresh() {
           else if (tabId === 'tab-timetable') renderTimetable();
           else if (tabId === 'tab-marks') renderMarks();
           else if (tabId === 'tab-attendance') renderAttendance();
+          else if (tabId === 'tab-li') renderLI();
         }
         
         console.log('🔄 Auto-refresh: data updated from Google Sheets');
@@ -11877,6 +11925,7 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
       data.pdpevaluations = backup.pdpevaluations || [];
       data.examPaperAppointment = backup.examPaperAppointment || { campus: '', teori: {}, amali: {} };
       data.attendance = backup.attendance || { sessions: [], records: [], logs: [] };
+      data.li = backup.li || { evaluations: [], criteria: data.li.criteria, auditLog: [] };
       
       // Restore carrymark/FYP from cm_fyp_backup if available (has full fields)
       try {
@@ -16820,4 +16869,481 @@ function adminReopenSession(sessionId) {
   renderAttendanceAdmin(document.getElementById('attendanceArea'));
   showToast('Sesi dibuka semula oleh admin.', 'success');
 }
+
+// ============================================
+// LATIHAN INDUSTRI (LI) MODULE
+// ============================================
+
+function renderLI() {
+  const area = document.getElementById('liArea');
+  if (!area) return;
+
+  if (!data.li) data.li = { evaluations: [], criteria: [], auditLog: [] };
+
+  if (currentRole === 'admin') {
+    renderLIAdmin(area);
+  } else if (currentRole === 'teacher') {
+    renderLISupervisor(area);
+  } else {
+    renderLIStudent(area);
+  }
+}
+
+// Admin: Full dashboard for LI evaluations
+function renderLIAdmin(area) {
+  const liSem = data.semesters.find(s => s.id === 'SEM004' || s.name.includes('Latihan Industri'));
+  if (!liSem) {
+    area.innerHTML = '<p class="empty-state">Semester Latihan Industri tidak dijumpai.</p>';
+    return;
+  }
+
+  const liStudents = data.students.filter(s => s.class === liSem.name && s.track !== 'graduated');
+  const evaluations = data.li.evaluations || [];
+  const criteria = data.li.criteria || [];
+  const liSubject = data.subjects.find(s => s.semester === 'SEM004');
+
+  let html = '';
+
+  // Stats
+  const totalStudents = liStudents.length;
+  const evaluatedCount = liStudents.filter(s => evaluations.some(e => e.studentId === s.id)).length;
+  const pendingCount = totalStudents - evaluatedCount;
+  const approvedCount = evaluations.filter(e => e.status === 'approved').length;
+  const draftCount = evaluations.filter(e => e.status === 'draft').length;
+
+  html += '<div class="credit-summary" style="margin-bottom:1.5rem;">';
+  html += '<div class="credit-card" style="border-top:3px solid #0f3460;"><div class="credit-card-value">' + totalStudents + '</div><div class="credit-card-label">Pelajar LI</div></div>';
+  html += '<div class="credit-card" style="border-top:3px solid #3b82f6;"><div class="credit-card-value" style="color:#3b82f6;">' + draftCount + '</div><div class="credit-card-label">Draft</div></div>';
+  html += '<div class="credit-card" style="border-top:3px solid #f59e0b;"><div class="credit-card-value" style="color:#f59e0b;">' + pendingCount + '</div><div class="credit-card-label">Belum Dinilai</div></div>';
+  html += '<div class="credit-card" style="border-top:3px solid #059669;"><div class="credit-card-value" style="color:#059669;">' + approvedCount + '</div><div class="credit-card-label">Lulus</div></div>';
+  html += '</div>';
+
+  // Toolbar
+  html += '<div class="toolbar" style="margin-bottom:1.5rem;">';
+  html += '<button class="btn btn-primary" onclick="liConfigCriteria()">⚙️ Kriteria Penilaian</button>';
+  if (liSubject) {
+    html += '<button class="btn btn-sm btn-outline" onclick="liAssignSupervisors()" style="color:#0f3460;border-color:#0f3460;">👥 Tetapkan Penyelia</button>';
+  }
+  html += '</div>';
+
+  // Student table
+  html += '<div class="subject-table-wrapper">';
+  html += '<table class="subject-table"><thead><tr>';
+  html += '<th>No</th><th>Nama Pelajar</th><th>Kod</th><th>Penyelia</th><th>Status</th><th>Jumlah Markah</th><th>Gred</th><th>Tindakan</th>';
+  html += '</tr></thead><tbody>';
+
+  if (liStudents.length === 0) {
+    html += '<tr><td colspan="8" style="text-align:center;padding:2rem;">Tiada pelajar Latihan Industri</td></tr>';
+  } else {
+    liStudents.forEach((student, i) => {
+      const eval_ = evaluations.find(e => e.studentId === student.id);
+      const supervisor = eval_ ? (eval_.supervisorName || '-') : (data.fyp.assessments || []).find(a => a.studentId === student.id && a.semesterId === 'SEM004')?.supervisor || '-';
+      let status = 'Belum Dinilai';
+      let statusColor = '#6b7280';
+      let totalMark = '-';
+      let grade = '-';
+
+      if (eval_) {
+        switch (eval_.status) {
+          case 'draft': status = 'Draft'; statusColor = '#3b82f6'; break;
+          case 'submitted': status = 'Hantar'; statusColor = '#f59e0b'; break;
+          case 'approved': status = 'Lulus'; statusColor = '#059669'; break;
+          case 'rejected': status = 'Tolak'; statusColor = '#dc2626'; break;
+        }
+        totalMark = eval_.totalMark !== undefined ? eval_.totalMark.toFixed(1) : '-';
+        grade = eval_.grade || '-';
+      }
+
+      html += '<tr>';
+      html += '<td>' + (i + 1) + '</td>';
+      html += '<td>' + esc(student.name) + '</td>';
+      html += '<td>' + esc(student.kod || '') + '</td>';
+      html += '<td>' + esc(supervisor) + '</td>';
+      html += '<td><span style="color:' + statusColor + ';font-weight:600;">' + status + '</span></td>';
+      html += '<td>' + totalMark + '</td>';
+      html += '<td>' + grade + '</td>';
+      html += '<td>';
+      if (eval_) {
+        html += '<button class="btn btn-sm btn-outline" onclick="liViewEval(\'' + student.id + '\')" style="color:#0f3460;border-color:#0f3460;">Lihat</button> ';
+        html += '<button class="btn btn-sm btn-warning" onclick="liEditEval(\'' + student.id + '\')">Edit</button> ';
+        if (eval_.status === 'submitted') {
+          html += '<button class="btn btn-sm btn-success" onclick="liApproveEval(\'' + student.id + '\')">Lulus</button> ';
+        }
+      } else {
+        html += '<button class="btn btn-sm btn-primary" onclick="liCreateEval(\'' + student.id + '\')">+ Nilai</button>';
+      }
+      html += '</td>';
+      html += '</tr>';
+    });
+  }
+
+  html += '</tbody></table>';
+  html += '</div>';
+
+  area.innerHTML = html;
+}
+
+// Supervisor/Teacher: See only their LI students
+function renderLISupervisor(area) {
+  const liSem = data.semesters.find(s => s.id === 'SEM004' || s.name.includes('Latihan Industri'));
+  if (!liSem) {
+    area.innerHTML = '<p class="empty-state">Anda tidak mempunyai pelajar Latihan Industri.</p>';
+    return;
+  }
+
+  // Find students supervised by this teacher
+  const fypAssessments = (data.fyp.assessments || []).filter(a => a.semesterId === 'SEM004' && a.supervisor === currentUser.name);
+  const supervisedIds = new Set(fypAssessments.map(a => a.studentId));
+  const liStudents = data.students.filter(s => s.class === liSem.name && s.track !== 'graduated' && supervisedIds.has(s.id));
+
+  const evaluations = data.li.evaluations || [];
+
+  let html = '';
+
+  if (liStudents.length === 0) {
+    area.innerHTML = '<p class="empty-state">Anda tidak mempunyai pelajar Latihan Industri untuk diselia.</p>';
+    return;
+  }
+
+  // Stats
+  const totalStudents = liStudents.length;
+  const evaluatedCount = liStudents.filter(s => evaluations.some(e => e.studentId === s.id)).length;
+  const pendingCount = totalStudents - evaluatedCount;
+
+  html += '<div class="credit-summary" style="margin-bottom:1.5rem;">';
+  html += '<div class="credit-card" style="border-top:3px solid #0f3460;"><div class="credit-card-value">' + totalStudents + '</div><div class="credit-card-label">Pelajar Diselia</div></div>';
+  html += '<div class="credit-card" style="border-top:3px solid #f59e0b;"><div class="credit-card-value" style="color:#f59e0b;">' + pendingCount + '</div><div class="credit-card-label">Belum Dinilai</div></div>';
+  html += '<div class="credit-card" style="border-top:3px solid #059669;"><div class="credit-card-value" style="color:#059669;">' + evaluatedCount + '</div><div class="credit-card-label">Dinilai</div></div>';
+  html += '</div>';
+
+  html += '<div class="subject-table-wrapper">';
+  html += '<table class="subject-table"><thead><tr>';
+  html += '<th>No</th><th>Nama Pelajar</th><th>Kod</th><th>Status</th><th>Jumlah</th><th>Gred</th><th>Tindakan</th>';
+  html += '</tr></thead><tbody>';
+
+  liStudents.forEach((student, i) => {
+    const eval_ = evaluations.find(e => e.studentId === student.id);
+    let status = 'Belum Dinilai';
+    let statusColor = '#6b7280';
+    let totalMark = '-';
+    let grade = '-';
+
+    if (eval_) {
+      switch (eval_.status) {
+        case 'draft': status = 'Draft'; statusColor = '#3b82f6'; break;
+        case 'submitted': status = 'Hantar'; statusColor = '#f59e0b'; break;
+        case 'approved': status = 'Lulus'; statusColor = '#059669'; break;
+        case 'rejected': status = 'Tolak'; statusColor = '#dc2626'; break;
+      }
+      totalMark = eval_.totalMark !== undefined ? eval_.totalMark.toFixed(1) : '-';
+      grade = eval_.grade || '-';
+    }
+
+    html += '<tr>';
+    html += '<td>' + (i + 1) + '</td>';
+    html += '<td>' + esc(student.name) + '</td>';
+    html += '<td>' + esc(student.kod || '') + '</td>';
+    html += '<td><span style="color:' + statusColor + ';font-weight:600;">' + status + '</span></td>';
+    html += '<td>' + totalMark + '</td>';
+    html += '<td>' + grade + '</td>';
+    html += '<td>';
+    if (eval_) {
+      html += '<button class="btn btn-sm btn-outline" onclick="liViewEval(\'' + student.id + '\')" style="color:#0f3460;border-color:#0f3460;">Lihat</button> ';
+      if (eval_.status !== 'approved') {
+        html += '<button class="btn btn-sm btn-warning" onclick="liEditEval(\'' + student.id + '\')">Edit</button> ';
+        html += '<button class="btn btn-sm btn-success" onclick="liSubmitEval(\'' + student.id + '\')">Hantar</button>';
+      }
+    } else {
+      html += '<button class="btn btn-sm btn-primary" onclick="liCreateEval(\'' + student.id + '\')">+ Nilai</button>';
+    }
+    html += '</td>';
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  html += '</div>';
+
+  area.innerHTML = html;
+}
+
+// Student: View their LI evaluation result
+function renderLIStudent(area) {
+  const eval_ = (data.li.evaluations || []).find(e => e.studentId === currentUser.id);
+
+  if (!eval_) {
+    area.innerHTML = '<p class="empty-state">Penilaian Latihan Industri anda belum tersedia.</p>';
+    return;
+  }
+
+  let html = '';
+
+  if (eval_.status !== 'approved' && eval_.status !== 'released') {
+    area.innerHTML = '<p class="empty-state">Penilaian Latihan Industri anda masih dalam proses. Sila tunggu sehingga diluluskan.</p>';
+    return;
+  }
+
+  html += '<div class="credit-summary" style="margin-bottom:1.5rem;">';
+  html += '<div class="credit-card" style="border-top:3px solid #059669;"><div class="credit-card-value" style="color:#059669;">' + (eval_.totalMark || 0).toFixed(1) + '</div><div class="credit-card-label">Jumlah Markah</div></div>';
+  html += '<div class="credit-card" style="border-top:3px solid #0f3460;"><div class="credit-card-value">' + esc(eval_.grade || '-') + '</div><div class="credit-card-label">Gred</div></div>';
+  html += '<div class="credit-card" style="border-top:3px solid #3b82f6;"><div class="credit-card-value">' + esc(eval_.status) + '</div><div class="credit-card-label">Status</div></div>';
+  html += '</div>';
+
+  // Criteria breakdown
+  const criteria = data.li.criteria || [];
+  if (criteria.length > 0 && eval_.scores) {
+    html += '<h3 style="margin:1.5rem 0 0.5rem;">Butiran Penilaian</h3>';
+    html += '<div class="subject-table-wrapper"><table class="subject-table"><thead><tr>';
+    html += '<th>Kriteria</th><th>Markah</th><th>Berat (%)</th><th>Jumlah</th>';
+    html += '</tr></thead><tbody>';
+    criteria.forEach(c => {
+      const mark = (eval_.scores[c.id] || 0);
+      const weighted = mark * (c.weight / 100);
+      html += '<tr>';
+      html += '<td>' + esc(c.name) + '</td>';
+      html += '<td>' + mark.toFixed(1) + ' / ' + c.maxMark + '</td>';
+      html += '<td>' + c.weight + '%</td>';
+      html += '<td>' + weighted.toFixed(1) + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+
+  if (eval_.comments) {
+    html += '<div style="margin-top:1rem;padding:1rem;background:#f8fafc;border-radius:8px;"><strong>Komen Penyelia:</strong><br>' + esc(eval_.comments) + '</div>';
+  }
+
+  area.innerHTML = html;
+}
+
+// Create/Edit LI evaluation
+window.liCreateEval = function(studentId) {
+  liOpenEvalModal(studentId, null);
+};
+
+window.liEditEval = function(studentId) {
+  const eval_ = (data.li.evaluations || []).find(e => e.studentId === studentId);
+  liOpenEvalModal(studentId, eval_);
+};
+
+function liOpenEvalModal(studentId, existingEval) {
+  const student = data.students.find(s => s.id === studentId);
+  if (!student) return;
+  const criteria = data.li.criteria || [];
+
+  const fypAssessment = (data.fyp.assessments || []).find(a => a.studentId === studentId && a.semesterId === 'SEM004');
+  const supervisor = existingEval ? existingEval.supervisorName : (fypAssessment ? fypAssessment.supervisor : currentUser.name);
+
+  let formHtml = '<div class="form-group"><label>Nama Pelajar</label><input type="text" value="' + esc(student.name) + '" readonly></div>';
+  formHtml += '<div class="form-group"><label>Penyelia</label><input type="text" id="liSupervisor" value="' + esc(supervisor) + '" ' + (currentRole === 'teacher' ? 'readonly' : '') + '></div>';
+
+  formHtml += '<h4 style="margin:1rem 0 0.5rem;">Kriteria Penilaian</h4>';
+  criteria.forEach(c => {
+    const currentMark = existingEval && existingEval.scores ? (existingEval.scores[c.id] || 0) : 0;
+    formHtml += '<div class="form-group">';
+    formHtml += '<label>' + esc(c.name) + ' <span style="font-weight:400;color:#6b7280;">(Berat: ' + c.weight + '%, Max: ' + c.maxMark + ')</span></label>';
+    formHtml += '<input type="number" id="liMark_' + c.id + '" min="0" max="' + c.maxMark + '" step="0.1" value="' + currentMark + '" oninput="liCalculateTotal()">';
+    formHtml += '</div>';
+  });
+
+  formHtml += '<div class="form-group"><label>Jumlah Markah</label><input type="text" id="liTotalMark" value="0.0" readonly style="font-weight:700;font-size:1.1rem;"></div>';
+  formHtml += '<div class="form-group"><label>Gred</label><input type="text" id="liGrade" value="-" readonly style="font-weight:700;"></div>';
+  formHtml += '<div class="form-group"><label>Komen</label><textarea id="liComments" rows="3">' + (existingEval ? esc(existingEval.comments || '') : '') + '</textarea></div>';
+
+  openModal('Penilaian Latihan Industri - ' + student.name, formHtml, function() {
+    const scores = {};
+    let totalMark = 0;
+    criteria.forEach(c => {
+      const mark = parseFloat(document.getElementById('liMark_' + c.id).value) || 0;
+      scores[c.id] = mark;
+      totalMark += mark * (c.weight / 100);
+    });
+
+    const grade = liCalculateGrade(totalMark);
+    const supervisorName = document.getElementById('liSupervisor').value;
+
+    if (existingEval) {
+      existingEval.scores = scores;
+      existingEval.totalMark = totalMark;
+      existingEval.grade = grade;
+      existingEval.supervisorName = supervisorName;
+      existingEval.comments = document.getElementById('liComments').value;
+      existingEval.updatedAt = new Date().toISOString();
+    } else {
+      data.li.evaluations.push({
+        id: generateId('LIEVAL'),
+        studentId: studentId,
+        studentName: student.name,
+        supervisorName: supervisorName,
+        semesterId: 'SEM004',
+        scores: scores,
+        totalMark: totalMark,
+        grade: grade,
+        comments: document.getElementById('liComments').value,
+        status: 'draft',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    if (data.li.auditLog) {} else { data.li.auditLog = []; }
+    data.li.auditLog.push({
+      id: generateId('LIAUDIT'),
+      action: existingEval ? 'update' : 'create',
+      studentId: studentId,
+      user: currentUser.name,
+      timestamp: new Date().toISOString()
+    });
+
+    saveData();
+    renderLI();
+    closeModal();
+    showToast('Penilaian berjaya disimpan.', 'success');
+  });
+
+  liCalculateTotal();
+}
+
+window.liCalculateTotal = function() {
+  const criteria = data.li.criteria || [];
+  let total = 0;
+  criteria.forEach(c => {
+    const el = document.getElementById('liMark_' + c.id);
+    if (el) {
+      const mark = parseFloat(el.value) || 0;
+      total += mark * (c.weight / 100);
+    }
+  });
+  document.getElementById('liTotalMark').value = total.toFixed(1);
+  document.getElementById('liGrade').value = liCalculateGrade(total);
+};
+
+function liCalculateGrade(totalMark) {
+  if (totalMark >= 90) return 'A+';
+  if (totalMark >= 80) return 'A';
+  if (totalMark >= 75) return 'A-';
+  if (totalMark >= 70) return 'B+';
+  if (totalMark >= 65) return 'B';
+  if (totalMark >= 60) return 'B-';
+  if (totalMark >= 55) return 'C+';
+  if (totalMark >= 50) return 'C';
+  if (totalMark >= 45) return 'C-';
+  if (totalMark >= 40) return 'D+';
+  if (totalMark >= 35) return 'D';
+  return 'E';
+}
+
+// View evaluation
+window.liViewEval = function(studentId) {
+  const eval_ = (data.li.evaluations || []).find(e => e.studentId === studentId);
+  if (!eval_) return;
+  const student = data.students.find(s => s.id === studentId);
+  const criteria = data.li.criteria || [];
+
+  let html = '<div style="margin-bottom:1rem;"><strong>Pelajar:</strong> ' + esc(student ? student.name : '-') + '</div>';
+  html += '<div style="margin-bottom:1rem;"><strong>Penyelia:</strong> ' + esc(eval_.supervisorName || '-') + '</div>';
+  html += '<div style="margin-bottom:1rem;"><strong>Status:</strong> ' + esc(eval_.status) + '</div>';
+
+  html += '<div class="subject-table-wrapper"><table class="subject-table"><thead><tr><th>Kriteria</th><th>Markah</th><th>Berat</th><th>Jumlah</th></tr></thead><tbody>';
+  criteria.forEach(c => {
+    const mark = (eval_.scores && eval_.scores[c.id]) || 0;
+    html += '<tr><td>' + esc(c.name) + '</td><td>' + mark.toFixed(1) + ' / ' + c.maxMark + '</td><td>' + c.weight + '%</td><td>' + (mark * c.weight / 100).toFixed(1) + '</td></tr>';
+  });
+  html += '</tbody></table></div>';
+
+  html += '<div style="margin-top:1rem;font-size:1.2rem;"><strong>Jumlah: ' + (eval_.totalMark || 0).toFixed(1) + ' | Gred: ' + esc(eval_.grade || '-') + '</strong></div>';
+  if (eval_.comments) {
+    html += '<div style="margin-top:1rem;padding:1rem;background:#f8fafc;border-radius:8px;"><strong>Komen:</strong><br>' + esc(eval_.comments) + '</div>';
+  }
+
+  openModal('Lihat Penilaian - ' + (student ? student.name : ''), '<div style="max-height:500px;overflow-y:auto;">' + html + '</div>', null);
+};
+
+// Submit evaluation (teacher)
+window.liSubmitEval = function(studentId) {
+  const eval_ = (data.li.evaluations || []).find(e => e.studentId === studentId);
+  if (!eval_) return;
+  if (!confirm('Hantar penilaian untuk kelulusan admin?')) return;
+  eval_.status = 'submitted';
+  eval_.updatedAt = new Date().toISOString();
+  saveData();
+  renderLI();
+  showToast('Penilaian dihantar untuk kelulusan.', 'success');
+};
+
+// Approve evaluation (admin)
+window.liApproveEval = function(studentId) {
+  const eval_ = (data.li.evaluations || []).find(e => e.studentId === studentId);
+  if (!eval_) return;
+  eval_.status = 'approved';
+  eval_.approvedBy = currentUser.name;
+  eval_.approvedAt = new Date().toISOString();
+  saveData();
+  renderLI();
+  showToast('Penilaian diluluskan.', 'success');
+};
+
+// Configure criteria (admin)
+window.liConfigCriteria = function() {
+  const criteria = data.li.criteria || [];
+  let formHtml = '<div id="liCriteriaList">';
+  criteria.forEach((c, i) => {
+    formHtml += '<div class="form-group" style="border:1px solid #e2e8f0;padding:1rem;border-radius:8px;margin-bottom:0.5rem;">';
+    formHtml += '<label>Kriteria ' + (i + 1) + '</label>';
+    formHtml += '<input type="text" id="liCritName_' + i + '" value="' + esc(c.name) + '" placeholder="Nama kriteria" style="margin-bottom:0.5rem;">';
+    formHtml += '<div style="display:flex;gap:0.5rem;">';
+    formHtml += '<input type="number" id="liCritWeight_' + i + '" value="' + c.weight + '" placeholder="Berat %" min="0" max="100" style="flex:1;">';
+    formHtml += '<input type="number" id="liCritMax_' + i + '" value="' + c.maxMark + '" placeholder="Max mark" min="1" style="flex:1;">';
+    formHtml += '<button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">✕</button>';
+    formHtml += '</div></div>';
+  });
+  formHtml += '</div>';
+  formHtml += '<button type="button" class="btn btn-sm btn-outline" onclick="liAddCriteria()" style="color:#059669;border-color:#059669;">+ Tambah Kriteria</button>';
+
+  openModal('Kriteria Penilaian LI', formHtml, function() {
+    const list = document.querySelectorAll('#liCriteriaList > .form-group');
+    const newCriteria = [];
+    let totalWeight = 0;
+    list.forEach((div, i) => {
+      const name = div.querySelector('input[type="text"]').value.trim();
+      const weight = parseFloat(div.querySelectorAll('input[type="number"]')[0].value) || 0;
+      const maxMark = parseFloat(div.querySelectorAll('input[type="number"]')[1].value) || 100;
+      if (name) {
+        newCriteria.push({
+          id: 'LI-C' + (i + 1),
+          name: name,
+          weight: weight,
+          maxMark: maxMark
+        });
+        totalWeight += weight;
+      }
+    });
+
+    if (totalWeight !== 100) {
+      alert('Jumlah berat mesti 100%. Sekarang: ' + totalWeight + '%');
+      return;
+    }
+
+    data.li.criteria = newCriteria;
+    saveData();
+    renderLI();
+    closeModal();
+    showToast('Kriteria penilaian dikemas kini.', 'success');
+  });
+};
+
+window.liAddCriteria = function() {
+  const list = document.getElementById('liCriteriaList');
+  const i = list.children.length;
+  const div = document.createElement('div');
+  div.className = 'form-group';
+  div.style.cssText = 'border:1px solid #e2e8f0;padding:1rem;border-radius:8px;margin-bottom:0.5rem;';
+  div.innerHTML = '<label>Kriteria ' + (i + 1) + '</label>' +
+    '<input type="text" placeholder="Nama kriteria" style="margin-bottom:0.5rem;">' +
+    '<div style="display:flex;gap:0.5rem;">' +
+    '<input type="number" placeholder="Berat %" min="0" max="100" style="flex:1;" value="0">' +
+    '<input type="number" placeholder="Max mark" min="1" style="flex:1;" value="100">' +
+    '<button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">✕</button>' +
+    '</div>';
+  list.appendChild(div);
+};
 

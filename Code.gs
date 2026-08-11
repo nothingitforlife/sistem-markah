@@ -24,6 +24,9 @@ const SHEETS = {
   attendanceSessions: 'attendance_sessions',
   attendanceRecords: 'attendance_records',
   attendanceLogs: 'attendance_logs',
+  liEvaluations: 'li_evaluations',
+  liCriteria: 'li_criteria',
+  liAuditLog: 'li_auditlog',
   metadata: 'metadata'
 };
 
@@ -53,6 +56,9 @@ var COLUMNS = {
   attendanceSessions: ['id', 'subjectId', 'classId', 'semesterId', 'lecturerId', 'date', 'startTime', 'endTime', 'status', 'autoCreated', 'createdAt', 'updatedAt'],
   attendanceRecords: ['id', 'sessionId', 'studentId', 'studentName', 'clockIn', 'ipAddress', 'browser', 'status', 'remarks', 'excuse', 'excuseFile', 'excuseAt', 'approvedBy', 'approvedAt', 'createdAt', 'updatedAt'],
   attendanceLogs: ['id', 'sessionId', 'studentId', 'studentName', 'oldStatus', 'newStatus', 'editedBy', 'reason', 'editedAt'],
+  liEvaluations: ['id', 'studentId', 'studentName', 'supervisorName', 'semesterId', 'scores', 'totalMark', 'grade', 'comments', 'status', 'approvedBy', 'approvedAt', 'createdAt', 'updatedAt'],
+  liCriteria: ['id', 'name', 'weight', 'maxMark'],
+  liAuditLog: ['id', 'action', 'studentId', 'user', 'timestamp'],
   metadata: ['key', 'value']
 };
 
@@ -132,7 +138,8 @@ function loadAllData() {
     calculatedResults: [], resultAuditLog: [], merit: [],
     pdpevaluations: [],
     examPaperAppointment: { campus: '', teori: {}, amali: {} },
-    attendance: { sessions: [], records: [], logs: [] }
+    attendance: { sessions: [], records: [], logs: [] },
+    li: { evaluations: [], criteria: [], auditLog: [] }
   };
   data.students = loadSheet(SHEETS.students, COLUMNS.students);
   data.subjects = loadSheet(SHEETS.subjects, COLUMNS.subjects);
@@ -164,6 +171,9 @@ function loadAllData() {
   data.attendance.sessions = loadSheet(SHEETS.attendanceSessions, COLUMNS.attendanceSessions);
   data.attendance.records = loadSheet(SHEETS.attendanceRecords, COLUMNS.attendanceRecords);
   data.attendance.logs = loadSheet(SHEETS.attendanceLogs, COLUMNS.attendanceLogs);
+  data.li.evaluations = loadSheet(SHEETS.liEvaluations, COLUMNS.liEvaluations);
+  data.li.criteria = loadSheet(SHEETS.liCriteria, COLUMNS.liCriteria);
+  data.li.auditLog = loadSheet(SHEETS.liAuditLog, COLUMNS.liAuditLog);
   data.students.forEach(function(s) { s.subjects = parseJSON(s.subjects, []); });
   data.marks.forEach(function(m) { m.scores = parseJSON(m.scores, {}); });
   data.pdpevaluations.forEach(function(ev) { ev.criteria = parseJSON(ev.criteria, {}); });
@@ -171,6 +181,7 @@ function loadAllData() {
   data.attendance.records.forEach(function(r) { r.excuseFile = parseJSON(r.excuseFile, null); });
   data.carrymark.templates.forEach(function(t) { t.components = parseJSON(t.components, []); });
   data.fyp.assessments.forEach(function(a) { a.scores = parseJSON(a.scores, {}); });
+  data.li.evaluations.forEach(function(e) { e.scores = parseJSON(e.scores, {}); });
   return data;
 }
 
@@ -208,6 +219,10 @@ function saveAllData(data) {
   saveSheet(SHEETS.attendanceSessions, COLUMNS.attendanceSessions, att.sessions || []);
   saveSheet(SHEETS.attendanceRecords, COLUMNS.attendanceRecords, att.records || []);
   saveSheet(SHEETS.attendanceLogs, COLUMNS.attendanceLogs, att.logs || []);
+  var li = data.li || {};
+  saveSheet(SHEETS.liEvaluations, COLUMNS.liEvaluations, li.evaluations || []);
+  saveSheet(SHEETS.liCriteria, COLUMNS.liCriteria, li.criteria || []);
+  saveSheet(SHEETS.liAuditLog, COLUMNS.liAuditLog, li.auditLog || []);
   saveMetadata('updatedAt', new Date().toISOString());
 }
 
