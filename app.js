@@ -1442,6 +1442,25 @@ async function loadFromGoogleSheets() {
         if (!t.status) t.status = 'approved'; // Default to approved since backup had all approved
       });
     }
+    // Ensure gradeConfig has default if empty
+    if (!data.carrymark || !data.carrymark.gradeConfig || data.carrymark.gradeConfig.length === 0) {
+      if (!data.carrymark) data.carrymark = { templates: [], marks: [], gradeConfig: [], auditLog: [] };
+      data.carrymark.gradeConfig = [
+        { id: 'GC01', grade: 'A+', minMark: 90, maxMark: 100, gradePoint: 4.00, status: 'L' },
+        { id: 'GC02', grade: 'A',  minMark: 80, maxMark: 89,  gradePoint: 4.00, status: 'L' },
+        { id: 'GC03', grade: 'A-', minMark: 75, maxMark: 79,  gradePoint: 3.67, status: 'L' },
+        { id: 'GC04', grade: 'B+', minMark: 70, maxMark: 74,  gradePoint: 3.33, status: 'L' },
+        { id: 'GC05', grade: 'B',  minMark: 65, maxMark: 69,  gradePoint: 3.00, status: 'L' },
+        { id: 'GC06', grade: 'B-', minMark: 60, maxMark: 64,  gradePoint: 2.67, status: 'L' },
+        { id: 'GC07', grade: 'C+', minMark: 55, maxMark: 59,  gradePoint: 2.33, status: 'L' },
+        { id: 'GC08', grade: 'C',  minMark: 50, maxMark: 54,  gradePoint: 2.00, status: 'L' },
+        { id: 'GC09', grade: 'C-', minMark: 45, maxMark: 49,  gradePoint: 1.67, status: 'L' },
+        { id: 'GC10', grade: 'D+', minMark: 40, maxMark: 44,  gradePoint: 1.33, status: 'L' },
+        { id: 'GC11', grade: 'D',  minMark: 35, maxMark: 39,  gradePoint: 1.00, status: 'L' },
+        { id: 'GC12', grade: 'E',  minMark: 0,  maxMark: 34,  gradePoint: 0.00, status: 'G' }
+      ];
+      console.log('📋 Added default gradeConfig (12 grades)');
+    }
     
     // Restore carrymark & FYP from localStorage backup if Google Sheets stripped fields
     try {
@@ -1485,6 +1504,15 @@ async function loadFromGoogleSheets() {
     } catch(e) { console.warn('cm_fyp restore failed:', e); }
     
     autoAssignPengajar();
+    
+    // Auto-save if we added default gradeConfig or fixed data
+    try {
+      const currentSnap = JSON.stringify(data);
+      if (currentSnap !== lastDataSnapshot) {
+        console.log('🔄 Auto-saving normalized data back to Google Sheets...');
+        autoSyncToFirebase();
+      }
+    } catch(e) { console.warn('Auto-save after normalize failed:', e); }
   } catch (e) {
     console.error('❌ Google Sheets load error:', e);
     console.warn('⚠️ Falling back to localStorage backup...');
@@ -12156,6 +12184,24 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
           if (!t.status) t.status = 'approved';
         });
       }
+      // Ensure gradeConfig has default if empty
+      if (!data.carrymark || !data.carrymark.gradeConfig || data.carrymark.gradeConfig.length === 0) {
+        if (!data.carrymark) data.carrymark = { templates: [], marks: [], gradeConfig: [], auditLog: [] };
+        data.carrymark.gradeConfig = [
+          { id: 'GC01', grade: 'A+', minMark: 90, maxMark: 100, gradePoint: 4.00, status: 'L' },
+          { id: 'GC02', grade: 'A',  minMark: 80, maxMark: 89,  gradePoint: 4.00, status: 'L' },
+          { id: 'GC03', grade: 'A-', minMark: 75, maxMark: 79,  gradePoint: 3.67, status: 'L' },
+          { id: 'GC04', grade: 'B+', minMark: 70, maxMark: 74,  gradePoint: 3.33, status: 'L' },
+          { id: 'GC05', grade: 'B',  minMark: 65, maxMark: 69,  gradePoint: 3.00, status: 'L' },
+          { id: 'GC06', grade: 'B-', minMark: 60, maxMark: 64,  gradePoint: 2.67, status: 'L' },
+          { id: 'GC07', grade: 'C+', minMark: 55, maxMark: 59,  gradePoint: 2.33, status: 'L' },
+          { id: 'GC08', grade: 'C',  minMark: 50, maxMark: 54,  gradePoint: 2.00, status: 'L' },
+          { id: 'GC09', grade: 'C-', minMark: 45, maxMark: 49,  gradePoint: 1.67, status: 'L' },
+          { id: 'GC10', grade: 'D+', minMark: 40, maxMark: 44,  gradePoint: 1.33, status: 'L' },
+          { id: 'GC11', grade: 'D',  minMark: 35, maxMark: 39,  gradePoint: 1.00, status: 'L' },
+          { id: 'GC12', grade: 'E',  minMark: 0,  maxMark: 34,  gradePoint: 0.00, status: 'G' }
+        ];
+      }
       
       autoAssignPengajar();
       lastDataSnapshot = JSON.stringify(data);
@@ -15537,13 +15583,7 @@ function getMalaysiaDateObj() {
   return new Date(str);
 }
 
-// Time helpers
-function timeToMinutes(t) {
-  if (!t) return 0;
-  const normalized = normalizeTime(t);
-  const [h, m] = normalized.split(':').map(Number);
-  return h * 60 + m;
-}
+// Time helpers (timeToMinutes is defined at line ~4613, don't duplicate)
 
 function minutesToTime(mins) {
   const h = Math.floor(mins / 60);
