@@ -11968,9 +11968,13 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
     initDatePickers();
     initTableSorting();
 
-    // Auto-create draft attendance sessions from timetable
+    // Auto-create draft attendance sessions from timetable (runs on load + every 5 min)
     try {
       autoCreateDraftSessionsFromTimetable();
+      // Check every 5 minutes — will create sessions at 7:30 AM if page is open
+      setInterval(() => {
+        try { autoCreateDraftSessionsFromTimetable(); } catch(e) { console.warn('Auto-create attendance error:', e); }
+      }, 5 * 60 * 1000);
     } catch (e) {
       console.warn('Auto-create attendance error:', e);
     }
@@ -15341,7 +15345,8 @@ function autoCloseExpiredSessions() {
   if (changed) saveData();
 }
 
-// Auto-create DRAFT sessions from timetable for current week
+// Auto-create DRAFT sessions from timetable for TODAY ONLY
+// Runs at 7:30 AM Malaysia time — only creates sessions for today's classes
 function autoCreateDraftSessionsFromTimetable() {
   if (!data.timetable || data.timetable.length === 0) return;
   if (!data.subjects || data.subjects.length === 0) return;
@@ -15351,32 +15356,42 @@ function autoCreateDraftSessionsFromTimetable() {
 
   const existingSessions = data.attendance.sessions || [];
   const newSessions = [];
-  const dayOfWeek = getMalaysiaDayOfWeek(); // 1=Mon..7=Sun (Malaysia time)
-  const mondayOffset = dayOfWeek - 1; // days since Monday
-  const mondayMsia = getMalaysiaDateObj(); // midnight Malaysia time
-  mondayMsia.setDate(mondayMsia.getDate() - mondayOffset);
 
-  // Day number mapping: 1=Isnin..5=Jumaat
-  const dayNames = ['Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat'];
+  // Get TODAY's date and day of week (Malaysia time)
+  const todayStr = getMalaysiaDate();
+  const dayOfWeek = getMalaysiaDayOfWeek(); // 1=Mon..7=Sun
+  if (dayOfWeek > 5) return; // Weekend — no sessions
+
+  // Only auto-create after 7:30 AM Malaysia time
+  const nowMsia = getMalaysiaNow();
+  const cutoff = new Date(nowMsia);
+  cutoff.setHours(7, 30, 0, 0);
+  if (nowMsia < cutoff) {
+    console.log('⏰ Auto-create attendance: waiting until 7:30 AM Malaysia time');
+    return;
+  }
+
+  // Check if we already created sessions for today
+  const alreadyCreatedToday = existingSessions.some(s =>
+    s.date === todayStr && s.autoCreated === true
+  );
+  if (alreadyCreatedToday) {
+    console.log('📋 Auto-create attendance: sessions for today already exist');
+    return;
+  }
+
+  console.log(`📅 Auto-creating attendance sessions for ${todayStr} (day ${dayOfWeek})`);
 
   data.timetable.forEach(entry => {
     if (!entry.day || !entry.subjectId || !entry.startTime || !entry.endTime) return;
 
-    const dayNum = entry.day;
-    if (dayNum < 1 || dayNum > 5) return;
+    // Only create for TODAY's day of week
+    if (parseInt(entry.day) !== dayOfWeek) return;
 
-    // Calculate date for this day in current week (Malaysia time)
-    const sessDate = new Date(mondayMsia);
-    sessDate.setDate(mondayMsia.getDate() + (dayNum - 1));
-    // Use Malaysia timezone to get correct date string (toISOString returns UTC which shifts the date)
-    const dateStr = sessDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
-
-    // Find subject
     const subj = data.subjects.find(s => s.id === entry.subjectId);
     if (!subj) return;
 
     // Get classes for this subject's semester
-    // First try: students whose class matches the semester name
     const sem = data.semesters.find(s => s.id === subj.semester);
     let classes = [];
     if (sem) {
@@ -15384,7 +15399,6 @@ function autoCreateDraftSessionsFromTimetable() {
       const semStudents = data.students.filter(s => s.track !== 'graduated' && s.class && s.class.includes(semNum));
       classes = [...new Set(semStudents.map(s => s.class).filter(Boolean))];
     }
-    // Fallback: try student.subjects array
     if (classes.length === 0) {
       const enrolled = data.students.filter(s => (s.subjects || []).includes(subj.id) && s.track !== 'graduated');
       classes = [...new Set(enrolled.map(s => s.class).filter(Boolean))];
@@ -15393,11 +15407,11 @@ function autoCreateDraftSessionsFromTimetable() {
     if (classes.length === 0) return;
 
     classes.forEach(cls => {
-      // Check if session already exists for this date + subject + class
+      // Check if session already exists for today + subject + class
       const exists = existingSessions.some(s =>
-        s.date === dateStr && s.subjectId === subj.id && s.classId === cls
+        s.date === todayStr && s.subjectId === subj.id && s.classId === cls
       ) || newSessions.some(s =>
-        s.date === dateStr && s.subjectId === subj.id && s.classId === cls
+        s.date === todayStr && s.subjectId === subj.id && s.classId === cls
       );
 
       if (!exists) {
@@ -15407,7 +15421,7 @@ function autoCreateDraftSessionsFromTimetable() {
           classId: cls,
           semesterId: subj.semester || '',
           lecturerId: subj.pengajar || '',
-          date: dateStr,
+          date: todayStr,
           startTime: normalizeTime(entry.startTime),
           endTime: normalizeTime(entry.endTime),
           status: SESSION_STATUS.DRAFT,
@@ -15422,6 +15436,9 @@ function autoCreateDraftSessionsFromTimetable() {
   if (newSessions.length > 0) {
     data.attendance.sessions = [...existingSessions, ...newSessions];
     saveData();
+    console.log(`✅ Auto-created ${newSessions.length} attendance sessions for ${todayStr}`);
+  } else {
+    console.log(`📋 No classes found for today (${todayStr}) — no sessions created`);
   }
 }
 
