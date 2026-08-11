@@ -1190,32 +1190,32 @@ function optimizeData(data) {
     },
     carrymark: {
       templates: (data.carrymark && data.carrymark.templates) ? data.carrymark.templates.map(t => {
-        const mapped = { ...t };
-        // Save components as assessments JSON (old Code.gs only supports 'assessments')
-        if (t.components) mapped.assessments = JSON.stringify(t.components);
-        // Pack ALL extra fields into 'assessments' as a fallback JSON
-        // Old Code.gs COLUMNS only has: id, semesterId, courseCode, course, lecturer, assessments, createdAt
-        // So we pack status, section, class, programme, etc. into assessments
-        const EXTRA_FIELDS = ['status', 'section', 'class', 'programme', 'academicSession', 'requestedBy', 'requestedAt', 'approvedBy', 'approvedAt', 'copiedFrom', 'updatedAt', 'components', 'semester'];
-        const extra = {};
-        EXTRA_FIELDS.forEach(f => {
-          if (t[f] !== undefined) extra[f] = t[f];
-        });
-        // Combine components + extra fields into assessments
-        if (mapped.assessments) {
-          // assessments already has components JSON, we need to include extra fields too
-          try {
-            const comps = JSON.parse(mapped.assessments);
-            mapped.assessments = JSON.stringify({ components: comps, ...extra });
-          } catch(e) {
-            mapped.assessments = JSON.stringify({ raw: mapped.assessments, ...extra });
-          }
-        } else {
-          mapped.assessments = JSON.stringify(extra);
-        }
-        if (t.semester && !t.semesterId) mapped.semesterId = t.semester;
-        if (!t.semester && t.semesterId) mapped.semester = t.semesterId;
-        return mapped;
+        // Pack components + all extra fields into 'assessments' JSON
+        // This is the ONLY field Code.gs old COLUMNS supports for carrymark templates
+        const packed = {
+          components: t.components || [],
+          status: t.status || 'approved',
+          semester: t.semester || t.semesterId || '',
+          section: t.section || '',
+          class: t.class || '',
+          programme: t.programme || '',
+          academicSession: t.academicSession || '',
+          requestedBy: t.requestedBy || '',
+          requestedAt: t.requestedAt || '',
+          approvedBy: t.approvedBy || '',
+          approvedAt: t.approvedAt || '',
+          copiedFrom: t.copiedFrom || '',
+          updatedAt: t.updatedAt || ''
+        };
+        return {
+          id: t.id,
+          semesterId: t.semesterId || t.semester || '',
+          courseCode: t.courseCode || '',
+          course: t.course || '',
+          lecturer: t.lecturer || '',
+          assessments: JSON.stringify(packed),
+          createdAt: t.createdAt || ''
+        };
       }) : [],
       marks: (data.carrymark && data.carrymark.marks) ? data.carrymark.marks : [],
       gradeConfig: (data.carrymark && data.carrymark.gradeConfig) ? data.carrymark.gradeConfig : [],
@@ -1394,73 +1394,10 @@ async function loadFromGoogleSheets() {
     
     fixSemesterNames();
     
-    // Normalize FYP assessments: map old Code.gs field names to new
-    if (data.fyp && data.fyp.assessments) {
-      data.fyp.assessments.forEach(a => {
-        // Old Code.gs uses: supervisorName, assessmentType, criteria, totalScore, comments
-        // New format uses:    supervisor,    fypType,         scores,   totalMarks,  result
-        if (!a.supervisor && a.supervisorName) a.supervisor = a.supervisorName;
-        if (!a.fypType && a.assessmentType) a.fypType = a.assessmentType;
-        if (!a.totalMarks && a.totalScore !== undefined) a.totalMarks = a.totalScore;
-        if (!a.scores && a.criteria) {
-          try { a.scores = typeof a.criteria === 'string' ? JSON.parse(a.criteria) : a.criteria; } catch(e) { a.scores = {}; }
-        }
-        if (!a.scores) a.scores = {};
-        if (!a.status) a.status = 'draft';
-        if (!a.result && a.comments) a.result = a.comments;
-        if (!a.semesterName) {
-          const sem = data.semesters.find(s => s.id === a.semesterId);
-          if (sem) a.semesterName = sem.name;
-        }
-      });
-    }
-    
-    // Normalize carrymark templates: map old field names to new
-    if (data.carrymark && data.carrymark.templates) {
-      data.carrymark.templates.forEach(t => {
-        // Try to unpack assessments field which may contain components + extra fields
-        if (t.assessments && typeof t.assessments === 'string') {
-          try {
-            const parsed = JSON.parse(t.assessments);
-            if (parsed.components) {
-              // New format: { components: [...], status: '...', section: '...', ... }
-              t.components = parsed.components;
-              // Restore extra fields
-              ['status', 'section', 'class', 'programme', 'academicSession', 'requestedBy', 'requestedAt', 'approvedBy', 'approvedAt', 'copiedFrom', 'updatedAt', 'semester'].forEach(f => {
-                if (!t[f] && parsed[f] !== undefined) t[f] = parsed[f];
-              });
-            } else if (Array.isArray(parsed)) {
-              // Old format: assessments was just the components array
-              t.components = parsed;
-            }
-          } catch(e) {
-            t.components = [];
-          }
-        }
-        if (!t.components) t.components = [];
-        if (!t.semester && t.semesterId) t.semester = t.semesterId;
-        if (!t.status) t.status = 'approved'; // Default to approved since backup had all approved
-      });
-    }
-    // Ensure gradeConfig has default if empty
-    if (!data.carrymark || !data.carrymark.gradeConfig || data.carrymark.gradeConfig.length === 0) {
-      if (!data.carrymark) data.carrymark = { templates: [], marks: [], gradeConfig: [], auditLog: [] };
-      data.carrymark.gradeConfig = [
-        { id: 'GC01', grade: 'A+', minMark: 90, maxMark: 100, gradePoint: 4.00, status: 'L' },
-        { id: 'GC02', grade: 'A',  minMark: 80, maxMark: 89,  gradePoint: 4.00, status: 'L' },
-        { id: 'GC03', grade: 'A-', minMark: 75, maxMark: 79,  gradePoint: 3.67, status: 'L' },
-        { id: 'GC04', grade: 'B+', minMark: 70, maxMark: 74,  gradePoint: 3.33, status: 'L' },
-        { id: 'GC05', grade: 'B',  minMark: 65, maxMark: 69,  gradePoint: 3.00, status: 'L' },
-        { id: 'GC06', grade: 'B-', minMark: 60, maxMark: 64,  gradePoint: 2.67, status: 'L' },
-        { id: 'GC07', grade: 'C+', minMark: 55, maxMark: 59,  gradePoint: 2.33, status: 'L' },
-        { id: 'GC08', grade: 'C',  minMark: 50, maxMark: 54,  gradePoint: 2.00, status: 'L' },
-        { id: 'GC09', grade: 'C-', minMark: 45, maxMark: 49,  gradePoint: 1.67, status: 'L' },
-        { id: 'GC10', grade: 'D+', minMark: 40, maxMark: 44,  gradePoint: 1.33, status: 'L' },
-        { id: 'GC11', grade: 'D',  minMark: 35, maxMark: 39,  gradePoint: 1.00, status: 'L' },
-        { id: 'GC12', grade: 'E',  minMark: 0,  maxMark: 34,  gradePoint: 0.00, status: 'G' }
-      ];
-      console.log('📋 Added default gradeConfig (12 grades)');
-    }
+    // Normalize FYP and carrymark data
+    normalizeFYPAssessments();
+    normalizeCarrymarkTemplates();
+    ensureGradeConfig();
     
     // Restore carrymark & FYP from localStorage backup if Google Sheets stripped fields
     try {
@@ -1704,6 +1641,79 @@ function restoreFromBackup(backupData) {
 }
 
 // Fix incorrect semester IDs and names to match standard format
+// Normalize carrymark templates: unpack assessments JSON, handle nested formats
+function normalizeCarrymarkTemplates() {
+  if (!data.carrymark || !data.carrymark.templates) return;
+  data.carrymark.templates.forEach(t => {
+    let parsed = null;
+    if (t.assessments) {
+      if (typeof t.assessments === 'string') {
+        try { parsed = JSON.parse(t.assessments); } catch(e) { parsed = null; }
+      } else if (typeof t.assessments === 'object') {
+        parsed = t.assessments;
+      }
+    }
+    if (parsed) {
+      let comps = parsed.components || parsed;
+      if (!Array.isArray(comps)) {
+        if (comps && typeof comps === 'object' && comps.components) {
+          comps = Array.isArray(comps.components) ? comps.components : [];
+        } else {
+          comps = [];
+        }
+      }
+      t.components = comps;
+      ['status', 'section', 'class', 'programme', 'academicSession', 'requestedBy', 'requestedAt', 'approvedBy', 'approvedAt', 'copiedFrom', 'updatedAt', 'semester'].forEach(f => {
+        if (!t[f] && parsed[f] !== undefined) t[f] = parsed[f];
+      });
+    }
+    if (!t.components || !Array.isArray(t.components)) t.components = [];
+    if (!t.semester && t.semesterId) t.semester = t.semesterId;
+    if (!t.status) t.status = 'approved';
+  });
+}
+
+// Normalize FYP assessments: map old Code.gs field names to new
+function normalizeFYPAssessments() {
+  if (!data.fyp || !data.fyp.assessments) return;
+  data.fyp.assessments.forEach(a => {
+    if (!a.supervisor && a.supervisorName) a.supervisor = a.supervisorName;
+    if (!a.fypType && a.assessmentType) a.fypType = a.assessmentType;
+    if (a.totalMarks === undefined && a.totalScore !== undefined) a.totalMarks = a.totalScore;
+    if (!a.scores && a.criteria) {
+      try { a.scores = typeof a.criteria === 'string' ? JSON.parse(a.criteria) : a.criteria; } catch(e) { a.scores = {}; }
+    }
+    if (!a.scores) a.scores = {};
+    if (!a.status) a.status = 'draft';
+    if (!a.result && a.comments) a.result = a.comments;
+    if (!a.semesterName) {
+      const sem = data.semesters.find(s => s.id === a.semesterId);
+      if (sem) a.semesterName = sem.name;
+    }
+  });
+}
+
+// Ensure carrymark gradeConfig has default if empty
+function ensureGradeConfig() {
+  if (!data.carrymark || !data.carrymark.gradeConfig || data.carrymark.gradeConfig.length === 0) {
+    if (!data.carrymark) data.carrymark = { templates: [], marks: [], gradeConfig: [], auditLog: [] };
+    data.carrymark.gradeConfig = [
+      { id:'GC01',grade:'A+',minMark:90,maxMark:100,gradePoint:4.00,status:'L' },
+      { id:'GC02',grade:'A',minMark:80,maxMark:89,gradePoint:4.00,status:'L' },
+      { id:'GC03',grade:'A-',minMark:75,maxMark:79,gradePoint:3.67,status:'L' },
+      { id:'GC04',grade:'B+',minMark:70,maxMark:74,gradePoint:3.33,status:'L' },
+      { id:'GC05',grade:'B',minMark:65,maxMark:69,gradePoint:3.00,status:'L' },
+      { id:'GC06',grade:'B-',minMark:60,maxMark:64,gradePoint:2.67,status:'L' },
+      { id:'GC07',grade:'C+',minMark:55,maxMark:59,gradePoint:2.33,status:'L' },
+      { id:'GC08',grade:'C',minMark:50,maxMark:54,gradePoint:2.00,status:'L' },
+      { id:'GC09',grade:'C-',minMark:45,maxMark:49,gradePoint:1.67,status:'L' },
+      { id:'GC10',grade:'D+',minMark:40,maxMark:44,gradePoint:1.33,status:'L' },
+      { id:'GC11',grade:'D',minMark:35,maxMark:39,gradePoint:1.00,status:'L' },
+      { id:'GC12',grade:'E',minMark:0,maxMark:34,gradePoint:0.00,status:'G' }
+    ];
+  }
+}
+
 function fixSemesterNames() {
   // Standard semester format
   const STANDARD = [
@@ -6193,78 +6203,22 @@ function startAutoRefresh() {
           data.fyp = remote.fyp || { assessments: [], auditLog: [] };
         }
         
-        // Normalize ALL data after overwrite (same as loadFromGoogleSheets)
-        // Normalize timetable time values
+        // Normalize ALL data after overwrite
         if (data.timetable && data.timetable.length > 0) {
           data.timetable.forEach(t => {
             t.startTime = normalizeTime(t.startTime);
             t.endTime = normalizeTime(t.endTime);
           });
         }
-        // Normalize attendance session times
         if (data.attendance && data.attendance.sessions) {
           data.attendance.sessions.forEach(s => {
             s.startTime = normalizeTime(s.startTime);
             s.endTime = normalizeTime(s.endTime);
           });
         }
-        // Normalize FYP assessments
-        if (data.fyp && data.fyp.assessments) {
-          data.fyp.assessments.forEach(a => {
-            if (!a.supervisor && a.supervisorName) a.supervisor = a.supervisorName;
-            if (!a.fypType && a.assessmentType) a.fypType = a.assessmentType;
-            if (!a.totalMarks && a.totalScore !== undefined) a.totalMarks = a.totalScore;
-            if (!a.scores && a.criteria) {
-              try { a.scores = typeof a.criteria === 'string' ? JSON.parse(a.criteria) : a.criteria; } catch(e) { a.scores = {}; }
-            }
-            if (!a.scores) a.scores = {};
-            if (!a.status) a.status = 'draft';
-            if (!a.result && a.comments) a.result = a.comments;
-            if (!a.semesterName) {
-              const sem = data.semesters.find(s => s.id === a.semesterId);
-              if (sem) a.semesterName = sem.name;
-            }
-          });
-        }
-        // Normalize carrymark templates
-        if (data.carrymark && data.carrymark.templates) {
-          data.carrymark.templates.forEach(t => {
-            if (t.assessments && typeof t.assessments === 'string') {
-              try {
-                const parsed = JSON.parse(t.assessments);
-                if (parsed.components) {
-                  t.components = parsed.components;
-                  ['status', 'section', 'class', 'programme', 'academicSession', 'requestedBy', 'requestedAt', 'approvedBy', 'approvedAt', 'copiedFrom', 'updatedAt', 'semester'].forEach(f => {
-                    if (!t[f] && parsed[f] !== undefined) t[f] = parsed[f];
-                  });
-                } else if (Array.isArray(parsed)) {
-                  t.components = parsed;
-                }
-              } catch(e) { t.components = []; }
-            }
-            if (!t.components) t.components = [];
-            if (!t.semester && t.semesterId) t.semester = t.semesterId;
-            if (!t.status) t.status = 'approved';
-          });
-        }
-        // Ensure gradeConfig
-        if (!data.carrymark || !data.carrymark.gradeConfig || data.carrymark.gradeConfig.length === 0) {
-          if (!data.carrymark) data.carrymark = { templates: [], marks: [], gradeConfig: [], auditLog: [] };
-          data.carrymark.gradeConfig = [
-            { id:'GC01',grade:'A+',minMark:90,maxMark:100,gradePoint:4.00,status:'L' },
-            { id:'GC02',grade:'A',minMark:80,maxMark:89,gradePoint:4.00,status:'L' },
-            { id:'GC03',grade:'A-',minMark:75,maxMark:79,gradePoint:3.67,status:'L' },
-            { id:'GC04',grade:'B+',minMark:70,maxMark:74,gradePoint:3.33,status:'L' },
-            { id:'GC05',grade:'B',minMark:65,maxMark:69,gradePoint:3.00,status:'L' },
-            { id:'GC06',grade:'B-',minMark:60,maxMark:64,gradePoint:2.67,status:'L' },
-            { id:'GC07',grade:'C+',minMark:55,maxMark:59,gradePoint:2.33,status:'L' },
-            { id:'GC08',grade:'C',minMark:50,maxMark:54,gradePoint:2.00,status:'L' },
-            { id:'GC09',grade:'C-',minMark:45,maxMark:49,gradePoint:1.67,status:'L' },
-            { id:'GC10',grade:'D+',minMark:40,maxMark:44,gradePoint:1.33,status:'L' },
-            { id:'GC11',grade:'D',minMark:35,maxMark:39,gradePoint:1.00,status:'L' },
-            { id:'GC12',grade:'E',minMark:0,maxMark:34,gradePoint:0.00,status:'G' }
-          ];
-        }
+        normalizeFYPAssessments();
+        normalizeCarrymarkTemplates();
+        ensureGradeConfig();
         // Restore carrymark/FYP from cm_fyp_backup if fields still missing
         try {
           const cmBackup = JSON.parse(localStorage.getItem('cm_fyp_backup') || '{}');
@@ -12262,65 +12216,9 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
       });
       
       fixSemesterNames();
-      
-      // Normalize FYP assessments: map old Code.gs field names to new
-      if (data.fyp && data.fyp.assessments) {
-        data.fyp.assessments.forEach(a => {
-          if (!a.supervisor && a.supervisorName) a.supervisor = a.supervisorName;
-          if (!a.fypType && a.assessmentType) a.fypType = a.assessmentType;
-          if (!a.totalMarks && a.totalScore !== undefined) a.totalMarks = a.totalScore;
-          if (!a.scores && a.criteria) {
-            try { a.scores = typeof a.criteria === 'string' ? JSON.parse(a.criteria) : a.criteria; } catch(e) { a.scores = {}; }
-          }
-          if (!a.scores) a.scores = {};
-          if (!a.status) a.status = 'draft';
-          if (!a.result && a.comments) a.result = a.comments;
-          if (!a.semesterName) {
-            const sem = data.semesters.find(s => s.id === a.semesterId);
-            if (sem) a.semesterName = sem.name;
-          }
-        });
-      }
-      
-      // Normalize carrymark templates
-      if (data.carrymark && data.carrymark.templates) {
-        data.carrymark.templates.forEach(t => {
-          if (t.assessments && typeof t.assessments === 'string') {
-            try {
-              const parsed = JSON.parse(t.assessments);
-              if (parsed.components) {
-                t.components = parsed.components;
-                ['status', 'section', 'class', 'programme', 'academicSession', 'requestedBy', 'requestedAt', 'approvedBy', 'approvedAt', 'copiedFrom', 'updatedAt', 'semester'].forEach(f => {
-                  if (!t[f] && parsed[f] !== undefined) t[f] = parsed[f];
-                });
-              } else if (Array.isArray(parsed)) {
-                t.components = parsed;
-              }
-            } catch(e) { t.components = []; }
-          }
-          if (!t.components) t.components = [];
-          if (!t.semester && t.semesterId) t.semester = t.semesterId;
-          if (!t.status) t.status = 'approved';
-        });
-      }
-      // Ensure gradeConfig has default if empty
-      if (!data.carrymark || !data.carrymark.gradeConfig || data.carrymark.gradeConfig.length === 0) {
-        if (!data.carrymark) data.carrymark = { templates: [], marks: [], gradeConfig: [], auditLog: [] };
-        data.carrymark.gradeConfig = [
-          { id: 'GC01', grade: 'A+', minMark: 90, maxMark: 100, gradePoint: 4.00, status: 'L' },
-          { id: 'GC02', grade: 'A',  minMark: 80, maxMark: 89,  gradePoint: 4.00, status: 'L' },
-          { id: 'GC03', grade: 'A-', minMark: 75, maxMark: 79,  gradePoint: 3.67, status: 'L' },
-          { id: 'GC04', grade: 'B+', minMark: 70, maxMark: 74,  gradePoint: 3.33, status: 'L' },
-          { id: 'GC05', grade: 'B',  minMark: 65, maxMark: 69,  gradePoint: 3.00, status: 'L' },
-          { id: 'GC06', grade: 'B-', minMark: 60, maxMark: 64,  gradePoint: 2.67, status: 'L' },
-          { id: 'GC07', grade: 'C+', minMark: 55, maxMark: 59,  gradePoint: 2.33, status: 'L' },
-          { id: 'GC08', grade: 'C',  minMark: 50, maxMark: 54,  gradePoint: 2.00, status: 'L' },
-          { id: 'GC09', grade: 'C-', minMark: 45, maxMark: 49,  gradePoint: 1.67, status: 'L' },
-          { id: 'GC10', grade: 'D+', minMark: 40, maxMark: 44,  gradePoint: 1.33, status: 'L' },
-          { id: 'GC11', grade: 'D',  minMark: 35, maxMark: 39,  gradePoint: 1.00, status: 'L' },
-          { id: 'GC12', grade: 'E',  minMark: 0,  maxMark: 34,  gradePoint: 0.00, status: 'G' }
-        ];
-      }
+      normalizeFYPAssessments();
+      normalizeCarrymarkTemplates();
+      ensureGradeConfig();
       
       autoAssignPengajar();
       lastDataSnapshot = JSON.stringify(data);
