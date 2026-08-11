@@ -6180,19 +6180,105 @@ function startAutoRefresh() {
           data.fyp = remote.fyp || { assessments: [], auditLog: [] };
         }
         
-        // Normalize timetable time values (Google Sheets converts "08:00" to Date objects)
+        // Normalize ALL data after overwrite (same as loadFromGoogleSheets)
+        // Normalize timetable time values
         if (data.timetable && data.timetable.length > 0) {
           data.timetable.forEach(t => {
             t.startTime = normalizeTime(t.startTime);
             t.endTime = normalizeTime(t.endTime);
           });
         }
+        // Normalize attendance session times
         if (data.attendance && data.attendance.sessions) {
           data.attendance.sessions.forEach(s => {
             s.startTime = normalizeTime(s.startTime);
             s.endTime = normalizeTime(s.endTime);
           });
         }
+        // Normalize FYP assessments
+        if (data.fyp && data.fyp.assessments) {
+          data.fyp.assessments.forEach(a => {
+            if (!a.supervisor && a.supervisorName) a.supervisor = a.supervisorName;
+            if (!a.fypType && a.assessmentType) a.fypType = a.assessmentType;
+            if (!a.totalMarks && a.totalScore !== undefined) a.totalMarks = a.totalScore;
+            if (!a.scores && a.criteria) {
+              try { a.scores = typeof a.criteria === 'string' ? JSON.parse(a.criteria) : a.criteria; } catch(e) { a.scores = {}; }
+            }
+            if (!a.scores) a.scores = {};
+            if (!a.status) a.status = 'draft';
+            if (!a.result && a.comments) a.result = a.comments;
+            if (!a.semesterName) {
+              const sem = data.semesters.find(s => s.id === a.semesterId);
+              if (sem) a.semesterName = sem.name;
+            }
+          });
+        }
+        // Normalize carrymark templates
+        if (data.carrymark && data.carrymark.templates) {
+          data.carrymark.templates.forEach(t => {
+            if (t.assessments && typeof t.assessments === 'string') {
+              try {
+                const parsed = JSON.parse(t.assessments);
+                if (parsed.components) {
+                  t.components = parsed.components;
+                  ['status', 'section', 'class', 'programme', 'academicSession', 'requestedBy', 'requestedAt', 'approvedBy', 'approvedAt', 'copiedFrom', 'updatedAt', 'semester'].forEach(f => {
+                    if (!t[f] && parsed[f] !== undefined) t[f] = parsed[f];
+                  });
+                } else if (Array.isArray(parsed)) {
+                  t.components = parsed;
+                }
+              } catch(e) { t.components = []; }
+            }
+            if (!t.components) t.components = [];
+            if (!t.semester && t.semesterId) t.semester = t.semesterId;
+            if (!t.status) t.status = 'approved';
+          });
+        }
+        // Ensure gradeConfig
+        if (!data.carrymark || !data.carrymark.gradeConfig || data.carrymark.gradeConfig.length === 0) {
+          if (!data.carrymark) data.carrymark = { templates: [], marks: [], gradeConfig: [], auditLog: [] };
+          data.carrymark.gradeConfig = [
+            { id:'GC01',grade:'A+',minMark:90,maxMark:100,gradePoint:4.00,status:'L' },
+            { id:'GC02',grade:'A',minMark:80,maxMark:89,gradePoint:4.00,status:'L' },
+            { id:'GC03',grade:'A-',minMark:75,maxMark:79,gradePoint:3.67,status:'L' },
+            { id:'GC04',grade:'B+',minMark:70,maxMark:74,gradePoint:3.33,status:'L' },
+            { id:'GC05',grade:'B',minMark:65,maxMark:69,gradePoint:3.00,status:'L' },
+            { id:'GC06',grade:'B-',minMark:60,maxMark:64,gradePoint:2.67,status:'L' },
+            { id:'GC07',grade:'C+',minMark:55,maxMark:59,gradePoint:2.33,status:'L' },
+            { id:'GC08',grade:'C',minMark:50,maxMark:54,gradePoint:2.00,status:'L' },
+            { id:'GC09',grade:'C-',minMark:45,maxMark:49,gradePoint:1.67,status:'L' },
+            { id:'GC10',grade:'D+',minMark:40,maxMark:44,gradePoint:1.33,status:'L' },
+            { id:'GC11',grade:'D',minMark:35,maxMark:39,gradePoint:1.00,status:'L' },
+            { id:'GC12',grade:'E',minMark:0,maxMark:34,gradePoint:0.00,status:'G' }
+          ];
+        }
+        // Restore carrymark/FYP from cm_fyp_backup if fields still missing
+        try {
+          const cmBackup = JSON.parse(localStorage.getItem('cm_fyp_backup') || '{}');
+          if (cmBackup && cmBackup.carrymark && cmBackup.carrymark.templates) {
+            const bt = cmBackup.carrymark.templates;
+            const rt = data.carrymark.templates || [];
+            const CRIT = ['status','section','class','programme','academicSession','requestedBy','approvedBy','approvedAt'];
+            if (bt.length === rt.length && CRIT.some(f => !rt[0][f] && bt[0][f])) {
+              rt.forEach((r, i) => {
+                const b = bt[i] || {};
+                CRIT.forEach(f => { if (!r[f] && b[f]) r[f] = b[f]; });
+                if (!r.components && b.components) r.components = b.components;
+              });
+            }
+          }
+          if (cmBackup && cmBackup.fyp && cmBackup.fyp.assessments) {
+            const bf = cmBackup.fyp.assessments;
+            const rf = data.fyp.assessments || [];
+            const FYPF = ['status','supervisorComments','approvalStatus','approvalComments','approvedAt','submittedAt','releasedAt','projectTitle','groupName'];
+            if (bf.length === rf.length && FYPF.some(f => !rf[0][f] && bf[0][f])) {
+              rf.forEach((r, i) => {
+                const b = bf[i] || {};
+                FYPF.forEach(f => { if (!r[f] && b[f]) r[f] = b[f]; });
+              });
+            }
+          }
+        } catch(e) {}
         
         lastDataSnapshot = JSON.stringify(data);
         
