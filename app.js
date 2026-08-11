@@ -1888,10 +1888,22 @@ async function saveData() {
     }));
   } catch(le) { console.warn('localStorage save failed:', le); }
   
-  // STEP 2: Sync to Google Sheets in BACKGROUND (non-blocking)
+  // STEP 2: Sync to Google Sheets (await — make sure it actually saves)
   if (typeof useGoogleSheets === 'function' && useGoogleSheets()) {
-    autoSyncToFirebase(); // Fire-and-forget — doesn't block UI
-    updateSyncStatus('syncing');
+    try {
+      const optimizedData = optimizeData(data);
+      await sheetsAPI.saveData(optimizedData);
+      lastDataSnapshot = JSON.stringify(data);
+      lastBackupTime = new Date();
+      updateSyncStatus('synced');
+      updateLastBackupDisplay();
+      console.log('✅ Data saved to Google Sheets');
+    } catch (e) {
+      console.error('❌ Google Sheets save error:', e);
+      updateSyncStatus('error');
+      showSaveToast('⚠️ Simpan ke cloud gagal: ' + (e.message || 'Unknown'), true);
+      // Data already saved to localStorage in STEP 1 — will sync later via autoSync
+    }
     return;
   }
   
