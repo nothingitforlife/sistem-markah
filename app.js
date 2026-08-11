@@ -15646,17 +15646,26 @@ function autoCreateDraftSessionsFromTimetable() {
     const subj = data.subjects.find(s => s.id === entry.subjectId);
     if (!subj) return;
 
+    // Skip Latihan Industri subjects (no attendance needed)
+    const subjNameLower = (subj.name || '').toLowerCase();
+    const subjCode = (subj.code || '').toUpperCase();
+    if (subjNameLower.includes('industrial training') || subjNameLower.includes('latihan industri') || subjCode === 'LI3026' || subjCode === 'LI6026') return;
+
+    // Skip Latihan Industri semester (SEM004)
+    if (subj.semester === 'SEM004') return;
+
     // Get classes for this subject's semester
     const sem = data.semesters.find(s => s.id === subj.semester);
     let classes = [];
     if (sem) {
       const semNum = sem.name.replace(/\D/g, '');
       const semStudents = data.students.filter(s => s.track !== 'graduated' && s.class && s.class.includes(semNum));
-      classes = [...new Set(semStudents.map(s => s.class).filter(Boolean))];
+      // Exclude Latihan Industri classes
+      classes = [...new Set(semStudents.map(s => s.class).filter(Boolean).filter(c => !c.includes('Latihan Industri')))];
     }
     if (classes.length === 0) {
       const enrolled = data.students.filter(s => (s.subjects || []).includes(subj.id) && s.track !== 'graduated');
-      classes = [...new Set(enrolled.map(s => s.class).filter(Boolean))];
+      classes = [...new Set(enrolled.map(s => s.class).filter(Boolean).filter(c => !c.includes('Latihan Industri')))];
     }
 
     if (classes.length === 0) return;
