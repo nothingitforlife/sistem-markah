@@ -1191,10 +1191,27 @@ function optimizeData(data) {
     carrymark: {
       templates: (data.carrymark && data.carrymark.templates) ? data.carrymark.templates.map(t => {
         const mapped = { ...t };
-        // Save both field names for compatibility
-        if (t.components && !t.assessments) mapped.assessments = JSON.stringify(t.components);
-        if (!t.components && t.assessments) {
-          try { mapped.components = typeof t.assessments === 'string' ? JSON.parse(t.assessments) : t.assessments; } catch(e) { mapped.components = []; }
+        // Save components as assessments JSON (old Code.gs only supports 'assessments')
+        if (t.components) mapped.assessments = JSON.stringify(t.components);
+        // Pack ALL extra fields into 'assessments' as a fallback JSON
+        // Old Code.gs COLUMNS only has: id, semesterId, courseCode, course, lecturer, assessments, createdAt
+        // So we pack status, section, class, programme, etc. into assessments
+        const EXTRA_FIELDS = ['status', 'section', 'class', 'programme', 'academicSession', 'requestedBy', 'requestedAt', 'approvedBy', 'approvedAt', 'copiedFrom', 'updatedAt', 'components', 'semester'];
+        const extra = {};
+        EXTRA_FIELDS.forEach(f => {
+          if (t[f] !== undefined) extra[f] = t[f];
+        });
+        // Combine components + extra fields into assessments
+        if (mapped.assessments) {
+          // assessments already has components JSON, we need to include extra fields too
+          try {
+            const comps = JSON.parse(mapped.assessments);
+            mapped.assessments = JSON.stringify({ components: comps, ...extra });
+          } catch(e) {
+            mapped.assessments = JSON.stringify({ raw: mapped.assessments, ...extra });
+          }
+        } else {
+          mapped.assessments = JSON.stringify(extra);
         }
         if (t.semester && !t.semesterId) mapped.semesterId = t.semester;
         if (!t.semester && t.semesterId) mapped.semester = t.semesterId;
@@ -1401,12 +1418,28 @@ async function loadFromGoogleSheets() {
     // Normalize carrymark templates: map old field names to new
     if (data.carrymark && data.carrymark.templates) {
       data.carrymark.templates.forEach(t => {
-        if (!t.components && t.assessments) {
-          try { t.components = typeof t.assessments === 'string' ? JSON.parse(t.assessments) : t.assessments; } catch(e) { t.components = []; }
+        // Try to unpack assessments field which may contain components + extra fields
+        if (t.assessments && typeof t.assessments === 'string') {
+          try {
+            const parsed = JSON.parse(t.assessments);
+            if (parsed.components) {
+              // New format: { components: [...], status: '...', section: '...', ... }
+              t.components = parsed.components;
+              // Restore extra fields
+              ['status', 'section', 'class', 'programme', 'academicSession', 'requestedBy', 'requestedAt', 'approvedBy', 'approvedAt', 'copiedFrom', 'updatedAt', 'semester'].forEach(f => {
+                if (!t[f] && parsed[f] !== undefined) t[f] = parsed[f];
+              });
+            } else if (Array.isArray(parsed)) {
+              // Old format: assessments was just the components array
+              t.components = parsed;
+            }
+          } catch(e) {
+            t.components = [];
+          }
         }
         if (!t.components) t.components = [];
         if (!t.semester && t.semesterId) t.semester = t.semesterId;
-        if (!t.status) t.status = 'draft';
+        if (!t.status) t.status = 'approved'; // Default to approved since backup had all approved
       });
     }
     
@@ -1416,12 +1449,21 @@ async function loadFromGoogleSheets() {
       if (cmBackup && cmBackup.carrymark) {
         const backupTemplates = cmBackup.carrymark.templates || [];
         const remoteTemplates = (data.carrymark || {}).templates || [];
-        // Check if remote templates lost the 'components' field
-        const needsRestore = remoteTemplates.length > 0 && !remoteTemplates[0].components 
-          && backupTemplates.length > 0 && backupTemplates[0].components;
+        // Check if remote templates lost critical fields (status, section, class, programme, etc.)
+        const CRITICAL_FIELDS = ['status', 'section', 'class', 'programme', 'academicSession', 'requestedBy', 'approvedBy', 'approvedAt'];
+        const needsRestore = remoteTemplates.length > 0 && backupTemplates.length > 0 && backupTemplates.length === remoteTemplates.length
+          && CRITICAL_FIELDS.some(f => !remoteTemplates[0][f] && backupTemplates[0][f]);
         if (needsRestore) {
-          console.log('🔧 Restoring carrymark templates from localStorage (components field missing)');
-          data.carrymark.templates = backupTemplates;
+          console.log('🔧 Restoring carrymark templates from localStorage (critical fields missing)');
+          // Merge: keep remote fields, fill in missing from backup
+          remoteTemplates.forEach((rt, i) => {
+            const bt = backupTemplates[i] || {};
+            CRITICAL_FIELDS.forEach(f => {
+              if (!rt[f] && bt[f]) rt[f] = bt[f];
+            });
+            if (!rt.components && bt.components) rt.components = bt.components;
+            if (!rt.semester && bt.semester) rt.semester = bt.semester;
+          });
           if (cmBackup.carrymark.marks && cmBackup.carrymark.marks.length > 0) {
             data.carrymark.marks = cmBackup.carrymark.marks;
           }
@@ -12019,15 +12061,42 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
       try {
         const cmBackup = JSON.parse(localStorage.getItem('cm_fyp_backup') || '{}');
         if (cmBackup && cmBackup.carrymark && cmBackup.carrymark.templates && cmBackup.carrymark.templates.length > 0) {
-          if (cmBackup.carrymark.templates[0].components && !(data.carrymark.templates[0] || {}).components) {
-            data.carrymark.templates = cmBackup.carrymark.templates;
-            if (cmBackup.carrymark.marks) data.carrymark.marks = cmBackup.carrymark.marks;
-            if (cmBackup.carrymark.gradeConfig) data.carrymark.gradeConfig = cmBackup.carrymark.gradeConfig;
+          const backupTemplates = cmBackup.carrymark.templates;
+          const remoteTemplates = data.carrymark.templates || [];
+          // Check if remote templates lost critical fields
+          const CRITICAL_FIELDS = ['status', 'section', 'class', 'programme', 'academicSession', 'requestedBy', 'approvedBy', 'approvedAt'];
+          const needsRestore = remoteTemplates.length > 0 && backupTemplates.length === remoteTemplates.length
+            && CRITICAL_FIELDS.some(f => !remoteTemplates[0][f] && backupTemplates[0][f]);
+          if (needsRestore) {
+            console.log('🔧 Restoring carrymark fields from localStorage backup');
+            remoteTemplates.forEach((rt, i) => {
+              const bt = backupTemplates[i] || {};
+              CRITICAL_FIELDS.forEach(f => {
+                if (!rt[f] && bt[f]) rt[f] = bt[f];
+              });
+              if (!rt.components && bt.components) rt.components = bt.components;
+              if (!rt.semester && bt.semester) rt.semester = bt.semester;
+            });
           }
+          if (cmBackup.carrymark.marks) data.carrymark.marks = cmBackup.carrymark.marks;
+          if (cmBackup.carrymark.gradeConfig) data.carrymark.gradeConfig = cmBackup.carrymark.gradeConfig;
         }
         if (cmBackup && cmBackup.fyp && cmBackup.fyp.assessments && cmBackup.fyp.assessments.length > 0) {
-          if (cmBackup.fyp.assessments[0].scores && !(data.fyp.assessments[0] || {}).scores) {
-            data.fyp.assessments = cmBackup.fyp.assessments;
+          // Restore FYP fields that might be missing
+          const backupFYP = cmBackup.fyp.assessments;
+          const remoteFYP = data.fyp.assessments || [];
+          if (backupFYP.length === remoteFYP.length) {
+            const FYP_FIELDS = ['status', 'supervisorComments', 'approvalStatus', 'approvalComments', 'approvedAt', 'submittedAt', 'releasedAt', 'projectTitle', 'groupName'];
+            const needsRestoreFYP = FYP_FIELDS.some(f => !remoteFYP[0][f] && backupFYP[0][f]);
+            if (needsRestoreFYP) {
+              console.log('🔧 Restoring FYP fields from localStorage backup');
+              remoteFYP.forEach((rf, i) => {
+                const bf = backupFYP[i] || {};
+                FYP_FIELDS.forEach(f => {
+                  if (!rf[f] && bf[f]) rf[f] = bf[f];
+                });
+              });
+            }
           }
         }
       } catch(e) { console.warn('cm_fyp restore failed:', e); }
@@ -12062,12 +12131,22 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
       // Normalize carrymark templates
       if (data.carrymark && data.carrymark.templates) {
         data.carrymark.templates.forEach(t => {
-          if (!t.components && t.assessments) {
-            try { t.components = typeof t.assessments === 'string' ? JSON.parse(t.assessments) : t.assessments; } catch(e) { t.components = []; }
+          if (t.assessments && typeof t.assessments === 'string') {
+            try {
+              const parsed = JSON.parse(t.assessments);
+              if (parsed.components) {
+                t.components = parsed.components;
+                ['status', 'section', 'class', 'programme', 'academicSession', 'requestedBy', 'requestedAt', 'approvedBy', 'approvedAt', 'copiedFrom', 'updatedAt', 'semester'].forEach(f => {
+                  if (!t[f] && parsed[f] !== undefined) t[f] = parsed[f];
+                });
+              } else if (Array.isArray(parsed)) {
+                t.components = parsed;
+              }
+            } catch(e) { t.components = []; }
           }
           if (!t.components) t.components = [];
           if (!t.semester && t.semesterId) t.semester = t.semesterId;
-          if (!t.status) t.status = 'draft';
+          if (!t.status) t.status = 'approved';
         });
       }
       
