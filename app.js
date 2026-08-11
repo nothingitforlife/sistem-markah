@@ -1661,31 +1661,20 @@ function autoAssignPengajar() {
 }
 
 async function saveData() {
-  // Always backup carrymark and FYP to localStorage (in case Google Sheets strips fields)
+  // STEP 1: Save to localStorage IMMEDIATELY (instant — 0ms)
   try {
+    localStorage.setItem('sistemMarkahBackup', JSON.stringify({ data: data, backedUpAt: new Date().toISOString() }));
     localStorage.setItem('cm_fyp_backup', JSON.stringify({ 
       fyp: data.fyp, 
       carrymark: data.carrymark,
       savedAt: new Date().toISOString()
     }));
-  } catch(le) { console.warn('cm_fyp_backup failed:', le); }
-
-  // Use Google Sheets if enabled
+  } catch(le) { console.warn('localStorage save failed:', le); }
+  
+  // STEP 2: Sync to Google Sheets in BACKGROUND (non-blocking)
   if (typeof useGoogleSheets === 'function' && useGoogleSheets()) {
-    try {
-      const optimizedData = optimizeData(data);
-      await sheetsAPI.saveData(optimizedData);
-      updateSyncStatus('synced');
-      showSaveToast('✅ Data berjaya disimpan ke Google Sheets');
-    } catch (e) {
-      console.error('❌ Google Sheets save error:', e);
-      updateSyncStatus('error');
-      showSaveToast('❌ Gagal simpan: ' + (e.message || 'Unknown error'), true);
-      // Fallback: save to localStorage
-      try {
-        localStorage.setItem('sistemMarkahBackup', JSON.stringify({ data: data, backedUpAt: new Date().toISOString() }));
-      } catch(le) { console.warn('localStorage backup failed:', le); }
-    }
+    autoSyncToFirebase(); // Fire-and-forget — doesn't block UI
+    updateSyncStatus('syncing');
     return;
   }
   
@@ -11864,18 +11853,63 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
     console.warn('Login check error:', e);
   }
   
-  // Then load data (Google Sheets or Firebase)
+  // STEP 1: Load from localStorage FIRST (instant — 0ms)
   try {
-    if (typeof useGoogleSheets === 'function' && useGoogleSheets()) {
-      await loadFromGoogleSheets();
-    } else {
-      await loadFromFirebase();
+    const localBackup = JSON.parse(localStorage.getItem('sistemMarkahBackup') || '{}');
+    if (localBackup && localBackup.data && localBackup.data.students && localBackup.data.students.length > 0) {
+      const backup = localBackup.data;
+      data.students = backup.students || [];
+      data.subjects = backup.subjects || [];
+      data.semesters = backup.semesters || [];
+      data.teachers = backup.teachers || [];
+      data.marks = backup.marks || [];
+      data.timetable = backup.timetable || [];
+      data.memos = backup.memos || [];
+      data.examSchedule = backup.examSchedule || [];
+      data.messages = backup.messages || [];
+      data.assignments = backup.assignments || [];
+      data.assignmentSubmissions = backup.assignmentSubmissions || [];
+      data.fyp = backup.fyp || { assessments: [], auditLog: [] };
+      data.carrymark = backup.carrymark || { templates: [], marks: [], gradeConfig: [], auditLog: [] };
+      data.calculatedResults = backup.calculatedResults || [];
+      data.resultAuditLog = backup.resultAuditLog || [];
+      data.merit = backup.merit || [];
+      data.pdpevaluations = backup.pdpevaluations || [];
+      data.examPaperAppointment = backup.examPaperAppointment || { campus: '', teori: {}, amali: {} };
+      data.attendance = backup.attendance || { sessions: [], records: [], logs: [] };
+      
+      // Restore carrymark/FYP from cm_fyp_backup if available (has full fields)
+      try {
+        const cmBackup = JSON.parse(localStorage.getItem('cm_fyp_backup') || '{}');
+        if (cmBackup && cmBackup.carrymark && cmBackup.carrymark.templates && cmBackup.carrymark.templates.length > 0) {
+          if (cmBackup.carrymark.templates[0].components && !(data.carrymark.templates[0] || {}).components) {
+            data.carrymark.templates = cmBackup.carrymark.templates;
+            if (cmBackup.carrymark.marks) data.carrymark.marks = cmBackup.carrymark.marks;
+            if (cmBackup.carrymark.gradeConfig) data.carrymark.gradeConfig = cmBackup.carrymark.gradeConfig;
+          }
+        }
+        if (cmBackup && cmBackup.fyp && cmBackup.fyp.assessments && cmBackup.fyp.assessments.length > 0) {
+          if (cmBackup.fyp.assessments[0].scores && !(data.fyp.assessments[0] || {}).scores) {
+            data.fyp.assessments = cmBackup.fyp.assessments;
+          }
+        }
+      } catch(e) { console.warn('cm_fyp restore failed:', e); }
+      
+      // Normalize timetable times
+      data.timetable.forEach(t => {
+        t.startTime = normalizeTime(t.startTime);
+        t.endTime = normalizeTime(t.endTime);
+      });
+      
+      fixSemesterNames();
+      autoAssignPengajar();
+      lastDataSnapshot = JSON.stringify(data);
+      lastRemoteSnapshot = JSON.stringify(data);
+      console.log('⚡ Loaded from localStorage instantly. Students:', data.students.length);
     }
-  } catch (e) {
-    console.warn('Error loading data:', e);
-  }
+  } catch(e) { console.warn('localStorage load failed:', e); }
   
-  // Then render everything
+  // STEP 2: Render UI immediately (don't wait for Google Sheets)
   try {
     updateClock();
     setInterval(updateClock, 1000);
@@ -11891,11 +11925,43 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
     renderMemos();
     renderTeachers();
     setSyncStatus('');
-    // Start auto-save and auto-refresh
+    hideLoading();
+    console.log('⚡ UI rendered from localStorage');
+  } catch (e) {
+    console.warn('Init render error:', e);
+    hideLoading();
+  }
+  
+  // STEP 3: Sync from Google Sheets in BACKGROUND (non-blocking)
+  (async () => {
+    try {
+      if (typeof useGoogleSheets === 'function' && useGoogleSheets()) {
+        await loadFromGoogleSheets();
+        // Re-render after sync
+        rebuildLoginDropdowns();
+        rebuildSemesterFilter();
+        rebuildTimetableSemesterFilter();
+        rebuildSubjectSemesterFilter();
+        renderStudents();
+        renderSubjects();
+        renderSemesters();
+        renderDashboard();
+        renderTimetable();
+        renderMemos();
+        renderTeachers();
+        console.log('✅ Background sync from Google Sheets complete');
+      } else {
+        await loadFromFirebase();
+      }
+    } catch (e) {
+      console.warn('Background sync error:', e);
+    }
+  })();
+  
+  // STEP 4: Start auto-save, auto-refresh, and other features
+  try {
     startAutoSync();
     startAutoRefresh();
-    
-    // Initialize new features
     initScrollToTop();
     initLastLoginInfo();
     initMemoBadge();
@@ -11908,11 +11974,8 @@ document.getElementById('autoGraduateBtn').addEventListener('click', function() 
     } catch (e) {
       console.warn('Auto-create attendance error:', e);
     }
-    
-    hideLoading();
   } catch (e) {
-    console.warn('Init render error:', e);
-    hideLoading();
+    console.warn('Init post-render error:', e);
   }
 })();
 
